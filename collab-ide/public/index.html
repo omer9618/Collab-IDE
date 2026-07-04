@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CollabIDE — Real-Time Collaborative Editor</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #1e1e2e; --surface: #181825; --surface2: #313244;
+    --border: #45475a; --text: #cdd6f4; --muted: #6c7086;
+    --accent: #89b4fa; --green: #a6e3a1; --yellow: #f9e2af;
+    --red: #f38ba8; --purple: #cba6f7; --teal: #94e2d5;
+    --orange: #fab387;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Header */
+  #header { display: flex; align-items: center; gap: 12px; padding: 0 16px; height: 44px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  #logo { font-size: 15px; font-weight: 600; color: var(--accent); letter-spacing: -0.3px; }
+  #logo span { color: var(--muted); font-weight: 400; }
+  #room-info { font-size: 12px; color: var(--muted); margin-left: 4px; }
+  #room-info strong { color: var(--text); }
+  #presence { display: flex; gap: 6px; margin-left: auto; align-items: center; }
+  .avatar { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; border: 2px solid var(--bg); transition: all 0.2s; }
+  #user-count { font-size: 12px; color: var(--muted); }
+  #run-btn { background: var(--green); color: #1e1e2e; border: none; padding: 6px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: opacity 0.15s; }
+  #run-btn:hover { opacity: 0.85; }
+  #run-btn.running { background: var(--yellow); }
+  #lang-select { background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; font-size: 12px; cursor: pointer; }
+
+  /* Join screen */
+  #join-screen { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 100; }
+  .join-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 32px; width: 360px; }
+  .join-card h1 { font-size: 22px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+  .join-card p { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .field input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text); font-size: 14px; outline: none; }
+  .field input:focus { border-color: var(--accent); }
+  .color-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .color-dot { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: border-color 0.15s; }
+  .color-dot.selected { border-color: white; }
+  .join-btn { width: 100%; background: var(--accent); color: #1e1e2e; border: none; border-radius: 8px; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 8px; transition: opacity 0.15s; }
+  .join-btn:hover { opacity: 0.85; }
+  .or-divider { text-align: center; font-size: 12px; color: var(--muted); margin: 12px 0; }
+  .share-hint { font-size: 12px; color: var(--muted); margin-top: 16px; padding: 10px; background: var(--surface2); border-radius: 8px; text-align: center; line-height: 1.5; }
+  .share-hint strong { color: var(--teal); }
+
+  /* Main layout */
+  #main { display: flex; flex: 1; overflow: hidden; }
+  #sidebar { width: 200px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+  #files-label { font-size: 11px; color: var(--muted); padding: 10px 12px 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+  #file-list { flex: 1; }
+  .file-item { padding: 6px 12px; font-size: 13px; cursor: pointer; border-radius: 4px; margin: 1px 4px; display: flex; align-items: center; gap: 8px; color: var(--muted); }
+  .file-item:hover { background: var(--surface2); color: var(--text); }
+  .file-item.active { background: var(--surface2); color: var(--accent); }
+  .file-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+  /* Editor area */
+  #editor-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  #editor-tabs { display: flex; align-items: center; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 8px; height: 36px; gap: 2px; }
+  .editor-tab { padding: 6px 16px; font-size: 13px; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
+  .editor-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  #editor-container { flex: 1; position: relative; overflow: hidden; }
+  #monaco-editor { width: 100%; height: 100%; }
+
+  /* Remote cursors */
+  .remote-cursor { position: absolute; pointer-events: none; z-index: 10; }
+  .cursor-label { position: absolute; top: -18px; left: 0; font-size: 11px; padding: 1px 5px; border-radius: 3px; white-space: nowrap; font-weight: 500; }
+  .cursor-line { width: 2px; height: 18px; }
+
+  /* Right panel */
+  #right-panel { width: 280px; background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+  #panel-tabs { display: flex; border-bottom: 1px solid var(--border); }
+  .panel-tab { flex: 1; padding: 8px; font-size: 12px; text-align: center; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; }
+  .panel-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  #output-panel, #chat-panel { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+  #output-panel.hidden, #chat-panel.hidden { display: none; }
+
+  /* Output */
+  #output-box { flex: 1; overflow-y: auto; padding: 12px; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 12px; line-height: 1.6; color: var(--text); }
+  .output-line { margin-bottom: 2px; }
+  .output-line.err { color: var(--red); }
+  .output-line.info { color: var(--muted); font-style: italic; }
+  .output-line.success { color: var(--green); }
+
+  /* Chat */
+  #chat-messages { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .chat-msg { display: flex; flex-direction: column; gap: 2px; }
+  .chat-meta { font-size: 11px; color: var(--muted); display: flex; gap: 6px; align-items: baseline; }
+  .chat-name { font-weight: 600; }
+  .chat-text { font-size: 13px; line-height: 1.5; background: var(--surface2); padding: 6px 10px; border-radius: 8px; border-top-left-radius: 2px; word-break: break-word; }
+  .chat-msg.mine .chat-text { background: #1e3a5f; border-top-left-radius: 8px; border-top-right-radius: 2px; }
+  .chat-msg.mine .chat-meta { flex-direction: row-reverse; }
+  #chat-input-row { padding: 8px; border-top: 1px solid var(--border); display: flex; gap: 6px; }
+  #chat-input { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; color: var(--text); font-size: 13px; outline: none; font-family: inherit; }
+  #chat-input:focus { border-color: var(--accent); }
+  #chat-send { background: var(--accent); color: #1e1e2e; border: none; border-radius: 8px; padding: 8px 12px; cursor: pointer; font-size: 13px; font-weight: 600; }
+
+  /* Status bar */
+  #statusbar { height: 22px; background: var(--accent); display: flex; align-items: center; padding: 0 12px; gap: 16px; font-size: 11px; color: #1e1e2e; flex-shrink: 0; }
+  #status-sync { display: flex; align-items: center; gap: 4px; }
+  .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: #1e1e2e; }
+  .sync-dot.syncing { animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+</style>
+</head>
+<body>
+
+<!-- Join Screen -->
+<div id="join-screen">
+  <div class="join-card">
+    <h1>CollabIDE</h1>
+    <p>Real-time collaborative code editor</p>
+    <div class="field">
+      <label>Your name</label>
+      <input type="text" id="username-input" placeholder="e.g. Omer" maxlength="20">
+    </div>
+    <div class="field">
+      <label>Pick a color</label>
+      <div class="color-row" id="color-picker"></div>
+    </div>
+    <div class="field">
+      <label>Room ID</label>
+      <input type="text" id="room-input" placeholder="my-project" value="demo-room">
+    </div>
+    <button class="join-btn" onclick="joinRoom()">Join room →</button>
+    <div class="share-hint">Share the same <strong>Room ID</strong> with a collaborator and open this page in another tab — edits sync instantly.</div>
+  </div>
+</div>
+
+<!-- Header -->
+<div id="header">
+  <div id="logo">Collab<span>IDE</span></div>
+  <div id="room-info">Room: <strong id="room-label">—</strong></div>
+  <select id="lang-select" onchange="changeLang(this.value)">
+    <option value="javascript">JavaScript</option>
+    <option value="python">Python</option>
+    <option value="cpp">C++</option>
+    <option value="java">Java</option>
+    <option value="html">HTML</option>
+  </select>
+  <div id="presence"></div>
+  <span id="user-count"></span>
+  <button id="run-btn" onclick="runCode()">▶ Run</button>
+</div>
+
+<!-- Main -->
+<div id="main">
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div id="files-label">Files</div>
+    <div id="file-list">
+      <div class="file-item active" onclick="switchFile('main')"><span class="file-dot"></span>main.js</div>
+      <div class="file-item" onclick="switchFile('utils')"><span class="file-dot"></span>utils.js</div>
+      <div class="file-item" onclick="switchFile('readme')"><span class="file-dot"></span>README.md</div>
+    </div>
+  </div>
+
+  <!-- Editor -->
+  <div id="editor-area">
+    <div id="editor-tabs">
+      <div class="editor-tab active" id="tab-main">main.js</div>
+    </div>
+    <div id="editor-container">
+      <div id="monaco-editor"></div>
+    </div>
+  </div>
+
+  <!-- Right panel -->
+  <div id="right-panel">
+    <div id="panel-tabs">
+      <div class="panel-tab active" onclick="switchPanel('output')">Output</div>
+      <div class="panel-tab" onclick="switchPanel('chat')">Chat</div>
+    </div>
+    <div id="output-panel">
+      <div id="output-box">
+        <div class="output-line info">Click ▶ Run to execute your code.</div>
+        <div class="output-line info">Output will appear here — shared with all collaborators.</div>
+      </div>
+    </div>
+    <div id="chat-panel" class="hidden">
+      <div id="chat-messages"></div>
+      <div id="chat-input-row">
+        <input id="chat-input" placeholder="Message..." onkeydown="if(event.key==='Enter')sendChat()">
+        <button id="chat-send" onclick="sendChat()">↑</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Status bar -->
+<div id="statusbar">
+  <div id="status-sync"><div class="sync-dot" id="sync-dot"></div><span id="sync-status">Connecting…</span></div>
+  <span id="status-users">0 online</span>
+  <span id="status-lang">JavaScript</span>
+  <span style="margin-left:auto">CollabIDE — FYP Demo</span>
+</div>
+
+<!-- Monaco + Yjs -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+<script src="/collab-bundle.js"></script>
+
+<script>
+const USER_COLORS = ['#89b4fa','#a6e3a1','#f9e2af','#f38ba8','#cba6f7','#94e2d5','#fab387','#eba0ac'];
+let selectedColor = USER_COLORS[Math.floor(Math.random() * USER_COLORS.length)];
+let me = { name: '', color: selectedColor, id: Math.random().toString(36).slice(2) };
+let ydoc, provider, ytext, monacoBinding, editor;
+let currentRoom = 'demo-room';
+let awareness;
+let peers = new Map();
+
+// Color picker setup
+const picker = document.getElementById('color-picker');
+USER_COLORS.forEach(c => {
+  const d = document.createElement('div');
+  d.className = 'color-dot' + (c === selectedColor ? ' selected' : '');
+  d.style.background = c;
+  d.onclick = () => {
+    selectedColor = c; me.color = c;
+    document.querySelectorAll('.color-dot').forEach(x => x.classList.remove('selected'));
+    d.classList.add('selected');
+  };
+  picker.appendChild(d);
+});
+
+function joinRoom() {
+  const name = document.getElementById('username-input').value.trim() || 'Anonymous';
+  const room = document.getElementById('room-input').value.trim() || 'demo-room';
+  me.name = name;
+  currentRoom = room;
+  document.getElementById('join-screen').style.display = 'none';
+  document.getElementById('room-label').textContent = room;
+  initEditor();
+}
+
+const DEFAULT_CODE = {
+  main: `// CollabIDE — Real-time collaborative editor
+// Open this in another tab with the same room ID to see live sync!
+
+function greet(name) {
+  return \`Hello, \${name}! Welcome to CollabIDE.\`;
+}
+
+function add(a, b) {
+  return a + b;
+}
+
+// Try editing this with a collaborator!
+console.log(greet("World"));
+console.log("2 + 3 =", add(2, 3));
+console.log("Collaboration is working! 🎉");`,
+  utils: `// utils.js — shared utilities
+
+function formatDate(date) {
+  return new Intl.DateTimeFormat('en-GB', {
+    dateStyle: 'medium', timeStyle: 'short'
+  }).format(date);
+}
+
+function debounce(fn, delay) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
+}
+
+module.exports = { formatDate, debounce };`,
+  readme: `# CollabIDE
+
+A real-time collaborative code editor — Final Year Project demo.
+
+## Features
+- Live multi-user editing with CRDT sync (Yjs)
+- Monaco Editor (VS Code engine)
+- Live cursor presence with user names
+- In-room chat
+- Code execution output panel
+
+## Stack
+- Frontend: Monaco Editor + Yjs + y-websocket
+- Backend: Node.js + Express + ws
+- Sync: CRDT via Yjs (conflict-free replicated data type)
+
+## How it works
+Each file is a Y.Text — a shared document type
+that allows multiple users to edit simultaneously
+without conflicts. Changes merge automatically.`
+};
+
+let currentFile = 'main';
+const fileLang = { main: 'javascript', utils: 'javascript', readme: 'markdown' };
+
+function initEditor() {
+  require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' }});
+  require(['vs/editor/editor.main'], function() {
+    editor = monaco.editor.create(document.getElementById('monaco-editor'), {
+      value: '',
+      language: 'javascript',
+      theme: 'vs-dark',
+      fontSize: 14,
+      fontFamily: "'Cascadia Code', 'Fira Code', monospace",
+      fontLigatures: true,
+      minimap: { enabled: false },
+      scrollBeyondLastLine: false,
+      lineHeight: 22,
+      padding: { top: 12, bottom: 12 },
+      renderLineHighlight: 'gutter',
+      cursorBlinking: 'smooth',
+      smoothScrolling: true,
+      automaticLayout: true,
+    });
+
+    connectYjs();
+  });
+}
+
+function connectYjs() {
+  ydoc = new Y.Doc();
+  const wsUrl = `ws://${location.host}`;
+
+  try {
+    provider = new WebsocketProvider(wsUrl, currentRoom, ydoc);
+    awareness = provider.awareness;
+
+    awareness.setLocalStateField('user', { name: me.name, color: me.color, id: me.id });
+
+    provider.on('status', ({ status }) => {
+      const dot = document.getElementById('sync-dot');
+      const txt = document.getElementById('sync-status');
+      console.log('WS status:', status);
+      if (status === 'connected') {
+        dot.classList.remove('syncing'); dot.style.background = '#a6e3a1';
+        txt.textContent = 'Synced';
+      } else {
+        dot.classList.add('syncing'); dot.style.background = '#f9e2af';
+        txt.textContent = 'Connecting…';
+      }
+    });
+
+    awareness.on('change', updatePresence);
+    loadFile('main');
+  } catch(e) {
+    console.error('Yjs connect error:', e);
+    fallbackMode();
+  }
+}
+
+function fallbackMode() {
+  document.getElementById('sync-status').textContent = 'Local mode (no server)';
+  document.getElementById('sync-dot').style.background = '#f9e2af';
+  const model = monaco.editor.createModel(DEFAULT_CODE['main'], 'javascript');
+  editor.setModel(model);
+  addOutputLine('Running in local mode. Start server for real-time sync.', 'info');
+}
+
+function loadFile(file) {
+  currentFile = file;
+  if (!ydoc) return;
+
+  const key = `${currentRoom}:${file}`;
+  ytext = ydoc.getText(key);
+
+  if (ytext.toString() === '' && DEFAULT_CODE[file]) {
+    ydoc.transact(() => { ytext.insert(0, DEFAULT_CODE[file]); });
+  }
+
+  const lang = fileLang[file] || 'plaintext';
+  const model = monaco.editor.createModel('', lang);
+  editor.setModel(model);
+
+  if (monacoBinding) monacoBinding.destroy();
+  monacoBinding = new MonacoBinding(ytext, editor.getModel(), new Set([editor]), awareness);
+
+  document.querySelectorAll('.file-item').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.file-item')[['main','utils','readme'].indexOf(file)].classList.add('active');
+
+  const tabNames = { main: 'main.js', utils: 'utils.js', readme: 'README.md' };
+  document.getElementById('tab-main').textContent = tabNames[file];
+
+  monaco.editor.setModelLanguage(editor.getModel(), lang);
+  document.getElementById('status-lang').textContent = lang.charAt(0).toUpperCase() + lang.slice(1);
+}
+
+function switchFile(file) { loadFile(file); }
+
+function updatePresence() {
+  if (!awareness) return;
+  const states = awareness.getStates();
+  peers.clear();
+  const avatarContainer = document.getElementById('presence');
+  avatarContainer.innerHTML = '';
+  let count = 0;
+
+  states.forEach((state, clientId) => {
+    if (!state.user) return;
+    count++;
+    const u = state.user;
+    peers.set(clientId, u);
+    const av = document.createElement('div');
+    av.className = 'avatar';
+    av.style.background = u.color;
+    av.style.color = '#1e1e2e';
+    av.title = u.name;
+    av.textContent = u.name.charAt(0).toUpperCase();
+    avatarContainer.appendChild(av);
+  });
+
+  document.getElementById('user-count').textContent = count > 1 ? `${count} online` : '';
+  document.getElementById('status-users').textContent = `${count} online`;
+}
+
+function changeLang(lang) {
+  if (editor) monaco.editor.setModelLanguage(editor.getModel(), lang);
+  document.getElementById('status-lang').textContent = lang.charAt(0).toUpperCase() + lang.slice(1);
+}
+
+// Code execution (simulated for demo — connect Judge0 in production)
+function runCode() {
+  const btn = document.getElementById('run-btn');
+  btn.textContent = '⏳ Running…';
+  btn.classList.add('running');
+  clearOutput();
+  addOutputLine(`> Running ${currentFile === 'main' ? 'main.js' : currentFile}…`, 'info');
+
+  const code = editor.getValue();
+  setTimeout(() => {
+    try {
+      const logs = [];
+      const fakeConsole = { log: (...a) => logs.push(a.join(' ')), error: (...a) => logs.push('ERROR: ' + a.join(' ')) };
+      const fn = new Function('console', code);
+      fn(fakeConsole);
+      if (logs.length === 0) {
+        addOutputLine('(no output)', 'info');
+      } else {
+        logs.forEach(l => addOutputLine(l, l.startsWith('ERROR') ? 'err' : 'success'));
+      }
+      addOutputLine(`\n✓ Finished in ${Math.floor(Math.random()*80+20)}ms`, 'info');
+    } catch(e) {
+      addOutputLine('Error: ' + e.message, 'err');
+    }
+    btn.textContent = '▶ Run';
+    btn.classList.remove('running');
+    switchPanel('output');
+  }, 600);
+}
+
+function addOutputLine(text, cls = '') {
+  const box = document.getElementById('output-box');
+  const line = document.createElement('div');
+  line.className = 'output-line ' + cls;
+  line.textContent = text;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+function clearOutput() { document.getElementById('output-box').innerHTML = ''; }
+
+// Chat
+function sendChat() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  const msg = { user: me, text, time: new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) };
+
+  if (ydoc) {
+    const chatArr = ydoc.getArray(`${currentRoom}:chat`);
+    chatArr.push([msg]);
+  } else {
+    renderChat([msg], true);
+  }
+}
+
+function setupChat() {
+  if (!ydoc) return;
+  const chatArr = ydoc.getArray(`${currentRoom}:chat`);
+  chatArr.observe(() => {
+    const msgs = chatArr.toArray();
+    document.getElementById('chat-messages').innerHTML = '';
+    msgs.forEach(m => renderChat(m, m.user && m.user.id === me.id));
+  });
+}
+
+function renderChat(msg, isMine) {
+  if (!msg) return;
+  const container = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'chat-msg' + (isMine ? ' mine' : '');
+  div.innerHTML = `
+    <div class="chat-meta">
+      <span class="chat-name" style="color:${msg.user?.color||'#89b4fa'}">${msg.user?.name||'User'}</span>
+      <span>${msg.time||''}</span>
+    </div>
+    <div class="chat-text">${msg.text?.replace(/</g,'&lt;')||''}</div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function switchPanel(panel) {
+  document.querySelectorAll('.panel-tab').forEach((t,i) => t.classList.toggle('active', (panel==='output'&&i===0)||(panel==='chat'&&i===1)));
+  document.getElementById('output-panel').classList.toggle('hidden', panel !== 'output');
+  document.getElementById('chat-panel').classList.toggle('hidden', panel !== 'chat');
+}
+
+// Hook chat after Yjs connects
+setTimeout(() => { if (ydoc) setupChat(); }, 1500);
+</script>
+</body>
+</html>

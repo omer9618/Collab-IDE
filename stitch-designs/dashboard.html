@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CollabIDE | Room Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface": "#121414",
+                      "surface-dim": "#121414",
+                      "surface-bright": "#383939",
+                      "surface-container-lowest": "#0d0e0f",
+                      "surface-container-low": "#1b1c1c",
+                      "surface-container": "#1f2020",
+                      "surface-container-high": "#292a2a",
+                      "surface-container-highest": "#343535",
+                      "on-surface": "#e3e2e2",
+                      "on-surface-variant": "#c0c7d3",
+                      "outline": "#8a919d",
+                      "outline-variant": "#404751",
+                      "primary": "#007acc",
+                      "on-primary": "#ffffff",
+                      "primary-container": "#007acc",
+                      "secondary": "#adc7ff",
+                      "error": "#d93025",
+                      "tertiary": "#b95e01",
+                      "background": "#0d0e0f",
+                      "accent-blue": "#007acc",
+                      "accent-blue-dim": "#9fcaff",
+                      "accent-green": "#1e8e3e",
+                      "accent-red": "#d93025",
+                      "accent-orange": "#b95e01"
+              },
+              "borderRadius": {
+                      "DEFAULT": "4px",
+                      "sm": "2px",
+                      "md": "4px",
+                      "lg": "8px",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "activity-bar-width": "48px",
+                      "sidebar-width": "240px",
+                      "top-bar-height": "44px",
+                      "status-bar-height": "22px"
+              },
+              "fontFamily": {
+                      "ui": ["Inter", "sans-serif"],
+                      "code": ["JetBrains Mono", "monospace"]
+              },
+              "fontSize": {
+                      "text-xs": ["11px", "16px"],
+                      "text-sm": ["13px", "18px"],
+                      "text-base": ["14px", "20px"],
+                      "text-lg": ["16px", "24px"],
+                      "text-xl": ["20px", "28px"]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+        body {
+            background-color: #0d0e0f;
+            color: #e3e2e2;
+            -webkit-font-smoothing: antialiased;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            font-size: 20px;
+        }
+        .active-activity-bar-icon {
+            border-left: 2px solid #007acc;
+            color: #007acc;
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+<!-- Top Bar -->
+<header class="h-top-bar-height flex items-center justify-between px-4 border-b border-[#2b2b2b] bg-[#121414] shrink-0 z-50">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 bg-accent-blue rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-[16px]">code</span>
+</div>
+<span class="font-semibold text-text-base text-accent-blue tracking-tight">CollabIDE</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="w-8 h-8 rounded-full bg-accent-blue-dim flex items-center justify-center text-accent-blue font-semibold text-text-sm cursor-pointer">
+                OR
+            </div>
+</div>
+</header>
+<div class="flex flex-1 overflow-hidden">
+<!-- Activity Bar -->
+<aside class="w-activity-bar-width bg-[#0d0e0f] border-r border-[#2b2b2b] flex flex-col items-center py-4 shrink-0">
+<div class="flex flex-col gap-4 flex-1">
+<button class="w-10 h-10 flex items-center justify-center active-activity-bar-icon" title="Explorer">
+<span class="material-symbols-outlined">folder</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center text-outline opacity-40 cursor-not-allowed" disabled="" title="Participants (Disabled)">
+<span class="material-symbols-outlined">people</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center text-outline opacity-40 cursor-not-allowed" disabled="" title="Chat (Disabled)">
+<span class="material-symbols-outlined">chat</span>
+</button>
+</div>
+<div class="flex flex-col gap-4">
+<button class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-on-surface" title="Settings">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-error" title="Sign Out">
+<span class="material-symbols-outlined">logout</span>
+</button>
+</div>
+</aside>
+<!-- Sidebar -->
+<aside class="w-sidebar-width bg-[#1b1c1c] border-r border-[#2b2b2b] flex flex-col shrink-0">
+<!-- User Profile Section -->
+<div class="p-4 border-b border-[#2b2b2b]">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-[#1a73e8] flex items-center justify-center text-white font-semibold text-text-lg relative">
+                        OR
+                        <div class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-accent-green rounded-full border-2 border-[#1b1c1c]"></div>
+</div>
+<div class="overflow-hidden">
+<div class="flex items-center gap-1.5">
+<span class="text-text-sm font-medium text-on-surface truncate">Omer</span>
+<span class="px-1.5 py-0.5 bg-[#3d3000] text-[#f9ab00] rounded-sm text-[10px] font-semibold uppercase">Owner</span>
+</div>
+<div class="text-text-xs text-on-surface-variant truncate">omer@example.com</div>
+</div>
+</div>
+</div>
+<!-- Navigation Section -->
+<div class="flex-1 py-2">
+<div class="px-4 py-2 text-text-xs font-semibold text-outline tracking-wider uppercase">Rooms</div>
+<nav class="space-y-0.5">
+<a class="flex items-center gap-3 px-4 py-1.5 bg-[#292a2a] text-on-surface border-l-2 border-accent-blue" href="#">
+<span class="material-symbols-outlined text-[18px]">radio_button_checked</span>
+<span class="text-text-sm">My Rooms</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-1.5 text-on-surface-variant hover:bg-[#252626]" href="#">
+<span class="material-symbols-outlined text-[18px]">radio_button_unchecked</span>
+<span class="text-text-sm">Joined Rooms</span>
+</a>
+</nav>
+</div>
+<!-- Create Room Action -->
+<div class="p-4 mt-auto">
+<button class="w-full py-2 bg-accent-blue text-white rounded-md text-text-sm font-medium flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                    Create new room
+                </button>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 bg-[#121414] overflow-y-auto">
+<div class="p-8 max-w-5xl mx-auto h-full flex flex-col">
+<div class="flex items-center justify-between mb-8">
+<h2 class="text-text-xl font-semibold text-on-surface">My Rooms</h2>
+<button class="px-4 py-2 border border-[#404751] text-on-surface rounded-md text-text-sm font-medium hover:bg-[#252626] transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                        New room
+                    </button>
+</div>
+<!-- Room List -->
+<div class="flex-1 space-y-3">
+<!-- Room Card 1 -->
+<div class="bg-[#1f2020] border border-[#404751] rounded-lg p-4 flex items-center justify-between hover:border-accent-blue transition-colors group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-sm bg-[#e3e300] flex items-center justify-center font-bold text-black text-text-xs">JS</div>
+<div>
+<h3 class="text-text-base font-semibold text-on-surface">web-engine-auth</h3>
+<div class="flex items-center gap-2 text-text-xs text-on-surface-variant mt-0.5">
+<span>Owner</span>
+<span>•</span>
+<span>2 hours ago</span>
+<span>•</span>
+<span>3 files · main.js, auth.js, +1</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex -space-x-2">
+<div class="w-7 h-7 rounded-full bg-[#1a73e8] border-2 border-[#1f2020] flex items-center justify-center text-[10px] font-bold text-white" title="Omer">O</div>
+<div class="w-7 h-7 rounded-full bg-[#1e8e3e] border-2 border-[#1f2020] flex items-center justify-center text-[10px] font-bold text-white" title="Hamza">H</div>
+<div class="w-7 h-7 rounded-full bg-[#292a2a] border-2 border-[#1f2020] flex items-center justify-center text-[10px] font-medium text-outline">+2</div>
+</div>
+<button class="px-4 py-1.5 bg-[#292a2a] text-on-surface rounded-md text-text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">Open →</button>
+</div>
+</div>
+<!-- Room Card 2 -->
+<div class="bg-[#1f2020] border border-[#404751] rounded-lg p-4 flex items-center justify-between hover:border-accent-blue transition-colors group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-sm bg-[#007acc] flex items-center justify-center font-bold text-white text-text-xs">PY</div>
+<div>
+<h3 class="text-text-base font-semibold text-on-surface">api-service-v2</h3>
+<div class="flex items-center gap-2 text-text-xs text-on-surface-variant mt-0.5">
+<span>Owner</span>
+<span>•</span>
+<span>Yesterday</span>
+<span>•</span>
+<span>5 files · app.py, routes.py, +3</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex -space-x-2">
+<div class="w-7 h-7 rounded-full bg-[#1a73e8] border-2 border-[#1f2020] flex items-center justify-center text-[10px] font-bold text-white">O</div>
+<div class="w-7 h-7 rounded-full bg-[#f9ab00] border-2 border-[#1f2020] flex items-center justify-center text-[10px] font-bold text-white">A</div>
+</div>
+<button class="px-4 py-1.5 bg-[#292a2a] text-on-surface rounded-md text-text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">Open →</button>
+</div>
+</div>
+</div>
+<!-- Quick Join Footer -->
+<div class="mt-12 py-8 border-t border-[#2b2b2b] flex flex-col items-center">
+<div class="text-text-xs text-outline uppercase font-semibold tracking-[0.2em] mb-4">or join with a room code</div>
+<div class="flex items-center gap-2 w-full max-w-sm">
+<input class="flex-1 bg-[#1f2020] border border-[#404751] rounded-md px-3 py-2 text-text-sm text-on-surface focus:border-accent-blue focus:ring-0 outline-none transition-colors" placeholder="Enter room code..." type="text"/>
+<button class="px-6 py-2 bg-accent-blue text-white rounded-md text-text-sm font-semibold hover:opacity-90">Join →</button>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Status Bar -->
+<footer class="h-status-bar-height bg-accent-blue text-white flex items-center px-4 justify-between shrink-0">
+<div class="flex items-center gap-4 text-[11px] font-medium">
+<div class="flex items-center gap-1.5">
+<div class="w-2 h-2 rounded-full bg-accent-green"></div>
+<span>Synced</span>
+</div>
+<div class="w-px h-3 bg-white/20"></div>
+<span>3 online</span>
+<div class="w-px h-3 bg-white/20"></div>
+<span>JavaScript</span>
+</div>
+<div class="flex items-center gap-4 text-[11px] font-medium opacity-90">
+<span class="cursor-pointer hover:underline">8f2a1c4b</span>
+<div class="w-px h-3 bg-white/20"></div>
+<span>UTF-8</span>
+</div>
+</footer>
+</body></html>

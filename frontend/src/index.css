@@ -1,0 +1,46 @@
+/* Global resets and helper classes */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #404751;
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #8a919d;
+}
+
+/* Monaco collaboration style overrides */
+.yRemoteSelection {
+  background-color: rgba(0, 122, 204, 0.25) !important;
+}
+.yRemoteSelectionHead {
+  position: absolute;
+  border-left: 2px solid var(--accent-blue);
+  border-top: 2px solid var(--accent-blue);
+  border-bottom: 2px solid var(--accent-blue);
+  height: 100%;
+}

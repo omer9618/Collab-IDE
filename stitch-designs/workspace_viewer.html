@@ -1,0 +1,294 @@
+<!DOCTYPE html><html class="dark" lang="en"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=block" rel="stylesheet"><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">try{
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#9fcaff",
+                        "on-primary": "#003258",
+                        "surface": "#121414",
+                        "surface-container": "#1f2020",
+                        "surface-container-lowest": "#0d0e0f",
+                        "surface-container-low": "#1b1c1c",
+                        "surface-variant": "#343535",
+                        "outline-variant": "#404751",
+                        "on-surface-variant": "#c0c7d3",
+                        "on-surface": "#e3e2e2",
+                        "error": "#ffb4ab",
+                        "error-container": "#93000a",
+                        "tertiary": "#ffb784",
+                        "secondary": "#adc7ff",
+                        "on-secondary": "#002e68"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.125rem",
+                        "sm": "2px",
+                        "md": "4px",
+                        "lg": "8px",
+                        "full": "9999px"
+                    },
+                    spacing: {
+                        "unit": "4px",
+                        "activity-bar-width": "48px",
+                        "sidebar-width": "240px",
+                        "top-bar-height": "44px"
+                    },
+                    fontFamily: {
+                        "ui": ["Inter", "sans-serif"],
+                        "code": ["JetBrains Mono", "monospace"]
+                    }
+                }
+            }
+        }
+    }catch(_e){}</script></head><body class="bg-surface text-on-surface font-ui overflow-hidden selection:bg-primary/30">
+
+<!-- Access Revoked Toast (Amber Tint) Section 6 -->
+<div class="fixed bottom-6 right-6 z-[100] transition-all duration-300 ease-in-out" id="toast">
+    <div class="bg-panel w-[320px] rounded-lg border border-outline-variant shadow-2xl overflow-hidden flex flex-col relative" style="background-color: #1b1c1c; border-left: 3px solid #b95e01;">
+        <div class="p-4 flex gap-3">
+            <span class="material-symbols-outlined text-[#b95e01]" style="font-variation-settings: 'FILL' 1;">warning</span>
+            <div class="flex flex-col">
+                <span class="font-semibold text-sm text-on-surface">Edit access removed</span>
+                <span class="text-xs text-on-surface-variant">The Room Leader has set you to view-only.</span>
+            </div>
+            <button class="absolute top-2 right-2 text-on-surface-variant hover:text-on-surface transition-colors" onclick="document.getElementById('toast').style.display = 'none'">
+                <span class="material-symbols-outlined text-[18px]">close</span>
+            </button>
+        </div>
+        <div class="h-[2px] bg-surface-variant w-full mt-auto">
+            <div class="h-full bg-[#b95e01] w-full" id="toast-progress"></div>
+        </div>
+    </div>
+</div>
+
+<!-- SideNavBar (Activity Bar + Sidebar) -->
+<div class="flex h-screen w-full">
+    <!-- Activity Bar -->
+    <aside class="w-activity-bar-width flex flex-col bg-surface-container-lowest border-r border-outline-variant items-center py-4 gap-4">
+        <div class="w-8 h-8 rounded bg-primary/20 flex items-center justify-center mb-2">
+            <span class="material-symbols-outlined text-primary text-[20px]" style="font-variation-settings: 'FILL' 1;">terminal</span>
+        </div>
+        <button class="w-full flex justify-center py-2 border-l-2 border-primary text-primary">
+            <span class="material-symbols-outlined">folder</span>
+        </button>
+        <button class="w-full flex justify-center py-2 text-on-surface-variant hover:text-on-surface" onclick="const sb = document.getElementById('right-sidebar'); if(sb.style.width === '0px') { sb.style.width = '280px'; sb.style.borderLeftWidth = '1px'; } else { sb.style.width = '0px'; sb.style.borderLeftWidth = '0px'; }">
+            <span class="material-symbols-outlined">people</span>
+        </button>
+        <button class="w-full flex justify-center py-2 text-on-surface-variant hover:text-on-surface" onclick="const sb = document.getElementById('right-sidebar'); if(sb.style.width === '0px') { sb.style.width = '280px'; sb.style.borderLeftWidth = '1px'; } else { sb.style.width = '0px'; sb.style.borderLeftWidth = '0px'; }">
+            <span class="material-symbols-outlined">chat</span>
+        </button>
+        <div class="mt-auto flex flex-col gap-4 items-center">
+            <button class="text-on-surface-variant hover:text-on-surface">
+                <span class="material-symbols-outlined">settings</span>
+            </button>
+            <button class="text-on-surface-variant hover:text-on-surface">
+                <span class="material-symbols-outlined">logout</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Sidebar (Explorer) -->
+    <aside class="w-sidebar-width flex flex-col bg-surface-container-low border-r border-outline-variant">
+        <div class="h-top-bar-height px-4 flex items-center justify-between border-b border-outline-variant">
+            <span class="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Explorer</span>
+            <!-- Section 6: No +file button -->
+        </div>
+        <div class="p-2">
+            <div class="flex items-center gap-2 px-2 py-1 text-xs text-on-surface-variant font-medium">
+                <span class="material-symbols-outlined text-[14px]">expand_more</span>
+                WEB-ENGINE
+            </div>
+            <div class="space-y-0.5 mt-1">
+                <div class="flex items-center gap-2 px-6 py-1.5 bg-surface-container-high rounded-md border-l-2 border-primary text-on-surface cursor-pointer">
+                    <div class="w-2 h-2 rounded-full bg-yellow-500"></div>
+                    <span class="text-sm">Main.js</span>
+                </div>
+                <div class="flex items-center gap-2 px-6 py-1.5 hover:bg-surface-variant/30 rounded-md text-on-surface-variant cursor-pointer group">
+                    <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+                    <span class="text-sm">Styles.css</span>
+                    <!-- Section 6: No rename/delete icons -->
+                </div>
+                <div class="flex items-center gap-2 px-6 py-1.5 hover:bg-surface-variant/30 rounded-md text-on-surface-variant cursor-pointer">
+                    <div class="w-2 h-2 rounded-full bg-primary"></div>
+                    <span class="text-sm">App.tsx</span>
+                </div>
+            </div>
+        </div>
+        <div class="mt-auto p-4 border-t border-outline-variant">
+            <button class="text-xs text-primary font-medium hover:underline">Share invite link</button>
+        </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 flex flex-col min-w-0">
+        <!-- Top Bar -->
+        <header class="h-top-bar-height flex items-center justify-between px-4 bg-surface border-b border-outline-variant">
+            <div class="flex items-center h-full gap-1">
+                <!-- Tabs: No close buttons Section 6 -->
+                <div class="flex items-center h-full px-4 border-t-2 border-primary bg-surface-container-low text-primary text-sm font-medium">
+                    Main.js
+                </div>
+                <div class="flex items-center h-full px-4 text-on-surface-variant hover:text-on-surface text-sm font-medium cursor-pointer">
+                    Styles.css
+                </div>
+                <div class="flex items-center h-full px-4 text-on-surface-variant hover:text-on-surface text-sm font-medium cursor-pointer">
+                    App.tsx
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <!-- Locked Run-->
+                <button class="flex items-center gap-2 px-3 py-1 rounded bg-surface-variant text-on-surface-variant cursor-not-allowed opacity-60 text-sm font-medium group relative" title="Run disabled — Viewer access only">
+                    <span class="material-symbols-outlined text-[18px]">play_arrow</span>
+                    Run
+                    <span class="material-symbols-outlined text-[14px]">lock</span>
+                </button>
+                <div class="h-4 w-px bg-outline-variant"></div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-on-surface-variant">3 online</span>
+                    <div class="flex -space-x-2">
+                        <div class="w-6 h-6 rounded-full bg-[#1a73e8] border-2 border-surface flex items-center justify-center text-[10px] text-white font-bold">S</div>
+                        <div class="w-6 h-6 rounded-full bg-[#1e8e3e] border-2 border-surface flex items-center justify-center text-[10px] text-white font-bold">J</div>
+                        <div class="w-6 h-6 rounded-full bg-[#f9ab00] border-2 border-surface flex items-center justify-center text-[10px] text-white font-bold">A</div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Editor Area -->
+        <div class="flex-1 relative bg-surface-container-lowest overflow-hidden flex flex-col">
+            <!-- Monaco ReadOnly Container Section 6 -->
+            <div class="flex-1 p-6 font-code text-sm leading-relaxed text-on-surface/80 select-none cursor-default">
+                <div class="flex gap-4">
+                    <div class="text-on-surface-variant/40 text-right select-none pr-4 border-r border-outline-variant/20">
+                        1<br>2<br>3<br>4<br>5<br>6<br>7<br>8<br>9<br>10
+                    </div>
+                    <div class="flex-1">
+                        <p class=""><span class="text-primary">import</span> { render } <span class="text-primary">from</span> <span class="text-tertiary">"engine-core"</span>;</p>
+                        <p class=""><span class="text-primary">import</span> { Workspace } <span class="text-primary">from</span> <span class="text-tertiary">"./components"</span>;</p>
+                        <p>&nbsp;</p>
+                        <p class=""><span class="text-on-surface-variant/50">// Initialize the collaborative environment</span></p>
+                        <p class=""><span class="text-primary">const</span> config = {</p>
+                        <p class="pl-4">mode: <span class="text-tertiary">"viewer"</span>,</p>
+                        <p class="pl-4">sync: <span class="text-secondary">true</span>,</p>
+                        <p class="pl-4">latencyThreshold: <span class="text-primary">120</span></p>
+                        <p class="">};</p>
+                    </div>
+                </div>
+
+                <!-- Remote Caret (Others) -->
+                <div class="absolute top-[164px] left-[340px] w-[2px] h-[20px] bg-[#1a73e8]">
+                    <div class="absolute -top-6 -left-1 px-1.5 py-0.5 bg-[#1a73e8] text-white text-[10px] rounded-sm whitespace-nowrap font-ui font-medium">
+                        Sarah
+                    </div>
+                </div>
+
+                <!-- Section 6: Watermark bottom-right -->
+                <div class="absolute bottom-4 right-6 viewer-watermark">
+                    <span class="text-[11px] font-medium text-on-surface-variant/40 uppercase tracking-[0.1em]">VIEW ONLY</span>
+                </div>
+            </div>
+
+            <!-- Terminal Area -->
+            <div class="h-[180px] bg-surface-container-low border-t border-outline-variant flex flex-col">
+                <div class="flex items-center px-4 h-9 gap-6 border-b border-outline-variant bg-surface-container">
+                    <button class="text-xs font-semibold text-primary border-b-2 border-primary h-full px-1">TERMINAL</button>
+                    <button class="text-xs font-medium text-on-surface-variant hover:text-on-surface">OUTPUT</button>
+                    <button class="text-xs font-medium text-on-surface-variant hover:text-on-surface">PROBLEMS</button>
+                </div>
+                <div class="p-3 font-code text-xs text-on-surface-variant space-y-1 overflow-auto">
+                    <p class=""><span class="text-primary">system:</span> Connected to cluster-b-49</p>
+                    <p class=""><span class="text-[#ffb4ab]">error:</span> Edit access revoked by Room Leader.</p>
+                    <p class="flex items-center gap-1"><span class="text-primary">guest@collabide:</span><span class="w-1.5 h-4 bg-on-surface-variant/20"></span></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Voice Dock Section 5/6 -->
+        <div class="fixed bottom-[34px] left-1/2 -translate-x-1/2 z-50">
+            <div class="glass-panel h-14 flex items-center px-2 gap-1 rounded-full border border-outline-variant shadow-2xl">
+                <!-- Mic icon struck-through by default Section 6 -->
+                <div class="group relative">
+                    <button class="w-10 h-10 rounded-full flex items-center justify-center bg-error-container text-[#ffdad6] cursor-not-allowed">
+                        <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">mic_off</span>
+                    </button>
+                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 px-2 py-1 bg-surface-container-highest text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                        VIEW ONLY — Mic locked
+                    </div>
+                </div>
+                <button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface hover:bg-surface-variant/50 transition-colors">
+                    <span class="material-symbols-outlined text-[20px]">chat</span>
+                </button>
+                <button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface hover:bg-surface-variant/50 transition-colors">
+                    <span class="material-symbols-outlined text-[20px]">people</span>
+                </button>
+                <div class="w-px h-6 bg-outline-variant mx-1"></div>
+                <button class="px-5 h-10 rounded-full bg-[#d93025] text-white flex items-center gap-2 hover:brightness-110 transition-all text-sm font-semibold">
+                    <span class="material-symbols-outlined text-[18px]">phone_disabled</span>
+                    Leave
+                </button>
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <footer class="h-[22px] bg-[#007acc] text-white px-3 flex items-center justify-between text-[11px] font-medium z-40">
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-green-400"></span>
+                    Synced
+                </div>
+                <div class="h-3 w-px bg-white/20"></div>
+                <div class="">3 online</div>
+                <div class="h-3 w-px bg-white/20"></div>
+                <div class="">JavaScript</div>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="cursor-pointer hover:bg-white/10 px-1">room-8821-4f</div>
+                <div class="h-3 w-px bg-white/20"></div>
+                <div class="">UTF-8</div>
+            </div>
+        </footer>
+    </main>
+
+    <!-- Right Panel (Participants) -->
+    <aside class="w-[280px] flex flex-col bg-surface-container border-l border-outline-variant transition-all duration-300 overflow-hidden" id="right-sidebar">
+        <div class="flex border-b border-outline-variant">
+            <button class="flex-1 py-3 text-xs font-semibold text-primary border-b-2 border-primary">Participants (3)</button>
+            <button class="flex-1 py-3 text-xs font-medium text-on-surface-variant hover:text-on-surface">Chat</button>
+        </div>
+        <div class="p-4 space-y-4">
+            <!-- Leader -->
+            <div class="flex items-center gap-3">
+                <div class="relative">
+                    <div class="w-8 h-8 rounded-full bg-[#1a73e8] flex items-center justify-center text-white text-xs font-bold ring-2 ring-[#1a73e8] ring-offset-2 ring-offset-surface">S</div>
+                    <div class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-surface rounded-full"></div>
+                </div>
+                <div class="flex-1">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-medium text-on-surface">Sarah</span>
+                        <span class="px-1.5 py-0.5 rounded-sm bg-[#001a3d] text-[#9fcaff] text-[10px] font-semibold">Leader</span>
+                    </div>
+                    <p class="text-[10px] text-green-500 font-medium">Speaking...</p>
+                </div>
+            </div>
+            <!-- Editor -->
+            <div class="flex items-center gap-3">
+                <div class="relative">
+                    <div class="w-8 h-8 rounded-full bg-[#1e8e3e] flex items-center justify-center text-white text-xs font-bold">J</div>
+                    <div class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-surface rounded-full"></div>
+                </div>
+                <div class="flex-1">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-medium text-on-surface">James</span>
+                        <span class="px-1.5 py-0.5 rounded-sm bg-[#0a2510] text-[#34a853] text-[10px] font-semibold">Editor</span>
+                    </div>
+                </div>
+            </div>
+            <!-- You (Viewer) Section 6 -->
+            <div class="flex items-center gap-3 mt-auto pt-4 border-t border-outline-variant/30">
+                <div class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center text-on-surface-variant text-xs font-bold">A</div>
+                <div class="flex-1">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-medium text-on-surface">Alex (You)</span>
+                        <span class="px-1.5 py-0.5 rounded-sm bg-surface-variant text-on-surface-variant border border-outline-variant text-[10px] font-semibold uppercase">Viewer</span>
+                    </div></div></div></div></aside></div></body></html>

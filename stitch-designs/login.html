@@ -1,0 +1,306 @@
+<!DOCTYPE html><html class="dark" lang="en"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=block" rel="stylesheet"><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">try{
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                "secondary": "#adc7ff",
+                "on-tertiary-fixed": "#301400",
+                "on-tertiary": "#4f2500",
+                "outline-variant": "#404751",
+                "error-container": "#93000a",
+                "on-secondary": "#002e68",
+                "surface-bright": "#383939",
+                "surface-container-highest": "#343535",
+                "background": "#0d0e0f",
+                "on-error-container": "#ffdad6",
+                "on-secondary-fixed-variant": "#004493",
+                "on-secondary-container": "#f2f4ff",
+                "surface-variant": "#343535",
+                "on-primary": "#003258",
+                "inverse-surface": "#e3e2e2",
+                "surface-container-lowest": "#0d0e0f",
+                "primary-fixed-dim": "#9fcaff",
+                "on-background": "#e3e2e2",
+                "tertiary-fixed-dim": "#ffb784",
+                "surface-tint": "#9fcaff",
+                "surface-container-low": "#1b1c1c",
+                "secondary-fixed": "#d8e2ff",
+                "outline": "#8a919d",
+                "on-surface": "#e3e2e2",
+                "on-tertiary-fixed-variant": "#713700",
+                "surface-container-high": "#292a2a",
+                "on-surface-variant": "#c0c7d3",
+                "primary": "#007acc",
+                "on-primary-fixed-variant": "#00497d",
+                "surface-dim": "#121414",
+                "surface": "#121414",
+                "tertiary": "#ffb784",
+                "primary-fixed": "#d1e4ff",
+                "surface-container": "#1f2020",
+                "inverse-primary": "#0061a4",
+                "secondary-fixed-dim": "#adc7ff",
+                "on-error": "#690005",
+                "error": "#ffb4ab",
+                "on-primary-fixed": "#001d36",
+                "tertiary-fixed": "#ffdcc6",
+                "secondary-container": "#026be0",
+                "on-primary-container": "#ffffff",
+                "inverse-on-surface": "#303031",
+                "on-tertiary-container": "#ffffff",
+                "primary-container": "#007acc",
+                "tertiary-container": "#b95e01",
+                "on-secondary-fixed": "#001a41",
+                "bg-base": "#0d0e0f",
+                "bg-surface": "#121414",
+                "bg-panel": "#1b1c1c",
+                "bg-elevated": "#1f2020",
+                "border-default": "#404751",
+                "text-primary": "#e3e2e2",
+                "text-secondary": "#c0c7d3",
+                "text-muted": "#8a919d",
+                "accent-blue": "#007acc",
+                "accent-red": "#d93025"
+              },
+              "borderRadius": {
+                "DEFAULT": "0.125rem",
+                "lg": "0.25rem",
+                "xl": "0.5rem",
+                "full": "0.75rem",
+                "radius-md": "4px",
+                "radius-lg": "8px",
+                "radius-sm": "2px"
+              },
+              "spacing": {
+                "touch-target": "32px",
+                "unit": "4px",
+                "gutter": "12px",
+                "activity-bar-width": "48px",
+                "sidebar-width": "260px",
+                "margin-page": "16px"
+              },
+              "fontFamily": {
+                "code-body": ["JetBrains Mono"],
+                "headline-lg": ["Inter"],
+                "ui-label-sm": ["Inter"],
+                "ui-header": ["Inter"],
+                "ui-label-md": ["Inter"],
+                "headline-lg-mobile": ["Inter"],
+                "code-sm": ["JetBrains Mono"]
+              },
+              "fontSize": {
+                "code-body": ["14px", {"lineHeight": "21px", "fontWeight": "400"}],
+                "headline-lg": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                "ui-label-sm": ["11px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500"}],
+                "ui-header": ["14px", {"lineHeight": "20px", "fontWeight": "600"}],
+                "ui-label-md": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                "headline-lg-mobile": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                "code-sm": ["12px", {"lineHeight": "18px", "fontWeight": "400"}]
+              }
+            },
+          },
+        }
+    }catch(_e){}</script></head><body class="flex items-stretch overflow-hidden h-screen w-full bg-bg-base">
+
+    <!-- Left side: Brand Panel (55%) -->
+    <aside class="hidden lg:flex flex-col w-1/2 bg-bg-base p-16 justify-center items-center">
+        <div class="max-w-[520px] ml-auto space-y-12 mx-auto">
+            <div class="space-y-4">
+                <h1 class="text-[36px] font-semibold leading-[44px] text-text-primary">
+                    Code together,<br>in real time.
+                </h1>
+                <p class="text-[16px] leading-[24px] text-text-secondary">
+                    A collaborative IDE with live editing, voice chat, and instant code execution.
+                </p>
+            </div>
+
+            <!-- Feature Callouts -->
+            <ul class="space-y-6">
+                <li class="flex items-start space-x-4">
+                    <span class="text-[20px] shrink-0 mt-1">⚡</span>
+                    <div>
+                        <h3 class="text-text-primary font-semibold text-[14px]">Real-time sync</h3>
+                        <p class="text-text-secondary text-[13px]">CRDT-based editing. No conflicts, ever.</p>
+                    </div>
+                </li>
+                <li class="flex items-start space-x-4">
+                    <span class="text-[20px] shrink-0 mt-1">🎙</span>
+                    <div>
+                        <h3 class="text-text-primary font-semibold text-[14px]">Voice chat</h3>
+                        <p class="text-text-secondary text-[13px]">Audio-first collaboration built into the room.</p>
+                    </div>
+                </li>
+                <li class="flex items-start space-x-4">
+                    <span class="text-[20px] shrink-0 mt-1">▶</span>
+                    <div>
+                        <h3 class="text-text-primary font-semibold text-[14px]">Code execution</h3>
+                        <p class="text-text-secondary text-[13px]">Run code in 5 languages, output shared instantly.</p>
+                    </div>
+                </li>
+            </ul>
+
+            <div class="pt-8">
+                <p class="text-text-muted text-[11px] uppercase tracking-wider">Bahria University FYP · BSE 2026</p>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Right side: Auth Card (45%) -->
+    <main class="flex-1 bg-surface flex flex-col items-center justify-center p-12 lg:p-16">
+        <div class="w-full max-w-[380px] bg-bg-elevated border border-border-default rounded-radius-lg p-8 shadow-2xl">
+            <!-- Logo Section -->
+            <div class="flex items-center justify-center space-x-2 mb-10">
+                <span class="material-symbols-outlined text-accent-blue text-[24px]">account_tree</span>
+                <span class="text-[20px] font-semibold text-accent-blue">CollabIDE</span>
+            </div>
+
+            <!-- Tab Switcher -->
+            <div class="flex mb-8 border-b border-border-default">
+                <button id="tab-signin" class="flex-1 pb-3 text-[14px] font-medium text-text-primary border-b-2 border-accent-blue transition-standard" onclick="switchTab('signin')">
+                    Sign in
+                </button>
+                <button id="tab-register" class="flex-1 pb-3 text-[14px] font-medium text-text-muted hover:text-text-secondary transition-standard" onclick="switchTab('register')">
+                    Create account
+                </button>
+            </div>
+
+            <!-- Form: Sign In -->
+            <form id="form-signin" class="space-y-5" onsubmit="return handleForm(event, 'signin')">
+                <div class="space-y-1.5">
+                    <label class="block text-text-secondary text-[13px]" for="signin-email">Email</label>
+                    <input class="w-full h-[36px] px-3 bg-bg-elevated border border-border-default rounded-radius-md text-text-primary text-[14px] placeholder-text-muted focus:border-accent-blue transition-standard" id="signin-email" placeholder="name@company.com" type="email" required="">
+                </div>
+                <div class="space-y-1.5">
+                    <div class="flex justify-between items-center">
+                        <label class="block text-text-secondary text-[13px]" for="signin-password">Password</label>
+                        <a class="text-[11px] text-accent-blue hover:underline" href="#">Forgot password?</a>
+                    </div>
+                    <div class="relative">
+                        <input class="w-full h-[36px] px-3 pr-10 bg-bg-elevated border border-border-default rounded-radius-md text-text-primary text-[14px] placeholder-text-muted focus:border-accent-blue transition-standard" id="signin-password" placeholder="••••••••" type="password" required="">
+                        <button class="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary" type="button" onclick="togglePassword('signin-password')">
+                            <span class="material-symbols-outlined text-[18px]">visibility</span>
+                        </button>
+                    </div>
+                </div>
+                <button class="w-full h-[36px] bg-accent-blue hover:opacity-90 active:scale-[0.98] text-white text-[14px] font-medium rounded-radius-md transition-standard flex items-center justify-center space-x-2 mt-2">
+                    <span class="">Sign In</span>
+                    <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+                </button>
+            </form>
+
+            <!-- Form: Create Account -->
+            <form id="form-register" class="space-y-5 hidden" onsubmit="return handleForm(event, 'register')">
+                <div class="space-y-1.5">
+                    <label class="block text-text-secondary text-[13px]" for="reg-name">Display name</label>
+                    <input class="w-full h-[36px] px-3 bg-bg-elevated border border-border-default rounded-radius-md text-text-primary text-[14px] placeholder-text-muted focus:border-accent-blue transition-standard" id="reg-name" placeholder="John Doe" type="text" required="">
+                </div>
+                <div class="space-y-1.5">
+                    <label class="block text-text-secondary text-[13px]" for="reg-email">Email</label>
+                    <input class="w-full h-[36px] px-3 bg-bg-elevated border border-border-default rounded-radius-md text-text-primary text-[14px] placeholder-text-muted focus:border-accent-blue transition-standard" id="reg-email" placeholder="name@company.com" type="email" required="">
+                </div>
+                <div class="space-y-1.5">
+                    <label class="block text-text-secondary text-[13px]" for="reg-password">Password</label>
+                    <div class="relative">
+                        <input class="w-full h-[36px] px-3 pr-10 bg-bg-elevated border border-border-default rounded-radius-md text-text-primary text-[14px] placeholder-text-muted focus:border-accent-blue transition-standard" id="reg-password" placeholder="••••••••" type="password" oninput="updateStrength()" required="">
+                        <button class="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary" type="button" onclick="togglePassword('reg-password')">
+                            <span class="material-symbols-outlined text-[18px]">visibility</span>
+                        </button>
+                    </div>
+                    <p class="text-[11px] text-text-muted pt-1">Min 8 chars, 1 uppercase, 1 number, 1 special char</p>
+                    <!-- Strength indicator bar -->
+                    <div class="flex space-x-1 h-1 mt-2">
+                        <div id="strength-1" class="flex-1 bg-border-default rounded-full transition-colors"></div>
+                        <div id="strength-2" class="flex-1 bg-border-default rounded-full transition-colors"></div>
+                        <div id="strength-3" class="flex-1 bg-border-default rounded-full transition-colors"></div>
+                        <div id="strength-4" class="flex-1 bg-border-default rounded-full transition-colors"></div>
+                    </div>
+                </div>
+                <button class="w-full h-[36px] bg-accent-blue hover:opacity-90 active:scale-[0.98] text-white text-[14px] font-medium rounded-radius-md transition-standard flex items-center justify-center space-x-2 mt-2">
+                    <span class="">Create account</span>
+                    <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+                </button>
+            </form>
+
+            <!-- Success State (Hidden by default) -->
+            <div id="success-message" class="hidden mt-6 p-4 bg-[#0a2510] border border-[#1e8e3e] rounded-radius-md flex items-start space-x-3">
+                <span class="material-symbols-outlined text-[#1e8e3e] text-[20px]">check_circle</span>
+                <div>
+                    <p class="text-[#e3e2e2] text-[13px] font-medium">Account created</p>
+                    <p class="text-[#c0c7d3] text-[12px] leading-tight">Check your email to verify your account. The link expires in 24 hours.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function switchTab(type) {
+            const btnSignin = document.getElementById('tab-signin');
+            const btnRegister = document.getElementById('tab-register');
+            const formSignin = document.getElementById('form-signin');
+            const formRegister = document.getElementById('form-register');
+            const successMsg = document.getElementById('success-message');
+
+            if (type === 'signin') {
+                btnSignin.classList.add('border-accent-blue', 'text-text-primary');
+                btnSignin.classList.remove('text-text-muted');
+                btnRegister.classList.remove('border-accent-blue', 'text-text-primary');
+                btnRegister.classList.add('text-text-muted');
+                formSignin.classList.remove('hidden');
+                formRegister.classList.add('hidden');
+                successMsg.classList.add('hidden');
+            } else {
+                btnRegister.classList.add('border-accent-blue', 'text-text-primary');
+                btnRegister.classList.remove('text-text-muted');
+                btnSignin.classList.remove('border-accent-blue', 'text-text-primary');
+                btnSignin.classList.add('text-text-muted');
+                formRegister.classList.remove('hidden');
+                formSignin.classList.add('hidden');
+                successMsg.classList.add('hidden');
+            }
+        }
+
+        function togglePassword(id) {
+            const input = document.getElementById(id);
+            const btn = input.nextElementSibling;
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.innerHTML = '<span class="material-symbols-outlined text-[18px]">visibility_off</span>';
+            } else {
+                input.type = 'password';
+                btn.innerHTML = '<span class="material-symbols-outlined text-[18px]">visibility</span>';
+            }
+        }
+
+        function updateStrength() {
+            const val = document.getElementById('reg-password').value;
+            const segments = ['strength-1', 'strength-2', 'strength-3', 'strength-4'];
+            let score = 0;
+            
+            if (val.length >= 8) score++;
+            if (/[A-Z]/.test(val)) score++;
+            if (/[0-9]/.test(val)) score++;
+            if (/[^A-Za-z0-9]/.test(val)) score++;
+
+            segments.forEach((id, index) => {
+                const el = document.getElementById(id);
+                if (index < score) {
+                    el.classList.remove('bg-border-default');
+                    el.classList.add('bg-accent-blue');
+                } else {
+                    el.classList.add('bg-border-default');
+                    el.classList.remove('bg-accent-blue');
+                }
+            });
+        }
+
+        function handleForm(e, type) {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            const originalContent = btn.innerHTML;
+            btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px]">sync</span>';
+            btn.disabled = true;
+
+            setTimeout(() => {
+                if (type === 'register') {
+                    document.getElementById('form-register').classList.add('hidden');
+                    document.getElementById('success-message</script></body></html>

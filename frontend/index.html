@@ -1,0 +1,165 @@
+<!doctype html>
+<html class="dark" lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- SEO Best Practices -->
+    <title>CollabIDE — Real-Time Collaborative Workspace</title>
+    <meta name="description" content="Collaborate, edit, and execute code in real-time with Monaco Editor, Yjs sync, and built-in peer voice chat channels." />
+
+    <!-- Google Fonts & Material Symbols -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet" />
+
+    <!-- Tailwind CSS CDN with configuration (matching Stitch) -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config">
+      try {
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                primary: "#007acc",
+                surface: "#121414",
+                "surface-base": "#0d0e0f",
+                "surface-panel": "#1b1c1c",
+                "surface-elevated": "#1f2020",
+                "on-surface": "#e3e2e2",
+                "on-surface-variant": "#c0c7d3",
+                "on-surface-muted": "#8a919d",
+                outline: "#404751",
+                "outline-subtle": "#2b2b2b",
+                "accent-blue": "#007acc",
+                "accent-blue-dim": "#9fcaff",
+                "accent-red": "#d93025",
+                "accent-orange": "#b95e01",
+                "accent-green": "#1e8e3e",
+                "text-primary": "#e3e2e2",
+                "text-secondary": "#c0c7d3",
+                "text-muted": "#8a919d",
+                "bg-base": "#0d0e0f",
+                "bg-surface": "#121414",
+                "bg-panel": "#1b1c1c",
+                "bg-elevated": "#1f2020",
+                "border-default": "#404751"
+              },
+              borderRadius: {
+                DEFAULT: "0.125rem",
+                sm: "2px",
+                md: "4px",
+                lg: "8px",
+                full: "9999px",
+                "radius-md": "4px",
+                "radius-lg": "8px",
+                "radius-sm": "2px"
+              },
+              spacing: {
+                "touch-target": "32px",
+                "unit": "4px",
+                "gutter": "12px",
+                "activity-bar-width": "48px",
+                "sidebar-width": "240px",
+                "top-bar-height": "44px",
+                "status-bar-height": "22px"
+              },
+              fontFamily: {
+                ui: ["Inter", "sans-serif"],
+                code: ["JetBrains Mono", "monospace"]
+              },
+              fontSize: {
+                "text-xs": ["11px", "16px"],
+                "text-sm": ["13px", "18px"],
+                "text-base": ["14px", "20px"],
+                "text-lg": ["16px", "24px"],
+                "text-xl": ["20px", "28px"]
+              }
+            }
+          }
+        };
+      } catch (_e) {}
+    </script>
+    <style>
+      :root {
+        --bg-base: #0d0e0f;
+        --bg-surface: #121414;
+        --bg-panel: #1b1c1c;
+        --bg-elevated: #1f2020;
+        --bg-hover: #252626;
+        --bg-active: #292a2a;
+        --border-subtle: #2b2b2b;
+        --border-default: #404751;
+        --border-strong: #8a919d;
+        --text-primary: #e3e2e2;
+        --text-secondary: #c0c7d3;
+        --text-muted: #8a919d;
+        --accent-blue: #007acc;
+        --accent-blue-dim: #9fcaff;
+        --accent-green: #1e8e3e;
+        --accent-red: #d93025;
+        --accent-orange: #b95e01;
+        
+        --peer-1: #1a73e8;
+        --peer-2: #1e8e3e;
+        --peer-3: #f9ab00;
+        --peer-4: #a142f4;
+        --peer-5: #e52592;
+      }
+      body {
+        background-color: #0d0e0f;
+        color: #e3e2e2;
+        -webkit-font-smoothing: antialiased;
+        font-family: 'Inter', sans-serif;
+      }
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+        display: inline-block;
+        line-height: 1;
+        text-transform: none;
+        letter-spacing: normal;
+        word-wrap: normal;
+        white-space: nowrap;
+        direction: ltr;
+      }
+      ::-webkit-scrollbar {
+        width: 4px;
+        height: 4px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #404751;
+        border-radius: 2px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #8a919d;
+      }
+      .glass-panel {
+        background: rgba(31, 32, 32, 0.75);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+      }
+      @keyframes pulse-ring {
+        0% { transform: scale(1); opacity: 0.8; }
+        100% { transform: scale(1.08); opacity: 0; }
+      }
+      .speaking-pulse {
+        animation: pulse-ring 2s ease-in-out infinite;
+      }
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+    </style>
+  </head>
+  <body class="bg-surface-base text-on-surface font-ui overflow-hidden w-full h-full">
+    <div id="root" class="w-full h-full overflow-hidden flex flex-col"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
