@@ -75,6 +75,8 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
   const [room, setRoom] = useState(null);
   const [role, setRole] = useState('Viewer');
   const [files, setFiles] = useState([]);
+  const [isCreatingFile, setIsCreatingFile] = useState(false);
+  const [newFileNameInput, setNewFileNameInput] = useState('');
   const [activeFile, setActiveFile] = useState('main.js');
   const [isSyncing, setIsSyncing] = useState(true);
   const [syncStatus, setSyncStatus] = useState('Connecting…');
@@ -114,6 +116,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
   const voiceSocketRef = useRef(null);
   const peerConnectionsRef = useRef(new Map()); // socketId -> RTCPeerConnection
   const roomRef = useRef(null);
+  const isCommittingFileRef = useRef(false);
   const audioElementsRef = useRef(new Map()); // socketId -> HTMLAudioElement
 
   // REST details refresh
@@ -391,37 +394,65 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
     window.addEventListener('mouseup', stopResize);
   };
 
-  // Create new file dynamically and sync via Yjs shared array
+  // Create new file dynamically (VS Code style inline creation)
   const handleCreateFile = () => {
     if (role === 'Viewer') {
       alert('Viewers cannot create files. Ask the Room Leader to promote you to Editor.');
       return;
     }
-
     if (!ydoc) return;
+    setIsCreatingFile(true);
+    setNewFileNameInput('');
+    isCommittingFileRef.current = false;
+  };
 
-    const newFileName = prompt('Enter new file name (e.g. index.js):');
-    if (!newFileName || !newFileName.trim()) return;
+  const handleCommitNewFile = () => {
+    if (isCommittingFileRef.current) return;
+    isCommittingFileRef.current = true;
 
-    const trimmed = newFileName.trim();
+    const trimmed = newFileNameInput.trim();
+    if (!trimmed) {
+      setIsCreatingFile(false);
+      isCommittingFileRef.current = false;
+      return;
+    }
 
     // Basic filename safety validation
     if (!/^[a-zA-Z0-9_\-\.]+$/.test(trimmed)) {
       alert('Invalid file name. Only alphanumeric characters, dashes, underscores, and dots are allowed.');
+      isCommittingFileRef.current = false;
+      setTimeout(() => {
+        document.getElementById('new-file-input')?.focus();
+      }, 50);
       return;
     }
 
     const yfiles = ydoc.getArray(`${roomUuid}:files`);
     if (yfiles.toArray().includes(trimmed)) {
       alert('A file with this name already exists.');
+      isCommittingFileRef.current = false;
+      setTimeout(() => {
+        document.getElementById('new-file-input')?.focus();
+      }, 50);
       return;
     }
 
-    // Push new file name to shared Yjs array (broadcasts automatically to all room clients)
+    // Push new file name to shared Yjs array
     yfiles.push([trimmed]);
-    
-    // Switch active tab view to the newly created file
     setActiveFile(trimmed);
+    setIsCreatingFile(false);
+    setNewFileNameInput('');
+    isCommittingFileRef.current = false;
+  };
+
+  const handleNewFileKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleCommitNewFile();
+    } else if (e.key === 'Escape') {
+      setIsCreatingFile(false);
+      setNewFileNameInput('');
+      isCommittingFileRef.current = false;
+    }
   };
 
   // Chat message sender
@@ -844,6 +875,21 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                 <span>Files</span>
               </div>
               <div className="pl-4">
+                {isCreatingFile && (
+                  <div className="px-3 py-1.5 flex items-center gap-2 bg-surface-elevated mr-3 rounded-r">
+                    <span className="w-2 h-2 rounded-full bg-gray-500 shrink-0" />
+                    <input
+                      id="new-file-input"
+                      type="text"
+                      className="bg-[#121414] border border-accent-blue rounded text-xs px-1.5 py-0.5 text-on-surface outline-none w-full font-mono"
+                      value={newFileNameInput}
+                      onChange={(e) => setNewFileNameInput(e.target.value)}
+                      onKeyDown={handleNewFileKeyDown}
+                      onBlur={handleCommitNewFile}
+                      autoFocus
+                    />
+                  </div>
+                )}
                 {files.map((file) => (
                   <div
                     key={file.name}
