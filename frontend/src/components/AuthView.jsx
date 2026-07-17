@@ -99,9 +99,8 @@ export default function AuthView({ onAuthSuccess }) {
       <main className="flex-1 bg-surface flex flex-col items-center justify-center p-12 lg:p-16">
         <div className="w-full max-w-[380px] bg-bg-elevated border border-border-default rounded-radius-lg p-8 shadow-2xl">
           {/* Logo Section */}
-          <div className="flex items-center justify-center space-x-2 mb-10">
-            <img src="/logo.png" className="w-6 h-6 object-contain rounded-sm" alt="CollabIDE Logo" />
-            <span className="text-[20px] font-semibold text-accent-blue">CollabIDE</span>
+          <div className="flex items-center justify-center mb-10 cursor-pointer" onClick={() => window.location.href = '/'}>
+            <img src="/logo.png" className="h-9 object-contain" alt="CollabIDE Logo" />
           </div>
 
           {/* Tab Switcher */}

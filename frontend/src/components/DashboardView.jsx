@@ -85,9 +85,8 @@ export default function DashboardView({ user, onRoomSelect, onLogout }) {
     <div className="h-screen flex flex-col bg-bg-base text-text-primary font-ui overflow-hidden">
       {/* Top Bar (44px) */}
       <header className="h-[44px] shrink-0 bg-[#121414] border-b border-[#2b2b2b] flex items-center justify-between px-4 z-50">
-        <div className="flex items-center gap-2 cursor-pointer">
-          <img src="/logo.png" className="w-5 h-5 object-contain rounded-sm" alt="CollabIDE Logo" />
-          <span className="font-semibold text-text-base text-accent-blue tracking-tight">CollabIDE</span>
+        <div className="flex items-center cursor-pointer" onClick={() => window.location.href = '/'}>
+          <img src="/logo.png" className="h-6 object-contain" alt="CollabIDE Logo" />
         </div>
         <div className="flex items-center gap-4">
           <div
