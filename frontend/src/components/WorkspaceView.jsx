@@ -33,6 +33,30 @@ import {
   Share2,
 } from 'lucide-react';
 
+// WhatsApp strategy color palette for distinguishable user colors in group chat (contrasty in dark mode)
+const WHATSAPP_CHAT_COLORS = [
+  '#4ade80', // Green
+  '#2dd4bf', // Teal
+  '#38bdf8', // Light Blue
+  '#c084fc', // Lavender/Purple
+  '#f472b6', // Pink
+  '#fb923c', // Orange
+  '#fbbf24', // Amber/Yellow
+  '#a3e635', // Lime
+  '#fda4af', // Rose
+  '#60a5fa', // Blue
+];
+
+const getUserColor = (userId, displayName) => {
+  const identifier = userId || displayName || '';
+  let hash = 0;
+  for (let i = 0; i < identifier.length; i++) {
+    hash = identifier.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % WHATSAPP_CHAT_COLORS.length;
+  return WHATSAPP_CHAT_COLORS[index];
+};
+
 const DEFAULT_CODE = {
   'main.js': `// CollabIDE — Real-time collaborative editor
 function greet(name) {
@@ -219,7 +243,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
     if (provider && role) {
       provider.awareness.setLocalStateField('user', {
         name: user.displayName,
-        color: user.avatarColor,
+        color: getUserColor(user.id || user._id, user.displayName),
         id: user.id || user._id,
         role: role,
       });
@@ -667,7 +691,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
 
           <button
             className="w-7 h-7 rounded-full bg-accent-blue flex items-center justify-center text-white text-[10px] font-bold border border-white/20"
-            style={{ backgroundColor: user.avatarColor }}
+            style={{ backgroundColor: getUserColor(user.id || user._id, user.displayName) }}
           >
             {user.displayName.charAt(0).toUpperCase()}
           </button>
@@ -984,7 +1008,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                   <div className="relative">
                     <div
                       className="w-8 h-8 rounded-full bg-accent-blue flex items-center justify-center text-white text-xs font-bold"
-                      style={{ backgroundColor: user.avatarColor }}
+                      style={{ backgroundColor: getUserColor(user.id || user._id, user.displayName) }}
                     >
                       {user.displayName.charAt(0).toUpperCase()}
                     </div>
@@ -1092,16 +1116,17 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                 >
                   {chatMessages.map((msg, idx) => {
                     const isMine = msg.userId === (user.id || user._id);
+                    const msgColor = getUserColor(msg.userId, msg.displayName);
                     return (
                       <div key={idx} className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
                           <div
                             className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
-                            style={{ backgroundColor: msg.avatarColor }}
+                            style={{ backgroundColor: msgColor }}
                           >
                             {msg.displayName.charAt(0).toUpperCase()}
                           </div>
-                          <span className="text-xs font-semibold text-on-surface" style={{ color: msg.avatarColor }}>
+                          <span className="text-xs font-semibold" style={{ color: msgColor }}>
                             {msg.displayName}
                           </span>
                           <span className="text-[9px] text-on-surface-muted ml-auto">{msg.time}</span>
