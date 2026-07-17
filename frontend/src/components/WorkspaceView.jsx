@@ -178,16 +178,22 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
     const yfilesInstance = yDocInstance.getArray(`${roomUuid}:files`);
     const updateFilesFromYjs = () => {
       const currentNames = yfilesInstance.toArray();
-      if (currentNames.length > 0) {
-        setFiles(currentNames.map(name => ({ name })));
+      // Deduplicate file names to prevent concurrent client initialization race conditions
+      const uniqueNames = Array.from(new Set(currentNames));
+      if (uniqueNames.length > 0) {
+        setFiles(uniqueNames.map(name => ({ name })));
       }
     };
     yfilesInstance.observe(updateFilesFromYjs);
 
     providerInstance.on('sync', (isSynced) => {
-      if (isSynced) {
-        if (yfilesInstance.length === 0 && roomRef.current?.files) {
-          yfilesInstance.push(roomRef.current.files.map(f => f.name));
+      if (isSynced && roomRef.current?.files) {
+        const current = yfilesInstance.toArray();
+        const toAdd = roomRef.current.files
+          .map(f => f.name)
+          .filter(name => !current.includes(name));
+        if (toAdd.length > 0) {
+          yfilesInstance.push(toAdd);
         }
       }
     });

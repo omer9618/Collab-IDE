@@ -96,8 +96,10 @@ async function saveRoomStateToDB(roomUuid, ydoc) {
     // Extract files list from Yjs shared files array (dynamic source of truth)
     const yfiles = ydoc.getArray(`${roomUuid}:files`);
     const fileNames = yfiles.length > 0 ? yfiles.toArray() : room.files.map(f => f.name);
+    // Deduplicate file names to handle legacy or race conditions
+    const uniqueFileNames = Array.from(new Set(fileNames));
 
-    const updatedFiles = fileNames.map(name => {
+    const updatedFiles = uniqueFileNames.map(name => {
       const ytext = ydoc.getText(`${roomUuid}:${name}`);
       return {
         name,
@@ -153,7 +155,7 @@ async function getOrCreateYdoc(roomUuid) {
     } else if (room.files) {
       // Fallback for legacy rooms or first-time load: populate via text insert
       const yfiles = ydoc.getArray(`${roomUuid}:files`);
-      const fileNames = room.files.map(f => f.name);
+      const fileNames = Array.from(new Set(room.files.map(f => f.name)));
       yfiles.push(fileNames);
 
       room.files.forEach(file => {
