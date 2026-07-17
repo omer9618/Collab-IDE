@@ -64,6 +64,11 @@ const roomSchema = new mongoose.Schema(
       default: false,
     },
     files: [fileSchema],
+    // Binary Yjs state snapshot to prevent text duplication on reconnect/unload
+    ydocState: {
+      type: Buffer,
+      default: null,
+    },
     // Last 20 execution results for this room (NFR-37 compliant — capped in route handler)
     executionHistory: [executionResultSchema],
   },

@@ -101,9 +101,17 @@ async function saveRoomStateToDB(roomUuid, ydoc) {
       };
     });
 
+    const ydocStateUpdate = Y.encodeStateAsUpdate(ydoc);
+    const ydocStateBuffer = Buffer.from(ydocStateUpdate);
+
     await Room.updateOne(
       { uuid: roomUuid },
-      { $set: { files: updatedFiles } }
+      { 
+        $set: { 
+          files: updatedFiles,
+          ydocState: ydocStateBuffer
+        } 
+      }
     );
     console.log(`💾 Persisted room ${roomUuid} state to MongoDB`);
   } catch (err) {
@@ -134,13 +142,19 @@ async function getOrCreateYdoc(roomUuid) {
   const room = await Room.findOne({ uuid: roomUuid });
   const ydoc = new Y.Doc();
 
-  if (room && room.files) {
-    room.files.forEach(file => {
-      const ytext = ydoc.getText(`${roomUuid}:${file.name}`);
-      ydoc.transact(() => {
-        ytext.insert(0, file.content || '');
+  if (room) {
+    if (room.ydocState) {
+      // Restore Yjs document using the binary state update snapshot to preserve clocks and client IDs
+      Y.applyUpdate(ydoc, room.ydocState);
+    } else if (room.files) {
+      // Fallback for legacy rooms or first-time load: populate via text insert
+      room.files.forEach(file => {
+        const ytext = ydoc.getText(`${roomUuid}:${file.name}`);
+        ydoc.transact(() => {
+          ytext.insert(0, file.content || '');
+        });
       });
-    });
+    }
   }
 
   // Auto save on any document update
