@@ -100,7 +100,7 @@ export default function AuthView({ onAuthSuccess }) {
         <div className="w-full max-w-[380px] bg-bg-elevated border border-border-default rounded-radius-lg p-8 shadow-2xl">
           {/* Logo Section */}
           <div className="flex items-center justify-center mb-10 cursor-pointer" onClick={() => window.location.href = '/'}>
-            <img src="/logo.png" className="h-9 object-contain" alt="CollabIDE Logo" />
+            <img src="/logo.png" className="h-16 object-contain" alt="CollabIDE Logo" />
           </div>
 
           {/* Tab Switcher */}

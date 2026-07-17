@@ -86,7 +86,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout }) {
       {/* Top Bar (44px) */}
       <header className="h-[44px] shrink-0 bg-[#121414] border-b border-[#2b2b2b] flex items-center justify-between px-4 z-50">
         <div className="flex items-center cursor-pointer" onClick={() => window.location.href = '/'}>
-          <img src="/logo.png" className="h-6 object-contain" alt="CollabIDE Logo" />
+          <img src="/logo.png" className="h-8 object-contain" alt="CollabIDE Logo" />
         </div>
         <div className="flex items-center gap-4">
           <div
