@@ -61,8 +61,9 @@ const execLimiter = rateLimit({
 // ─── Judge0 Submission (real mode) ────────────────────────────────────────────
 
 /**
- * Submit code to Judge0 CE and poll for the result.
- * Uses the /submissions endpoint with wait=true for simplicity.
+ * Submit code to Judge0 CE synchronously using Base64 encoding.
+ * Uses the /submissions endpoint with wait=true to bypass polling queue limits
+ * and base64_encoded=true to support Unicode characters/emojis (FR-28, NFR-43).
  * @param {object} params
  * @returns {Promise<object>} Judge0 result object
  */
@@ -70,8 +71,11 @@ async function submitToJudge0({ languageId, sourceCode, stdin }) {
   const apiUrl  = process.env.JUDGE0_API_URL;
   const apiKey  = process.env.JUDGE0_API_KEY;
 
-  // Submit
-  const submitRes = await fetch(`${apiUrl}/submissions?base64_encoded=false&wait=false`, {
+  // Base64 encode code and stdin to support emojis/Unicode characters safely
+  const base64Code = Buffer.from(sourceCode || '').toString('base64');
+  const base64Stdin = Buffer.from(stdin || '').toString('base64');
+
+  const res = await fetch(`${apiUrl}/submissions?base64_encoded=true&wait=true`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -80,50 +84,31 @@ async function submitToJudge0({ languageId, sourceCode, stdin }) {
     },
     body: JSON.stringify({
       language_id: languageId,
-      source_code: sourceCode,
-      stdin:        stdin || '',
+      source_code: base64Code,
+      stdin:        base64Stdin,
       ...JUDGE0_LIMITS,
     }),
   });
 
-  if (!submitRes.ok) {
-    const errText = await submitRes.text();
-    throw new Error(`Judge0 submission failed: ${submitRes.status} — ${errText}`);
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Judge0 submission failed: ${res.status} — ${errText}`);
   }
 
-  const { token } = await submitRes.json();
-  if (!token) throw new Error('Judge0 did not return a submission token.');
+  const result = await res.json();
 
-  // Poll until status is not "In Queue" (1) or "Processing" (2)
-  for (let attempt = 0; attempt < 30; attempt++) {
-    await new Promise(r => setTimeout(r, 500)); // 500ms poll interval
+  // Helper to decode Base64 output safely
+  const decodeBase64 = (b64) => {
+    if (!b64) return '';
+    return Buffer.from(b64, 'base64').toString('utf8');
+  };
 
-    const pollRes = await fetch(
-      `${apiUrl}/submissions/${token}?base64_encoded=false&fields=stdout,stderr,status,time,memory`,
-      {
-        headers: {
-          'X-RapidAPI-Key': apiKey,
-          'X-RapidAPI-Host': 'judge0-ce.p.rapidapi.com',
-        },
-      }
-    );
-
-    if (!pollRes.ok) continue;
-
-    const result = await pollRes.json();
-    // status.id 1 = In Queue, 2 = Processing
-    if (result.status && result.status.id > 2) {
-      return result;
-    }
-  }
-
-  // If still not finished after 15s of polling, return a timeout result
   return {
-    stdout: '',
-    stderr: '',
-    status: { description: 'Time Limit Exceeded' },
-    time: '10.0',
-    memory: null,
+    stdout: decodeBase64(result.stdout),
+    stderr: decodeBase64(result.stderr) || decodeBase64(result.compile_output),
+    status: result.status,
+    time: result.time,
+    memory: result.memory,
   };
 }
 
