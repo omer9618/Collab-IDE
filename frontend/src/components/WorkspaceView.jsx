@@ -61,6 +61,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [rightPanelTab, setRightPanelTab] = useState('participants'); // participants, chat
   const [consoleOpen, setConsoleOpen] = useState(true);
+  const [consoleHeight, setConsoleHeight] = useState(200);
   const [consoleTab, setConsoleTab] = useState('output'); // output, terminal, problems
 
   // Code run/output
@@ -317,6 +318,27 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
   // Clear console output
   const handleClearOutput = () => {
     setOutputLines([]);
+  };
+
+  // Resize console height via mouse drag
+  const handleConsoleResize = (e) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startHeight = consoleHeight;
+
+    const doResize = (moveEvent) => {
+      const deltaY = startY - moveEvent.clientY;
+      const newHeight = Math.max(100, Math.min(600, startHeight + deltaY));
+      setConsoleHeight(newHeight);
+    };
+
+    const stopResize = () => {
+      window.removeEventListener('mousemove', doResize);
+      window.removeEventListener('mouseup', stopResize);
+    };
+
+    window.addEventListener('mousemove', doResize);
+    window.addEventListener('mouseup', stopResize);
   };
 
   // Chat message sender
@@ -815,8 +837,14 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
 
           {/* Console / Output area */}
           {consoleOpen && (
-            <section className="h-[200px] border-t border-outline flex flex-col bg-surface-panel relative shrink-0">
-              <div className="absolute top-0 left-0 w-full h-[4px] bg-outline-subtle hover:bg-accent-blue cursor-row-resize transition-colors" />
+             <section 
+               className="border-t border-outline flex flex-col bg-surface-panel relative shrink-0"
+               style={{ height: `${consoleHeight}px` }}
+             >
+               <div 
+                 className="absolute top-0 left-0 w-full h-[4px] bg-outline-subtle hover:bg-accent-blue cursor-row-resize transition-colors" 
+                 onMouseDown={handleConsoleResize}
+               />
               <div className="flex items-center justify-between px-2 h-9 border-b border-outline-subtle">
                 <div className="flex h-full">
                   <button
