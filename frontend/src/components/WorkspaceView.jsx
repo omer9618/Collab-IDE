@@ -844,23 +844,23 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                     Problems
                   </button>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-0.5">
                   <button
-                    className="p-1 text-on-surface-variant hover:text-on-surface rounded"
+                    className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-on-surface rounded transition-colors"
                     onClick={handleCopyOutput}
                     title="Copy Output"
                   >
                     <span className="material-symbols-outlined text-[18px]">content_copy</span>
                   </button>
                   <button
-                    className="p-1 text-on-surface-variant hover:text-on-surface rounded"
+                    className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-on-surface rounded transition-colors"
                     onClick={handleClearOutput}
                     title="Clear Output"
                   >
                     <span className="material-symbols-outlined text-[18px]">delete_sweep</span>
                   </button>
                   <button
-                    className="p-1 text-on-surface-variant hover:text-on-surface rounded"
+                    className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-on-surface rounded transition-colors"
                     onClick={() => setConsoleOpen(false)}
                     title="Minimize Console"
                   >
