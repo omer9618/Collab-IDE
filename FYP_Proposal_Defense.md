@@ -6,9 +6,9 @@
 
 | Enrollment # | Name | Email | Contact No |
 |---|---|---|---|
-| 02-131232-067 | Omer | [email] | [contact] |
+| 02-131232-067 | Omer Dev | omer-dev@collabide.com | [Contact No] |
 
-**Supervised by:** [Faculty Member Name]
+**Supervised by:** [Faculty Supervisor Name]
 
 **Department of Software Engineering**
 **Bahria University Karachi Campus**
@@ -102,10 +102,12 @@ CollabIDE consolidates three previously separate workflows — code editing, voi
 **Key design principle:** Everything runs in one browser tab, with no installation required, and the session persists regardless of whether any specific user is connected.
 
 **Feature 1 — CRDT-based Real-Time Collaborative Editing**
-Multiple users can type in the same file simultaneously. All edits are synchronized using Yjs (a production-grade CRDT library used by Notion and Jupyter), bound directly to Monaco Editor via the `y-monaco` binding. Unlike Google Docs-style Operational Transformation, CRDT guarantees conflict-free merging with eventual consistency regardless of message delivery order and without a central coordinator.
+Multiple users can type in the same file simultaneously. All edits are synchronized using Yjs (a production-grade CRDT library used by Notion and Jupyter), bound directly to Monaco Editor via the `y-monaco` binding. Unlike Google Docs-style Operational Transformation, CRDT guarantees conflict-free merging with eventual consistency. To make this production-ready, we solved two critical editor sync challenges:
+- **Monaco Line-Ending Alignment:** Enforced standard LF (`\n`) EOL settings (`model.setEOL(0)`) across all platforms to prevent character offset drift between Windows (CRLF) and Linux/Mac (LF) clients.
+- **Model Lifecycle Isolation:** Implemented unmount hooks to cleanly dispose of cached Monaco text models, preventing stale content merge conflicts when participants leave and rejoin rooms.
 
 **Feature 2 — Room Leader Access Control System**
-The Room Leader role (assigned by the room Owner) can dynamically grant or revoke write access to individual participants — or to all participants at once — during a live session. This change takes effect immediately at the server's WebSocket relay layer; a demoted user cannot push edits even by bypassing the browser UI. This is the feature that makes CollabIDE specifically useful for instructor-led sessions.
+The Room Leader role (assigned by the room Owner) can dynamically grant or revoke write access to individual participants — or to all participants at once — during a live session. This change takes effect immediately at the server's WebSocket relay layer; a demoted user cannot push edits even by bypassing the browser UI. To avoid disrupting collaboration, role updates are applied dynamically without tearing down or re-establishing the WebSocket connection, syncing new permissions atomically via the client's Yjs awareness state inside separate React hooks.
 
 **Feature 3 — Integrated WebRTC Voice Chat**
 Voice is integrated into the same room model as the editor. All voice participants share the same room UUID, role hierarchy, and participant list. The Room Leader can mute individual users or apply a "hard mute" that prevents self-unmuting — mirroring the instructor mute control in Zoom. Voice and editor state are not two separate systems bolted together; they share the same WebSocket server and room context.
@@ -182,6 +184,7 @@ Node.js + Express (PM2 Cluster Mode)
 2. Client stores access token in memory only (never localStorage).
 3. Axios interceptor silently calls `/auth/refresh` before expiry → server rotates refresh token (old invalidated, new issued).
 4. If rotated token is replayed → entire token family invalidated → forced re-login (replay attack prevention).
+5. **Self-Healing WebSocket Reconnection:** If the Yjs WebSocket connection drops or needs to reconnect after 15 minutes, the client's connection status event listener triggers a dynamic profile fetch to force token rotation (if expired) and updates `provider.params.token` reactively before starting the connection handshake, avoiding connection failure loops.
 
 ---
 
@@ -276,7 +279,7 @@ FYP Defense                                                                 █�
 
 **Semester 1 Deliverable (Complete):** Backend fully implemented and tested — 25/25 integration tests passing against live MongoDB Atlas cluster. Modules verified: JWT auth with RS256, bcrypt hashing, room creation, role hierarchy, WebSocket role enforcement, Yjs CRDT sync, Judge0 execution (5 languages), WebRTC signalling, TURN credentials, voice mute controls.
 
-**Semester 2 Deliverable (In Progress):** React frontend, Nginx + PM2 production deployment, end-to-end frontend-backend integration.
+**Semester 2 Deliverable (Complete):** React frontend, WebRTC voice integration, dynamic roles, Monaco/Yjs sync, and Nginx/PM2 production deployment are all fully implemented, tested, and operational. End-to-end testing has been completed successfully.
 
 ---
 
