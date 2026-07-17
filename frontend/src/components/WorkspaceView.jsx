@@ -306,6 +306,19 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
     }
   };
 
+  // Copy console output to clipboard
+  const handleCopyOutput = () => {
+    const textToCopy = outputLines.map(line => line.text).join('\n');
+    if (textToCopy) {
+      navigator.clipboard.writeText(textToCopy);
+    }
+  };
+
+  // Clear console output
+  const handleClearOutput = () => {
+    setOutputLines([]);
+  };
+
   // Chat message sender
   const handleSendChat = () => {
     if (!chatInput.trim() || !ydoc) return;
@@ -601,9 +614,18 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
             onClick={handleRunCode}
             disabled={isRunning || role === 'Viewer'}
             className="flex items-center gap-1.5 px-3 py-1 bg-accent-blue text-white text-sm font-medium rounded-md hover:opacity-90 transition-all disabled:opacity-50"
+          </button>
+
+          <button
+            onClick={() => setConsoleOpen(!consoleOpen)}
+            className={`flex items-center gap-1.5 px-3 py-1 text-sm font-medium rounded-md border transition-all ${
+              consoleOpen
+                ? 'bg-surface-elevated text-accent-blue border-accent-blue'
+                : 'text-on-surface-variant border-outline hover:text-on-surface hover:bg-surface-elevated'
+            }`}
           >
-            <span className="material-symbols-outlined text-[18px]">play_arrow</span>
-            <span>Run</span>
+            <span className="material-symbols-outlined text-[18px]">terminal</span>
+            <span>Terminal</span>
           </button>
 
           <div className="text-sm text-on-surface-variant bg-surface-elevated px-2.5 py-1 rounded border border-outline">
@@ -822,12 +844,29 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                     Problems
                   </button>
                 </div>
-                <button
-                  className="p-1 text-on-surface-variant hover:text-on-surface rounded"
-                  onClick={() => setConsoleOpen(false)}
-                >
-                  <span className="material-symbols-outlined text-[18px]">keyboard_arrow_down</span>
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    className="p-1 text-on-surface-variant hover:text-on-surface rounded"
+                    onClick={handleCopyOutput}
+                    title="Copy Output"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">content_copy</span>
+                  </button>
+                  <button
+                    className="p-1 text-on-surface-variant hover:text-on-surface rounded"
+                    onClick={handleClearOutput}
+                    title="Clear Output"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">delete_sweep</span>
+                  </button>
+                  <button
+                    className="p-1 text-on-surface-variant hover:text-on-surface rounded"
+                    onClick={() => setConsoleOpen(false)}
+                    title="Minimize Console"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">keyboard_arrow_down</span>
+                  </button>
+                </div>
               </div>
 
               <div className="flex-1 p-4 font-code text-[12px] overflow-y-auto bg-[#0d0e0f]">
