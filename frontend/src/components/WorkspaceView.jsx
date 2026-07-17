@@ -113,6 +113,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
   const monacoBindingRef = useRef(null);
   const voiceSocketRef = useRef(null);
   const peerConnectionsRef = useRef(new Map()); // socketId -> RTCPeerConnection
+  const roomRef = useRef(null);
   const audioElementsRef = useRef(new Map()); // socketId -> HTMLAudioElement
 
   // REST details refresh
@@ -133,6 +134,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
           }
         }
         setRoom(details.room);
+        roomRef.current = details.room;
         setRole(details.myRole);
         setFiles(details.room.files || []);
 
@@ -172,6 +174,23 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
       params: { token: getToken() },
     });
     setProvider(providerInstance);
+
+    const yfilesInstance = yDocInstance.getArray(`${roomUuid}:files`);
+    const updateFilesFromYjs = () => {
+      const currentNames = yfilesInstance.toArray();
+      if (currentNames.length > 0) {
+        setFiles(currentNames.map(name => ({ name })));
+      }
+    };
+    yfilesInstance.observe(updateFilesFromYjs);
+
+    providerInstance.on('sync', (isSynced) => {
+      if (isSynced) {
+        if (yfilesInstance.length === 0 && roomRef.current?.files) {
+          yfilesInstance.push(roomRef.current.files.map(f => f.name));
+        }
+      }
+    });
 
 
 
@@ -231,6 +250,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
         monacoBindingRef.current.destroy();
         monacoBindingRef.current = null;
       }
+      yfilesInstance.unobserve(updateFilesFromYjs);
       providerInstance.destroy();
       yDocInstance.destroy();
       setYdoc(null);
@@ -363,6 +383,39 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
 
     window.addEventListener('mousemove', doResize);
     window.addEventListener('mouseup', stopResize);
+  };
+
+  // Create new file dynamically and sync via Yjs shared array
+  const handleCreateFile = () => {
+    if (role === 'Viewer') {
+      alert('Viewers cannot create files. Ask the Room Leader to promote you to Editor.');
+      return;
+    }
+
+    if (!ydoc) return;
+
+    const newFileName = prompt('Enter new file name (e.g. index.js):');
+    if (!newFileName || !newFileName.trim()) return;
+
+    const trimmed = newFileName.trim();
+
+    // Basic filename safety validation
+    if (!/^[a-zA-Z0-9_\-\.]+$/.test(trimmed)) {
+      alert('Invalid file name. Only alphanumeric characters, dashes, underscores, and dots are allowed.');
+      return;
+    }
+
+    const yfiles = ydoc.getArray(`${roomUuid}:files`);
+    if (yfiles.toArray().includes(trimmed)) {
+      alert('A file with this name already exists.');
+      return;
+    }
+
+    // Push new file name to shared Yjs array (broadcasts automatically to all room clients)
+    yfiles.push([trimmed]);
+    
+    // Switch active tab view to the newly created file
+    setActiveFile(trimmed);
   };
 
   // Chat message sender
@@ -769,7 +822,11 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                 <span className="text-[11px] text-on-surface-muted">{room?.name || 'Workspace'} · {role}</span>
               </div>
               <div className="flex gap-1">
-                <button className="p-1 text-on-surface-muted hover:text-on-surface rounded">
+                <button 
+                  className="p-1 text-on-surface-muted hover:text-on-surface rounded"
+                  onClick={handleCreateFile}
+                  title="New File"
+                >
                   <span className="material-symbols-outlined text-[18px]">note_add</span>
                 </button>
               </div>

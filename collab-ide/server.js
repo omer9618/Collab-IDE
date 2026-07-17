@@ -93,10 +93,14 @@ async function saveRoomStateToDB(roomUuid, ydoc) {
     const room = await Room.findOne({ uuid: roomUuid });
     if (!room) return;
 
-    const updatedFiles = room.files.map(file => {
-      const ytext = ydoc.getText(`${roomUuid}:${file.name}`);
+    // Extract files list from Yjs shared files array (dynamic source of truth)
+    const yfiles = ydoc.getArray(`${roomUuid}:files`);
+    const fileNames = yfiles.length > 0 ? yfiles.toArray() : room.files.map(f => f.name);
+
+    const updatedFiles = fileNames.map(name => {
+      const ytext = ydoc.getText(`${roomUuid}:${name}`);
       return {
-        name: file.name,
+        name,
         content: ytext.toString()
       };
     });
@@ -148,6 +152,10 @@ async function getOrCreateYdoc(roomUuid) {
       Y.applyUpdate(ydoc, room.ydocState);
     } else if (room.files) {
       // Fallback for legacy rooms or first-time load: populate via text insert
+      const yfiles = ydoc.getArray(`${roomUuid}:files`);
+      const fileNames = room.files.map(f => f.name);
+      yfiles.push(fileNames);
+
       room.files.forEach(file => {
         const ytext = ydoc.getText(`${roomUuid}:${file.name}`);
         ydoc.transact(() => {
