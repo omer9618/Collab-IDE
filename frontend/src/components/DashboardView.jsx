@@ -86,9 +86,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout }) {
       {/* Top Bar (44px) */}
       <header className="h-[44px] shrink-0 bg-[#121414] border-b border-[#2b2b2b] flex items-center justify-between px-4 z-50">
         <div className="flex items-center gap-2 cursor-pointer">
-          <div className="w-5 h-5 bg-accent-blue rounded-sm flex items-center justify-center">
-            <span className="material-symbols-outlined text-[14px] text-white">code</span>
-          </div>
+          <img src="/logo.png" className="w-5 h-5 object-contain rounded-sm" alt="CollabIDE Logo" />
           <span className="font-semibold text-text-base text-accent-blue tracking-tight">CollabIDE</span>
         </div>
         <div className="flex items-center gap-4">

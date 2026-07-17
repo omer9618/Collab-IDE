@@ -100,7 +100,7 @@ export default function AuthView({ onAuthSuccess }) {
         <div className="w-full max-w-[380px] bg-bg-elevated border border-border-default rounded-radius-lg p-8 shadow-2xl">
           {/* Logo Section */}
           <div className="flex items-center justify-center space-x-2 mb-10">
-            <span className="material-symbols-outlined text-accent-blue text-[24px]">code</span>
+            <img src="/logo.png" className="w-6 h-6 object-contain rounded-sm" alt="CollabIDE Logo" />
             <span className="text-[20px] font-semibold text-accent-blue">CollabIDE</span>
           </div>
 

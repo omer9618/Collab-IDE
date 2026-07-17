@@ -573,9 +573,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
       <header className="h-[44px] shrink-0 bg-surface border-b border-outline-subtle flex items-center justify-between px-3 z-40">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => { leaveVoice(); onBack(); }}>
-            <div className="w-5 h-5 bg-accent-blue rounded-sm flex items-center justify-center">
-              <span className="material-symbols-outlined text-[14px] text-white">code</span>
-            </div>
+            <img src="/logo.png" className="w-5 h-5 object-contain rounded-sm" alt="CollabIDE Logo" />
             <span className="font-semibold text-base tracking-tight text-on-surface">CollabIDE</span>
           </div>
           <div className="h-4 w-px bg-outline mx-1" />
