@@ -614,6 +614,9 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
             onClick={handleRunCode}
             disabled={isRunning || role === 'Viewer'}
             className="flex items-center gap-1.5 px-3 py-1 bg-accent-blue text-white text-sm font-medium rounded-md hover:opacity-90 transition-all disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined text-[18px]">play_arrow</span>
+            <span>Run</span>
           </button>
 
           <button
