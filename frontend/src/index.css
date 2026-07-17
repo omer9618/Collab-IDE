@@ -44,3 +44,9 @@ body {
   border-bottom: 2px solid var(--accent-blue);
   height: 100%;
 }
+
+/* Hide native MS Edge/IE reveal password and clear buttons */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
