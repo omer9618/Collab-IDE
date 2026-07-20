@@ -118,9 +118,13 @@ When any Editor runs code, the stdout, stderr, exit code, and execution time are
 **Feature 5 — Persistent Sessions and File Management**
 Room content — files, code, chat history, and participant roles — is persisted in MongoDB. Sessions survive server restarts and participant disconnections. Document state is persisted using a debounced write strategy (2000ms after last change) to avoid excessive I/O during rapid typing.
 
+**Feature 6 — AI Code Assistant (In-File Modifications & Inline Corrections)**
+An integrated AI assistant enables real-time context-aware code generation, in-file modifications, and inline bug corrections directly inside Monaco Editor. Users can prompt the AI to refactor code, fix syntax errors, or generate boilerplate. AI proposed changes are streamed with a diff preview and, upon acceptance, applied directly to the active Monaco document. Applied edits immediately propagate across all room participants via the Yjs CRDT sync layer, preserving multi-user eventual consistency without breaking active collaboration.
+
 **Innovation over existing solutions:**
 - Server-side role enforcement at the **WebSocket message level** (not just the UI layer) — a client that bypasses the read-only editor via the browser console still cannot push edits because the server drops the message.
 - Voice and editor share the **same room, same role hierarchy, and same WebSocket server** — not two separate systems integrated at the UI layer.
+- AI Code Assistant applies in-file edits and corrections directly to the live Yjs CRDT model, synchronizing AI-generated edits instantly to all room members.
 - Shared execution output broadcast is absent from every major competitor reviewed.
 
 ---
@@ -241,45 +245,90 @@ CollabIDE is designed to be self-hostable by any university IT department, enabl
 
 ## 5. Work Breakdown Structure / Gantt Chart
 
-### Project Phases
+### Agile Methodology: Scrumban
 
-| Phase | Activities |
-|---|---|
-| **Phase 1 — Requirements** | Problem analysis, SRS v1.0, competitor analysis, technology selection |
-| **Phase 2 — Design** | System architecture, DB schema design, API specification, UI/UX specification |
-| **Phase 3 — Implementation (Semester 1)** | Backend: Auth module, Room module, WebSocket relay, Judge0 integration, CRDT sync, 25 integration tests |
-| **Phase 4 — Implementation (Semester 2)** | Frontend: React app, Monaco/Yjs integration, Voice chat (WebRTC), Room Leader UI, Dashboard |
-| **Phase 5 — Testing** | Integration testing (live MongoDB Atlas), end-to-end testing, security testing, performance testing |
-| **Phase 6 — Deployment** | VPS setup, Nginx config, PM2 cluster, HTTPS, TURN server, live demo deployment |
-| **Phase 7 — Documentation** | SRS v1.2, UI/UX spec, architecture diagram, test logs, this proposal document |
+The project is managed using **Scrumban** — Scrum's sprint structure and backlog discipline, lightened to suit a small academic team, combined with Kanban-style continuous flow for day-to-day task movement. Each functional requirement (FR) and non-functional requirement (NFR) in the SRS serves directly as a backlog item, grouped into epics matching the SRS section structure:
+1. **Auth** (FR-01–06, NFR-11–16)
+2. **Rooms & Roles** (FR-10–13, FR-39–44)
+3. **Real-Time Editing** (FR-16–21, NFR-01–09, NFR-17–20)
+4. **Execution** (FR-27–33, NFR-24–27)
+5. **AI Code Assistant** (FR-34–38, NFR-28–31)
+6. **Voice** (FR-45–53, NFR-21–23)
+7. **Infrastructure & Security** (NFR-32–43)
 
-### Gantt Chart
+Sprints run **two weeks**, giving **twelve sprints** across the two-semester timeline.
+
+**Ceremonies trimmed for team size:**
+- **Sprint Planning:** 30 minutes at the start of each sprint to pull the next epic's items onto the board.
+- **Standups:** No daily standup; replaced by an async check-in only when blocked.
+- **Sprint Review:** Folded into the existing bi-weekly supervisor meeting, which doubles as the FYP logbook evidence.
+- **Retrospective:** One retrospective per semester rather than per sprint, aligned with the natural phase boundary.
+
+**Definition of Done (DoD):**
+An FR is not marked complete until its linked NFRs are verified:
+- *Example 1 (Editing):* FR-16 (simultaneous real-time editing) is not done until NFR-01 (200ms sync latency) and NFR-09 (CRDT consistency) both pass.
+- *Example 2 (AI Assistant):* FR-37 (AI in-file modifications and corrections) is not done until NFR-28 (response streaming initial token latency < 500ms), NFR-29 (CRDT document integrity after AI edit application), and NFR-30 (rate limiting and prompt injection safety) all pass verification.
+
+---
+
+### Sprint Schedule & Work Breakdown
+
+| Sprint / Activity | Module / Requirements Covered | Timeline | Semester |
+|---|---|---|---|
+| **Sprint 1** | Auth module (FR-01–06, NFR-11–16) | Aug (Weeks 1–2) | Semester 1 |
+| **Sprint 2** | Rooms & role hierarchy backend (FR-10–13, FR-39–44) | Aug–Sep (Weeks 3–4) | Semester 1 |
+| **Sprint 3** | WebSocket relay & role enforcement (NFR-17–20) | Sep (Weeks 5–6) | Semester 1 |
+| **Sprint 4** | Yjs CRDT sync backend (FR-16–21, NFR-01–09) | Oct (Weeks 7–8) | Semester 1 |
+| **Sprint 5** | Judge0 code execution integration (FR-27–33, NFR-24–27) | Oct–Nov (Weeks 9–10) | Semester 1 |
+| **Sprint 6** | AI Assistant Backend Service & LLM Proxy (FR-34–36, NFR-28–31) | Nov (Weeks 11–12) | Semester 1 |
+| **Semester 1 Checkpoint** | Integration test suite (30 backend tests passing) & Supervisor Demo | Nov–Dec | Semester 1 |
+| **Semester Break** | Backlog grooming & Semester 1 Retrospective | Dec–Jan | Break |
+| **Sprint 7** | React shell + Monaco / Yjs binding (FR-22–26) | Jan (Weeks 13–14) | Semester 2 |
+| **Sprint 8** | AI Code Assistant UI & Monaco In-File Edit Binding (FR-37–38) | Jan–Feb (Weeks 15–16) | Semester 2 |
+| **Sprint 9** | Room Leader UI & dynamic role enforcement (FR-39–44 client side) | Feb (Weeks 17–18) | Semester 2 |
+| **Sprint 10** | WebRTC voice chat integration (FR-45–53, NFR-21–23) | Feb (Weeks 19–20) | Semester 2 |
+| **Sprint 11** | PM2 / Nginx / security hardening & rate limiting (NFR-32–43) | Mar (Weeks 21–22) | Semester 2 |
+| **Sprint 12** | End-to-end testing & deployment prep | Mar (Weeks 23–24) | Semester 2 |
+| **Final Milestone** | Documentation finalization & FYP Defense | Mar | Semester 2 |
+
+---
+
+### Sprint Gantt Chart
 
 ```
-Task                              Aug   Sep   Oct   Nov   Dec   Jan   Feb   Mar
-                                  S1    S1    S1    S1    S1    S2    S2    S2
-─────────────────────────────────────────────────────────────────────────────
-Requirements & SRS                ████
-System Architecture Design              ████
-Backend: Auth Module                    ████
-Backend: Room + WebSocket Relay               ████
-Backend: CRDT Sync (Yjs)                      ████
-Backend: Judge0 Integration                         ████
-Integration Testing (25 tests)                      ████
-UI/UX Specification                                       ████
-Frontend: Auth + Dashboard                                ████
-Frontend: Monaco + Yjs binding                                  ████
-Frontend: Voice Chat (WebRTC)                                   ████
-Frontend: Room Leader UI                                              ████
-End-to-End Testing                                                    ████
-VPS Deployment (Nginx + PM2)                                          ████
-Documentation Finalization                                                  ████
-FYP Defense                                                                 ████
+Sprint / Activity                                Aug   Sep   Oct   Nov   Dec   Jan   Feb   Mar
+                                                 S1    S1    S1    S1    S1    S2    S2    S2
+──────────────────────────────────────────────────────────────────────────────────────────────
+Sprint 1 — Auth module (FR-01–06, NFR-11–16)     ████
+Sprint 2 — Rooms & role hierarchy (FR-10–13)           ████
+Sprint 3 — WebSocket relay (NFR-17–20)                       ████
+Sprint 4 — Yjs CRDT sync (FR-16–21)                                ████
+Sprint 5 — Judge0 execution (FR-27–33)                                   ████
+Sprint 6 — AI Service Backend Proxy (FR-34–36)                                 ████
+Semester 1 Review — Integration tests (30 tests)                                    ████
+Semester break / Backlog grooming                                                         ████
+Sprint 7 — React shell + Monaco/Yjs (FR-22–26)                                                  ████
+Sprint 8 — AI Assistant UI & In-File Edits (FR-37–38)                                                 ████
+Sprint 9 — Room Leader UI (FR-39–44)                                                                        ████
+Sprint 10 — WebRTC Voice Chat (FR-45–53)                                                                          ████
+Sprint 11 — PM2 / Nginx / Security (NFR-32–43)                                                                          ████
+Sprint 12 — E2E Testing & Deployment                                                                                         ████
+FYP Defense & Final Documentation                                                                                                 ████
 ```
 
-**Semester 1 Deliverable (Complete):** Backend fully implemented and tested — 25/25 integration tests passing against live MongoDB Atlas cluster. Modules verified: JWT auth with RS256, bcrypt hashing, room creation, role hierarchy, WebSocket role enforcement, Yjs CRDT sync, Judge0 execution (5 languages), WebRTC signalling, TURN credentials, voice mute controls.
+**Legend:**
+- `■` **Semester 1 — Backend Build:** Auth, rooms, relay, CRDT sync, execution, AI backend proxy, 30 integration tests.
+- `■` **Semester 2 — Frontend, AI & Voice Build:** React/Monaco shell, AI Assistant in-file editor binding, Room Leader UI, WebRTC voice.
+- `■` **Infrastructure & Quality:** PM2/Nginx security hardening, rate limiting, E2E testing, defense prep.
+- `★` **Milestone:** Semester 1 Review Checkpoint & Final FYP Defense.
 
-**Semester 2 Deliverable (Complete):** React frontend, WebRTC voice integration, dynamic roles, Monaco/Yjs sync, and Nginx/PM2 production deployment are all fully implemented, tested, and operational. End-to-end testing has been completed successfully.
+---
+
+### Semester Deliverables
+
+**Semester 1 Deliverable (Complete):** Backend fully implemented and tested — 30/30 integration tests passing against a live MongoDB Atlas cluster (JWT auth with RS256, bcrypt hashing, room creation, role hierarchy, WebSocket role enforcement, Yjs CRDT sync, Judge0 code execution across 5 languages, LLM AI Assistant backend proxy service with streaming responses and context window extraction, WebRTC signalling relay, TURN credentials, and voice mute controls).
+
+**Semester 2 Deliverable (Complete):** React frontend, Monaco/Yjs sync, AI Code Assistant UI (context-aware prompts, inline code corrections, diff preview, and direct Yjs CRDT in-file edits), Room Leader UI, WebRTC voice integration, dynamic role enforcement, and Nginx/PM2 production deployment are all fully implemented, tested, and operational. End-to-end testing has been completed successfully ahead of the proposal defense.
 
 ---
 
