@@ -5,7 +5,7 @@
  * Automatically handles JWT header attachment.
  */
 
-const API_BASE = '/api';
+const API_BASE = 'https://collabide-backend-avau.onrender.com/api';
 
 let accessToken = localStorage.getItem('token') || null;
 
