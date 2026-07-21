@@ -11,4 +11,4 @@ services:
       - key: PORT
         value: 5000
       - key: MONGODB_URI
-        value: "mongodb://Omerdb:omerdb9090@ac-2q1l5ak-shard-00-00.bu4pxqj.mongodb.net:27017,ac-2q1l5ak-shard-00-01.bu4pxqj.mongodb.net:27017,ac-2q1l5ak-shard-00-02.bu4pxqj.mongodb.net:27017/collabide?ssl=true&replicaSet=atlas-13o6f3-shard-0&authSource=admin&retryWrites=true&w=majority"
+        value: "mongodb://Omerdb:omerdb9090@ac-2q1l5ak-shard-00-00.bu4pxqj.mongodb.net:27017,ac-2q1l5ak-shard-00-01.bu4pxqj.mongodb.net:27017,ac-2q1l5ak-shard-00-02.bu4pxqj.mongodb.net:27017/collabide?ssl=true&replicaSet=atlas-vy5m0v-shard-0&authSource=admin&appName=Cluster0"
