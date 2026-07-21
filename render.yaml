@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: collabide-backend
+    env: node
+    rootDir: collab-ide
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: MONGODB_URI
+        value: "mongodb://Omerdb:omerdb9090@ac-2q1l5ak-shard-00-00.bu4pxqj.mongodb.net:27017,ac-2q1l5ak-shard-00-01.bu4pxqj.mongodb.net:27017,ac-2q1l5ak-shard-00-02.bu4pxqj.mongodb.net:27017/collabide?ssl=true&replicaSet=atlas-13o6f3-shard-0&authSource=admin&retryWrites=true&w=majority"
