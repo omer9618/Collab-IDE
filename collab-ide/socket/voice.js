@@ -54,6 +54,7 @@ function serializeParticipants(voiceRoom) {
     isMuted:      p.isMuted,
     isHardMuted:  p.isHardMuted,
     joinedAt:     p.joinedAt,
+    socketId:     p.socketId,
   }));
 }
 

@@ -54,7 +54,7 @@ export default function AuthView({ onAuthSuccess }) {
     <div className="flex flex-row items-stretch overflow-hidden h-screen w-full bg-bg-base font-ui">
       {/* Left side: Brand Panel (55%) */}
       <aside className="hidden lg:flex flex-col w-[55%] bg-bg-base p-16 justify-center items-center">
-        <div class="max-w-[520px] ml-auto space-y-12 mx-auto">
+        <div className="max-w-[520px] ml-auto space-y-12 mx-auto">
           <div className="space-y-4">
             <h1 className="text-[36px] font-semibold leading-[44px] text-text-primary">
               Code together,<br />in real time.

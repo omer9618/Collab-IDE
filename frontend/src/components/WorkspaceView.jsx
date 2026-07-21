@@ -71,12 +71,61 @@ module.exports = { formatDate };`,
   'README.md': `# CollabIDE Room\nCollaborate and execute code live!`,
 };
 
+/**
+ * Converts a flat array of file path strings into a nested tree structure.
+ * e.g. ['src/main.js', 'README.md'] ->
+ *   [ { type:'folder', name:'src', path:'src', children:[{type:'file',name:'main.js',path:'src/main.js'}] },
+ *     { type:'file', name:'README.md', path:'README.md' } ]
+ */
+function buildFileTree(files) {
+  const root = [];
+  files.forEach(file => {
+    const fullPath = file.name || file;
+    const parts = fullPath.split('/');
+    if (parts.length === 1) {
+      root.push({ type: 'file', name: parts[0], path: parts[0] });
+    } else {
+      let current = root;
+      let currentPath = '';
+      for (let i = 0; i < parts.length - 1; i++) {
+        const folderName = parts[i];
+        currentPath = currentPath ? `${currentPath}/${folderName}` : folderName;
+        let folder = current.find(n => n.type === 'folder' && n.name === folderName);
+        if (!folder) {
+          folder = { type: 'folder', name: folderName, path: currentPath, children: [] };
+          current.push(folder);
+        }
+        current = folder.children;
+      }
+      const fileName = parts[parts.length - 1];
+      if (fileName !== '.gitkeep') {
+        current.push({ type: 'file', name: fileName, path: fullPath });
+      }
+    }
+  });
+  return root;
+}
+
 export default function WorkspaceView({ roomUuid, user, onBack }) {
   const [room, setRoom] = useState(null);
   const [role, setRole] = useState('Viewer');
   const [files, setFiles] = useState([]);
+  const [openedFiles, setOpenedFiles] = useState([]);
   const [isCreatingFile, setIsCreatingFile] = useState(false);
   const [newFileNameInput, setNewFileNameInput] = useState('');
+  const [renamingFileName, setRenamingFileName] = useState(null);
+  const [renameInputVal, setRenameInputVal] = useState('');
+  const [activeFileMenu, setActiveFileMenu] = useState(null);
+  const [deleteConfirmFile, setDeleteConfirmFile] = useState(null);
+  const [isLastFileWarning, setIsLastFileWarning] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null); // { text, type: 'success'|'error'|'warning'|'info' }
+  const toastTimerRef = useRef(null);
+
+  const showToast = (text, type = 'success') => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToastMessage({ text, type });
+    toastTimerRef.current = setTimeout(() => setToastMessage(null), 2500);
+  };
   const [activeFile, setActiveFile] = useState('main.js');
   const [isSyncing, setIsSyncing] = useState(true);
   const [syncStatus, setSyncStatus] = useState('Connecting…');
@@ -86,6 +135,15 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [rightPanelTab, setRightPanelTab] = useState('participants'); // participants, chat
+  const [isOnlineListOpen, setIsOnlineListOpen] = useState(true);
+  const [isFilesTreeOpen, setIsFilesTreeOpen] = useState(true);
+  const [activeMenuDropdown, setActiveMenuDropdown] = useState(null);
+  // Folder support state
+  const [expandedFolders, setExpandedFolders] = useState(new Set());
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [newFolderNameInput, setNewFolderNameInput] = useState('');
+  const [createInsideFolder, setCreateInsideFolder] = useState('');
+  const [folderMenuTarget, setFolderMenuTarget] = useState(null); // { path, x, y }
   const [consoleOpen, setConsoleOpen] = useState(true);
   const [consoleHeight, setConsoleHeight] = useState(200);
   const [consoleTab, setConsoleTab] = useState('output'); // output, terminal, problems
@@ -168,10 +226,8 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
     const yDocInstance = new Y.Doc();
     setYdoc(yDocInstance);
 
-    // Connect directly to backend for WebSocket (Vite proxy can drop WS upgrades)
-    const wsUrl = window.location.hostname === 'localhost'
-      ? 'ws://localhost:3000'
-      : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
+    // Connect directly to public backend for WebSocket
+    const wsUrl = 'wss://70489dd616f14c3d-103-25-138-13.serveousercontent.com';
 
     const providerInstance = new WebsocketProvider(wsUrl, roomUuid, yDocInstance, {
       params: { token: getToken() },
@@ -188,20 +244,6 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
       }
     };
     yfilesInstance.observe(updateFilesFromYjs);
-
-    providerInstance.on('sync', (isSynced) => {
-      if (isSynced && roomRef.current?.files) {
-        const current = yfilesInstance.toArray();
-        const toAdd = roomRef.current.files
-          .map(f => f.name)
-          .filter(name => !current.includes(name));
-        if (toAdd.length > 0) {
-          yfilesInstance.push(toAdd);
-        }
-      }
-    });
-
-
 
     providerInstance.on('status', ({ status }) => {
       if (status === 'connecting') {
@@ -279,6 +321,15 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
     }
   }, [provider, role, user]);
 
+  // Open first file by default on initial workspace load
+  useEffect(() => {
+    if (files.length > 0 && openedFiles.length === 0) {
+      const firstFile = files[0].name;
+      setOpenedFiles([firstFile]);
+      setActiveFile(firstFile);
+    }
+  }, [files]);
+
   // Cleanup Monaco models on unmount to prevent state-reuse conflicts when re-joining room
   useEffect(() => {
     return () => {
@@ -295,6 +346,37 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
   const handleEditorDidMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
+
+    // Enforce read-only behavior by intercepting keyboard events, bypassing y-monaco readOnly lock issues
+    editor.onKeyDown((e) => {
+      if (window._collabIdeReadOnly) {
+        // Allow navigation keys
+        const allowedKeys = [
+          monaco.KeyCode.UpArrow, monaco.KeyCode.DownArrow,
+          monaco.KeyCode.LeftArrow, monaco.KeyCode.RightArrow,
+          monaco.KeyCode.PageUp, monaco.KeyCode.PageDown,
+          monaco.KeyCode.Home, monaco.KeyCode.End,
+          monaco.KeyCode.Escape
+        ];
+        
+        // Allow Ctrl+C, Ctrl+A, Ctrl+F
+        if (e.ctrlKey || e.metaKey) {
+          if (
+            e.keyCode === monaco.KeyCode.KeyC || 
+            e.keyCode === monaco.KeyCode.KeyA || 
+            e.keyCode === monaco.KeyCode.KeyF
+          ) {
+            return;
+          }
+        }
+        
+        if (!allowedKeys.includes(e.keyCode)) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }
+    });
+
     bindEditorModel(activeFile);
   };
 
@@ -335,10 +417,14 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
 
     try {
       const code = editorRef.current.getValue();
-      const language = activeFile.endsWith('.js')
-        ? 'javascript'
-        : activeFile.endsWith('.py')
+      const language = activeFile.endsWith('.py')
         ? 'python'
+        : activeFile.endsWith('.java')
+        ? 'java'
+        : (activeFile.endsWith('.cpp') || activeFile.endsWith('.cc'))
+        ? 'cpp'
+        : activeFile.endsWith('.c')
+        ? 'c'
         : 'javascript';
 
       const result = await apiRunCode(roomUuid, { code, language });
@@ -364,7 +450,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
   const handleCopyOutput = () => {
     const textToCopy = outputLines.map(line => line.text).join('\n');
     if (textToCopy) {
-      navigator.clipboard.writeText(textToCopy);
+      navigator.clipboard.writeText(textToCopy).then(() => showToast('Console output copied!', 'success')).catch(() => showToast('Failed to copy output', 'error'));
     }
   };
 
@@ -395,15 +481,85 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
   };
 
   // Create new file dynamically (VS Code style inline creation)
-  const handleCreateFile = () => {
+  const handleCreateFile = (parentFolderPath = '') => {
     if (role === 'Viewer') {
-      alert('Viewers cannot create files. Ask the Room Leader to promote you to Editor.');
+      showToast('Viewers cannot create files. Ask the Room Leader to promote you.', 'warning');
       return;
     }
     if (!ydoc) return;
+    setCreateInsideFolder(parentFolderPath);
     setIsCreatingFile(true);
     setNewFileNameInput('');
     isCommittingFileRef.current = false;
+    // Auto-expand the target folder
+    if (parentFolderPath) {
+      setExpandedFolders(prev => new Set([...prev, parentFolderPath]));
+    }
+  };
+
+  // Create new folder (inserts a .gitkeep placeholder to represent it)
+  const handleCreateFolder = (parentFolderPath = '') => {
+    if (role === 'Viewer') {
+      showToast('Viewers cannot create folders.', 'warning');
+      return;
+    }
+    if (!ydoc) return;
+    setCreateInsideFolder(parentFolderPath);
+    setIsCreatingFolder(true);
+    setNewFolderNameInput('');
+    if (parentFolderPath) {
+      setExpandedFolders(prev => new Set([...prev, parentFolderPath]));
+    }
+  };
+
+  const handleCommitNewFolder = () => {
+    const trimmed = newFolderNameInput.trim();
+    if (!trimmed) {
+      setIsCreatingFolder(false);
+      return;
+    }
+    if (!/^[a-zA-Z0-9_\-]+$/.test(trimmed)) {
+      showToast('Invalid folder name. Only letters, numbers, dashes, and underscores allowed.', 'error');
+      setTimeout(() => document.getElementById('new-folder-input')?.focus(), 50);
+      return;
+    }
+    const folderPath = createInsideFolder ? `${createInsideFolder}/${trimmed}` : trimmed;
+    const placeholderPath = `${folderPath}/.gitkeep`;
+    const yfiles = ydoc.getArray(`${roomUuid}:files`);
+    if (yfiles.toArray().some(f => f === placeholderPath || f.startsWith(`${folderPath}/`))) {
+      showToast('A folder with this name already exists.', 'warning');
+      setTimeout(() => document.getElementById('new-folder-input')?.focus(), 50);
+      return;
+    }
+    yfiles.push([placeholderPath]);
+    setExpandedFolders(prev => new Set([...prev, folderPath]));
+    setIsCreatingFolder(false);
+    setNewFolderNameInput('');
+  };
+
+  const handleNewFolderKeyDown = (e) => {
+    if (e.key === 'Enter') handleCommitNewFolder();
+    else if (e.key === 'Escape') { setIsCreatingFolder(false); setNewFolderNameInput(''); }
+  };
+
+  const handleDeleteFolder = (folderPath) => {
+    if (role === 'Viewer') return;
+    const yfiles = ydoc.getArray(`${roomUuid}:files`);
+    const fileNames = yfiles.toArray();
+    const indices = fileNames
+      .map((name, idx) => ({ name, idx }))
+      .filter(({ name }) => name === `${folderPath}/.gitkeep` || name.startsWith(`${folderPath}/`))
+      .map(({ idx }) => idx);
+    ydoc.transact(() => {
+      [...indices].sort((a, b) => b - a).forEach(idx => yfiles.delete(idx, 1));
+    });
+    setOpenedFiles(prev => prev.filter(f => !f.startsWith(`${folderPath}/`)));
+    if (activeFile.startsWith(`${folderPath}/`)) {
+      const remaining = fileNames.filter(f => !f.startsWith(`${folderPath}/`) && f !== `${folderPath}/.gitkeep`);
+      setActiveFile(remaining[0] || '');
+    }
+    setExpandedFolders(prev => { const s = new Set(prev); s.delete(folderPath); return s; });
+    showToast(`Folder "${folderPath.split('/').pop()}" deleted`, 'success');
   };
 
   const handleCommitNewFile = () => {
@@ -419,7 +575,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
 
     // Basic filename safety validation
     if (!/^[a-zA-Z0-9_\-\.]+$/.test(trimmed)) {
-      alert('Invalid file name. Only alphanumeric characters, dashes, underscores, and dots are allowed.');
+      showToast('Invalid file name. Only alphanumeric, dashes, underscores, and dots allowed.', 'error');
       isCommittingFileRef.current = false;
       setTimeout(() => {
         document.getElementById('new-file-input')?.focus();
@@ -428,8 +584,10 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
     }
 
     const yfiles = ydoc.getArray(`${roomUuid}:files`);
-    if (yfiles.toArray().includes(trimmed)) {
-      alert('A file with this name already exists.');
+    // Build full path (prefix with parent folder if creating inside one)
+    const fullPath = createInsideFolder ? `${createInsideFolder}/${trimmed}` : trimmed;
+    if (yfiles.toArray().includes(fullPath)) {
+      showToast('A file with this name already exists.', 'warning');
       isCommittingFileRef.current = false;
       setTimeout(() => {
         document.getElementById('new-file-input')?.focus();
@@ -437,11 +595,13 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
       return;
     }
 
-    // Push new file name to shared Yjs array
-    yfiles.push([trimmed]);
-    setActiveFile(trimmed);
+    // Push new file path to shared Yjs array
+    yfiles.push([fullPath]);
+    setActiveFile(fullPath);
+    setOpenedFiles(prev => prev.includes(fullPath) ? prev : [...prev, fullPath]);
     setIsCreatingFile(false);
     setNewFileNameInput('');
+    setCreateInsideFolder('');
     isCommittingFileRef.current = false;
   };
 
@@ -452,6 +612,139 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
       setIsCreatingFile(false);
       setNewFileNameInput('');
       isCommittingFileRef.current = false;
+    }
+  };
+
+  const handleFileDoubleClick = (e, fileName) => {
+    e.preventDefault();
+    if (role === 'Viewer') return; // Viewers can't modify files
+    setActiveFileMenu({
+      fileName,
+      x: e.clientX,
+      y: e.clientY,
+    });
+  };
+
+  const handleRenameFile = (oldName) => {
+    if (role === 'Viewer') return;
+    setRenamingFileName(oldName);
+    setRenameInputVal(oldName);
+    isCommittingFileRef.current = false;
+  };
+
+  const handleCommitRename = (oldName) => {
+    if (isCommittingFileRef.current) return;
+    isCommittingFileRef.current = true;
+
+    const trimmed = renameInputVal.trim();
+    if (!trimmed || trimmed === oldName) {
+      setRenamingFileName(null);
+      isCommittingFileRef.current = false;
+      return;
+    }
+
+    // Basic safety validation
+    if (!/^[a-zA-Z0-9_\-\.]+$/.test(trimmed)) {
+      showToast('Invalid file name. Only alphanumeric, dashes, underscores, and dots allowed.', 'error');
+      isCommittingFileRef.current = false;
+      setTimeout(() => {
+        document.getElementById('rename-file-input')?.focus();
+      }, 50);
+      return;
+    }
+
+    const yfiles = ydoc.getArray(`${roomUuid}:files`);
+    if (yfiles.toArray().includes(trimmed)) {
+      showToast('A file with this name already exists.', 'warning');
+      isCommittingFileRef.current = false;
+      setTimeout(() => {
+        document.getElementById('rename-file-input')?.focus();
+      }, 50);
+      return;
+    }
+
+    // Collaborative Yjs Rename logic: copy content, then swap entries
+    const oldYText = ydoc.getText(`${roomUuid}:${oldName}`);
+    const newYText = ydoc.getText(`${roomUuid}:${trimmed}`);
+    
+    ydoc.transact(() => {
+      newYText.insert(0, oldYText.toString());
+      
+      const fileNames = yfiles.toArray();
+      const idx = fileNames.indexOf(oldName);
+      if (idx !== -1) {
+        yfiles.delete(idx, 1);
+        yfiles.insert(idx, [trimmed]);
+      }
+    });
+
+    if (activeFile === oldName) {
+      setActiveFile(trimmed);
+    }
+
+    // Rename inside opened tabs list if present
+    setOpenedFiles(prev => prev.map(name => name === oldName ? trimmed : name));
+
+    setRenamingFileName(null);
+    setRenameInputVal('');
+    isCommittingFileRef.current = false;
+  };
+
+  const handleRenameKeyDown = (e, oldName) => {
+    if (e.key === 'Enter') {
+      handleCommitRename(oldName);
+    } else if (e.key === 'Escape') {
+      setRenamingFileName(null);
+      setRenameInputVal('');
+      isCommittingFileRef.current = false;
+    }
+  };
+
+  const handleDeleteFile = (fileName) => {
+    if (role === 'Viewer') return;
+    // Don't delete the last file to ensure stability
+    const yfiles = ydoc.getArray(`${roomUuid}:files`);
+    if (yfiles.length <= 1) {
+      setDeleteConfirmFile(fileName);
+      setIsLastFileWarning(true);
+      return;
+    }
+
+    // Show custom confirmation modal
+    setIsLastFileWarning(false);
+    setDeleteConfirmFile(fileName);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deleteConfirmFile || !ydoc) return;
+    const yfiles = ydoc.getArray(`${roomUuid}:files`);
+    const fileNames = yfiles.toArray();
+    const idx = fileNames.indexOf(deleteConfirmFile);
+    if (idx !== -1) {
+      yfiles.delete(idx, 1);
+    }
+
+    if (activeFile === deleteConfirmFile) {
+      const remaining = fileNames.filter(name => name !== deleteConfirmFile);
+      setActiveFile(remaining[0]);
+    }
+
+    // Remove from opened tabs list if present
+    setOpenedFiles(prev => prev.filter(name => name !== deleteConfirmFile));
+    setDeleteConfirmFile(null);
+  };
+
+  // Close an opened tab
+  const handleCloseFile = (fileName) => {
+    const updated = openedFiles.filter((name) => name !== fileName);
+    setOpenedFiles(updated);
+
+    if (activeFile === fileName) {
+      if (updated.length > 0) {
+        setActiveFile(updated[updated.length - 1]);
+      } else {
+        setActiveFile('');
+      }
     }
   };
 
@@ -488,10 +781,8 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
       const freshToken = getToken();
       console.log('[Voice] Token available:', !!freshToken, 'length:', freshToken?.length);
 
-      // Connect directly to backend to bypass Vite proxy WebSocket issues
-      const backendUrl = window.location.hostname === 'localhost'
-        ? 'http://localhost:3000'
-        : window.location.origin;
+      // Connect directly to public backend for Voice
+      const backendUrl = 'https://70489dd616f14c3d-103-25-138-13.serveousercontent.com';
 
       const socket = io(backendUrl + '/voice', {
         auth: { token: freshToken },
@@ -587,11 +878,11 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
       });
 
       socket.on('voice:error', ({ message }) => {
-        alert(message);
+        showToast(message, 'error');
       });
 
     } catch (err) {
-      alert(`Could not access microphone: ${err.message}`);
+      showToast(`Could not access microphone: ${err.message}`, 'error');
     }
   };
 
@@ -697,7 +988,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
       setRoom(details.room);
     } catch (err) {
       console.error('Failed to change role:', err.message);
-      alert(`Failed to change role: ${err.message}`);
+      showToast(`Failed to change role: ${err.message}`, 'error');
     }
   };
 
@@ -705,17 +996,17 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
 
   return (
     <div className="bg-surface text-on-surface font-ui overflow-hidden h-screen flex flex-col select-none">
-      {/* Top Bar (44px) */}
-      <header className="h-[44px] shrink-0 bg-surface border-b border-outline-subtle flex items-center justify-between px-3 z-40">
+      {/* Top Bar (56px) */}
+      <header className="h-[56px] shrink-0 bg-surface border-b border-outline-subtle flex items-center justify-between px-3 z-40">
         <div className="flex items-center gap-4">
           <div className="flex items-center cursor-pointer" onClick={() => { leaveVoice(); onBack(); }}>
-            <img src="/logo.png" className="h-10 object-contain" alt="CollabIDE Logo" />
+            <img src="/logo.png" className="h-12 object-contain" alt="CollabIDE Logo" />
           </div>
           <div className="h-4 w-px bg-outline mx-1" />
           <button
             onClick={() => {
               navigator.clipboard.writeText(window.location.href);
-              alert('Invite link copied!');
+              showToast('Invite link copied!', 'success');
             }}
             className="text-sm text-on-surface-variant hover:text-on-surface transition-colors flex items-center gap-1 group"
           >
@@ -725,19 +1016,33 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
           
           {/* File tabs inside Top Bar */}
           <div className="flex items-center gap-px ml-2 overflow-x-auto no-scrollbar">
-            {files.map((file) => (
-              <button
-                key={file.name}
-                className={`px-3 h-[44px] text-sm flex items-center gap-2 border-b-2 transition-all ${
-                  activeFile === file.name
+            {openedFiles.map((fileName) => (
+              <div
+                key={fileName}
+                className={`px-3 h-[56px] text-sm flex items-center gap-2 border-b-2 transition-all group/tab ${
+                  activeFile === fileName
                     ? 'text-on-surface bg-surface-elevated border-accent-blue'
                     : 'text-on-surface-variant border-transparent hover:bg-surface-elevated'
                 }`}
-                onClick={() => setActiveFile(file.name)}
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-accent-blue" />
-                {file.name}
-              </button>
+                <button
+                  className="flex items-center gap-2 h-full outline-none focus:outline-none"
+                  onClick={() => setActiveFile(fileName)}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent-blue" />
+                  <span title={fileName}>{fileName.split('/').pop()}</span>
+                </button>
+                <button
+                  className="text-on-surface-variant hover:text-on-surface rounded p-0.5 ml-1 flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCloseFile(fileName);
+                  }}
+                  title="Close Tab"
+                >
+                  <span className="material-symbols-outlined text-[14px]">close</span>
+                </button>
+              </div>
             ))}
           </div>
         </div>
@@ -745,8 +1050,12 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
         <div className="flex items-center gap-3">
           <button
             onClick={handleRunCode}
-            disabled={isRunning || role === 'Viewer'}
-            className="flex items-center gap-1.5 px-3 py-1 bg-accent-blue text-white text-sm font-medium rounded-md hover:opacity-90 transition-all disabled:opacity-50"
+            disabled={isRunning || role === 'Viewer' || !activeFile || activeFile.endsWith('.md')}
+            className={`flex items-center gap-1.5 px-3 py-1 text-white text-sm font-medium rounded-md transition-all shadow ${
+              (isRunning || role === 'Viewer' || !activeFile || activeFile.endsWith('.md'))
+                ? 'bg-gray-700 opacity-50 cursor-not-allowed'
+                : 'bg-accent-blue hover:opacity-90'
+            }`}
           >
             <span className="material-symbols-outlined text-[18px]">play_arrow</span>
             <span>Run</span>
@@ -764,19 +1073,52 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
             <span>Terminal</span>
           </button>
 
-          <div className="text-sm text-on-surface-variant bg-surface-elevated px-2.5 py-1 rounded border border-outline">
-            {activeFile.endsWith('.py') ? 'Python' : 'JavaScript'}
+          <div className="text-sm text-on-surface-variant bg-surface-elevated px-2.5 py-1 rounded border border-outline font-medium">
+            {!activeFile
+              ? 'No File'
+              : activeFile.endsWith('.py')
+              ? 'Python'
+              : activeFile.endsWith('.java')
+              ? 'Java'
+              : (activeFile.endsWith('.cpp') || activeFile.endsWith('.cc'))
+              ? 'C++'
+              : activeFile.endsWith('.c')
+              ? 'C'
+              : activeFile.endsWith('.md')
+              ? 'Markdown'
+              : 'JavaScript'}
           </div>
 
           <button
-            className="flex items-center gap-1.5 px-2 py-1 text-sm text-on-surface-variant hover:text-on-surface rounded hover:bg-surface-elevated"
+            className={`flex items-center gap-1.5 px-2 py-1 text-sm rounded transition-colors ${
+              rightPanelOpen && rightPanelTab === 'participants'
+                ? 'bg-surface-elevated text-on-surface'
+                : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-elevated'
+            }`}
             onClick={() => {
-              setRightPanelOpen(true);
-              setRightPanelTab('participants');
+              if (rightPanelOpen && rightPanelTab === 'participants') {
+                setRightPanelOpen(false);
+              } else {
+                setRightPanelOpen(true);
+                setRightPanelTab('participants');
+              }
             }}
+            title={rightPanelOpen && rightPanelTab === 'participants' ? 'Collapse Participants' : 'Expand Participants'}
           >
             <span className="w-2 h-2 rounded-full bg-accent-green" />
             <span>{onlineCount} online</span>
+          </button>
+
+          <button
+            onClick={() => setRightPanelOpen(!rightPanelOpen)}
+            className={`p-1.5 rounded transition-colors flex items-center justify-center ${
+              rightPanelOpen ? 'bg-surface-elevated text-accent-blue' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-elevated'
+            }`}
+            title={rightPanelOpen ? 'Collapse Panel' : 'Expand Panel'}
+          >
+            <span className="material-symbols-outlined text-[18px]">
+              {rightPanelOpen ? 'dock_to_left' : 'view_sidebar'}
+            </span>
           </button>
 
           <button
@@ -852,67 +1194,260 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
 
         {/* Sidebar explorer panel */}
         {sidebarOpen && (
-          <nav className="w-[240px] h-full bg-surface-panel border-r border-outline-subtle flex flex-col shrink-0">
-            <div className="p-4 flex items-center justify-between border-b border-outline-subtle">
-              <div className="flex flex-col">
-                <span className="text-xs font-semibold text-on-surface uppercase tracking-wider">Explorer</span>
-                <span className="text-[11px] text-on-surface-muted">{room?.name || 'Workspace'} · {role}</span>
-              </div>
-              <div className="flex gap-1">
-                <button 
-                  className="p-1 text-on-surface-muted hover:text-on-surface rounded"
-                  onClick={handleCreateFile}
-                  title="New File"
-                >
-                  <span className="material-symbols-outlined text-[18px]">note_add</span>
-                </button>
-              </div>
+          <nav className="w-[260px] h-full bg-surface-panel border-r border-outline-subtle flex flex-col shrink-0 select-none">
+            {/* Explorer Top Header */}
+            <div className="px-4 py-3 flex items-center justify-between border-b border-outline-subtle">
+              <span className="text-[11px] font-semibold text-on-surface uppercase tracking-wider">Explorer</span>
             </div>
 
             <div className="flex-1 overflow-y-auto py-2">
-              <div className="px-3 py-1 flex items-center gap-2 text-on-surface text-sm font-semibold">
-                <span className="material-symbols-outlined text-[18px]">expand_more</span>
-                <span>Files</span>
-              </div>
-              <div className="pl-4">
-                {isCreatingFile && (
-                  <div className="px-3 py-1.5 flex items-center gap-2 bg-surface-elevated mr-3 rounded-r">
-                    <span className="w-2 h-2 rounded-full bg-gray-500 shrink-0" />
-                    <input
-                      id="new-file-input"
-                      type="text"
-                      className="bg-[#121414] border border-accent-blue rounded text-xs px-1.5 py-0.5 text-on-surface outline-none w-full font-mono"
-                      value={newFileNameInput}
-                      onChange={(e) => setNewFileNameInput(e.target.value)}
-                      onKeyDown={handleNewFileKeyDown}
-                      onBlur={handleCommitNewFile}
-                      autoFocus
-                    />
-                  </div>
-                )}
-                {files.map((file) => (
-                  <div
-                    key={file.name}
-                    className={`px-3 py-1.5 flex items-center gap-2 cursor-pointer transition-all ${
-                      activeFile === file.name
-                        ? 'bg-surface-elevated border-l-2 border-accent-blue text-on-surface'
-                        : 'text-on-surface-variant hover:bg-bg-hover'
-                    }`}
-                    onClick={() => setActiveFile(file.name)}
+              {/* Workspace Root Row */}
+              <div className="px-3 py-2 flex items-center justify-between group/root cursor-pointer hover:bg-surface-elevated/50 text-xs font-semibold text-on-surface">
+                <div
+                  className="flex items-center gap-1.5 min-w-0 flex-1"
+                  onClick={() => setIsFilesTreeOpen(!isFilesTreeOpen)}
+                >
+                  <span
+                    className="material-symbols-outlined text-[18px] text-on-surface-muted transition-transform duration-200"
+                    style={{ transform: isFilesTreeOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
                   >
-                    <span
-                      className={`w-2 h-2 rounded-full ${
-                        file.name.endsWith('.js')
-                          ? 'bg-yellow-400'
-                          : file.name.endsWith('.py')
-                          ? 'bg-blue-400'
-                          : 'bg-gray-500'
-                      }`}
-                    />
-                    <span className="text-sm truncate">{file.name}</span>
-                  </div>
-                ))}
+                    expand_more
+                  </span>
+                  <span className="material-symbols-outlined text-[18px] text-on-surface-muted">folder_open</span>
+                  <span className="truncate">{room?.name || 'Workspace'}</span>
+                </div>
+
+                {/* Root Action Icons */}
+                <div className="flex items-center gap-0.5 opacity-0 group-hover/root:opacity-100 transition-opacity">
+                  <button
+                    className="p-1 text-on-surface-muted hover:text-on-surface hover:bg-surface-elevated rounded"
+                    onClick={(e) => { e.stopPropagation(); handleCreateFile(''); }}
+                    title="New File"
+                  >
+                    <span className="material-symbols-outlined text-[17px]">note_add</span>
+                  </button>
+                  <button
+                    className="p-1 text-on-surface-muted hover:text-on-surface hover:bg-surface-elevated rounded"
+                    onClick={(e) => { e.stopPropagation(); handleCreateFolder(''); }}
+                    title="New Folder"
+                  >
+                    <span className="material-symbols-outlined text-[17px]">create_new_folder</span>
+                  </button>
+                  <button
+                    className="p-1 text-on-surface-muted hover:text-on-surface hover:bg-surface-elevated rounded"
+                    onClick={(e) => { e.stopPropagation(); showToast('Explorer synced', 'info'); }}
+                    title="Refresh Explorer"
+                  >
+                    <span className="material-symbols-outlined text-[17px]">sync</span>
+                  </button>
+                </div>
               </div>
+
+              {/* File/Folder Tree */}
+              {isFilesTreeOpen && (() => {
+                const fileColorDot = (name) => {
+                  if (name.endsWith('.js') || name.endsWith('.jsx')) return 'bg-yellow-400';
+                  if (name.endsWith('.ts') || name.endsWith('.tsx')) return 'bg-blue-300';
+                  if (name.endsWith('.py')) return 'bg-blue-400';
+                  if (name.endsWith('.java')) return 'bg-red-400';
+                  if (name.endsWith('.cpp') || name.endsWith('.cc')) return 'bg-purple-400';
+                  if (name.endsWith('.c')) return 'bg-teal-400';
+                  if (name.endsWith('.html')) return 'bg-orange-400';
+                  if (name.endsWith('.css')) return 'bg-pink-400';
+                  if (name.endsWith('.md')) return 'bg-gray-300';
+                  if (name.endsWith('.json')) return 'bg-yellow-200';
+                  return 'bg-gray-500';
+                };
+
+                const renderTree = (nodes, depth = 0) => (
+                  <div>
+                    {nodes.map((node) => {
+                      const indent = depth * 12 + 12;
+                      if (node.type === 'folder') {
+                        const isOpen = expandedFolders.has(node.path);
+                        return (
+                          <div key={node.path}>
+                            {/* Folder Row */}
+                            <div
+                              className="flex items-center gap-2 py-1.5 cursor-pointer text-on-surface-variant hover:bg-bg-hover group/folder transition-all"
+                              style={{ paddingLeft: `${indent}px`, paddingRight: '8px' }}
+                              onClick={() => setExpandedFolders(prev => {
+                                const s = new Set(prev);
+                                if (s.has(node.path)) s.delete(node.path); else s.add(node.path);
+                                return s;
+                              })}
+                            >
+                              <span
+                                className="material-symbols-outlined text-[17px] text-on-surface-muted transition-transform duration-150 shrink-0"
+                                style={{ transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+                              >
+                                expand_more
+                              </span>
+                              <span className="material-symbols-outlined text-[17px] text-yellow-500/80 shrink-0">
+                                {isOpen ? 'folder_open' : 'folder'}
+                              </span>
+                              <span className="text-sm truncate flex-1">{node.name}</span>
+
+                              {/* Folder hover actions */}
+                              {role !== 'Viewer' && (
+                                <div className="flex items-center gap-0.5 opacity-0 group-hover/folder:opacity-100 transition-opacity ml-auto shrink-0">
+                                  <button
+                                    className="p-0.5 hover:bg-surface-elevated rounded text-on-surface-muted hover:text-on-surface"
+                                    onClick={(e) => { e.stopPropagation(); handleCreateFile(node.path); }}
+                                    title="New File inside folder"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px]">note_add</span>
+                                  </button>
+                                  <button
+                                    className="p-1 hover:bg-surface-elevated rounded text-on-surface-muted hover:text-on-surface"
+                                    onClick={(e) => { e.stopPropagation(); handleCreateFolder(node.path); }}
+                                    title="New Subfolder"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px]">create_new_folder</span>
+                                  </button>
+                                  <button
+                                    className="p-1 hover:bg-red-500/20 rounded text-on-surface-muted hover:text-red-400"
+                                    onClick={(e) => { e.stopPropagation(); handleDeleteFolder(node.path); }}
+                                    title="Delete Folder"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px]">delete</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Inline folder/file creation input shown inside this folder */}
+                            {isOpen && isCreatingFolder && createInsideFolder === node.path && (
+                              <div
+                                className="flex items-center gap-2 py-1.5 bg-surface-elevated"
+                                style={{ paddingLeft: `${indent + 24}px`, paddingRight: '8px' }}
+                              >
+                                <span className="material-symbols-outlined text-[15px] text-yellow-500/80 shrink-0">folder</span>
+                                <input
+                                  id="new-folder-input"
+                                  type="text"
+                                  className="bg-[#121414] border border-accent-blue rounded text-xs px-1.5 py-0.5 text-on-surface outline-none w-full font-mono"
+                                  value={newFolderNameInput}
+                                  onChange={(e) => setNewFolderNameInput(e.target.value)}
+                                  onKeyDown={handleNewFolderKeyDown}
+                                  onBlur={handleCommitNewFolder}
+                                  autoFocus
+                                />
+                              </div>
+                            )}
+                            {isOpen && isCreatingFile && createInsideFolder === node.path && (
+                              <div
+                                className="flex items-center gap-2 py-1.5 bg-surface-elevated"
+                                style={{ paddingLeft: `${indent + 24}px`, paddingRight: '8px' }}
+                              >
+                                <span className={`w-2 h-2 rounded-full shrink-0 bg-gray-500`} />
+                                <input
+                                  id="new-file-input"
+                                  type="text"
+                                  className="bg-[#121414] border border-accent-blue rounded text-xs px-1.5 py-0.5 text-on-surface outline-none w-full font-mono"
+                                  value={newFileNameInput}
+                                  onChange={(e) => setNewFileNameInput(e.target.value)}
+                                  onKeyDown={handleNewFileKeyDown}
+                                  onBlur={handleCommitNewFile}
+                                  autoFocus
+                                />
+                              </div>
+                            )}
+
+                            {/* Children */}
+                            {isOpen && renderTree(node.children, depth + 1)}
+                          </div>
+                        );
+                      }
+
+                      // File Row
+                      return (
+                        <div
+                          key={node.path}
+                          className={`flex items-center gap-2.5 py-1.5 cursor-pointer transition-all group/file ${
+                            activeFile === node.path
+                              ? 'bg-surface-elevated border-l-2 border-accent-blue text-on-surface'
+                              : 'text-on-surface-variant hover:bg-bg-hover'
+                          }`}
+                          style={{ paddingLeft: `${indent}px`, paddingRight: '8px' }}
+                          onClick={() => {
+                            setActiveFile(node.path);
+                            if (!openedFiles.includes(node.path)) {
+                              setOpenedFiles([...openedFiles, node.path]);
+                            }
+                          }}
+                          onDoubleClick={(e) => handleFileDoubleClick(e, node.path)}
+                          onContextMenu={(e) => handleFileDoubleClick(e, node.path)}
+                        >
+                          <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${fileColorDot(node.name)}`} />
+                          {renamingFileName === node.path ? (
+                            <input
+                              id="rename-file-input"
+                              type="text"
+                              className="bg-[#121414] border border-accent-blue rounded text-xs px-1.5 py-0.5 text-on-surface outline-none w-full font-mono"
+                              value={renameInputVal}
+                              onChange={(e) => setRenameInputVal(e.target.value)}
+                              onKeyDown={(e) => handleRenameKeyDown(e, node.path)}
+                              onBlur={() => handleCommitRename(node.path)}
+                              autoFocus
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          ) : (
+                            <span className="text-sm truncate flex-1">{node.name}</span>
+                          )}
+                          {role !== 'Viewer' && renamingFileName !== node.path && (
+                            <button
+                              className="ml-auto shrink-0 text-on-surface-variant hover:text-on-surface opacity-0 group-hover/file:opacity-100 transition-opacity p-0.5 rounded hover:bg-[#2a2b2b]"
+                              onClick={(e) => { e.stopPropagation(); handleFileDoubleClick(e, node.path); }}
+                              title="File options"
+                            >
+                              <span className="material-symbols-outlined text-[18px]">more_horiz</span>
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+
+                const tree = buildFileTree(files);
+                return (
+                  <div className="pt-0.5">
+                    {/* Root-level inline creation inputs */}
+                    {isCreatingFolder && createInsideFolder === '' && (
+                      <div className="flex items-center gap-2 py-1.5 bg-surface-elevated mx-2 rounded mb-1" style={{ paddingLeft: '16px', paddingRight: '8px' }}>
+                        <span className="material-symbols-outlined text-[15px] text-yellow-500/80 shrink-0">folder</span>
+                        <input
+                          id="new-folder-input"
+                          type="text"
+                          className="bg-[#121414] border border-accent-blue rounded text-xs px-1.5 py-0.5 text-on-surface outline-none w-full font-mono"
+                          value={newFolderNameInput}
+                          onChange={(e) => setNewFolderNameInput(e.target.value)}
+                          onKeyDown={handleNewFolderKeyDown}
+                          onBlur={handleCommitNewFolder}
+                          autoFocus
+                        />
+                      </div>
+                    )}
+                    {isCreatingFile && createInsideFolder === '' && (
+                      <div className="flex items-center gap-2 py-1.5 bg-surface-elevated mx-2 rounded mb-1" style={{ paddingLeft: '16px', paddingRight: '8px' }}>
+                        <span className="w-2 h-2 rounded-full bg-gray-500 shrink-0" />
+                        <input
+                          id="new-file-input"
+                          type="text"
+                          className="bg-[#121414] border border-accent-blue rounded text-xs px-1.5 py-0.5 text-on-surface outline-none w-full font-mono"
+                          value={newFileNameInput}
+                          onChange={(e) => setNewFileNameInput(e.target.value)}
+                          onKeyDown={handleNewFileKeyDown}
+                          onBlur={handleCommitNewFile}
+                          autoFocus
+                        />
+                      </div>
+                    )}
+                    {renderTree(tree)}
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="p-4 border-t border-outline-subtle mt-auto">
@@ -920,7 +1455,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                 className="w-full text-left text-[13px] text-accent-blue hover:underline flex items-center gap-1"
                 onClick={() => {
                   navigator.clipboard.writeText(window.location.href);
-                  alert('Share link copied!');
+                  showToast('Share link copied!', 'success');
                 }}
               >
                 <Share2 size={13} /> Share invite link
@@ -932,24 +1467,62 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
         {/* Editor center workspace */}
         <main className="flex-1 flex flex-col min-w-0 bg-surface relative">
           <div className="flex-1 relative overflow-hidden">
-            <Editor
-              height="100%"
-              path={activeFile}
-              defaultLanguage={activeFile.endsWith('.md') ? 'markdown' : 'javascript'}
-              theme="vs-dark"
-              loading="Loading Editor Workspace..."
-              onMount={handleEditorDidMount}
-              options={{
-                fontSize: 14,
-                fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                minimap: { enabled: false },
-                smoothScrolling: true,
-                cursorBlinking: 'smooth',
-                renderLineHighlight: 'gutter',
-                automaticLayout: true,
-                readOnly: role === 'Viewer',
-              }}
-            />
+            {!activeFile ? (
+              <div className="w-full h-full flex flex-col items-center justify-center bg-surface-panel select-none">
+                <img src="/logo.png" className="h-20 object-contain mb-8 opacity-40 filter grayscale" alt="CollabIDE Logo" />
+                <h2 className="text-lg font-semibold text-on-surface mb-2">No File Open</h2>
+                <p className="text-xs text-on-surface-muted max-w-xs text-center mb-6">
+                  Select a file from the explorer sidebar, or click the new file button to create one.
+                </p>
+                <div className="flex flex-col gap-2 w-full max-w-xs">
+                  <button 
+                    onClick={handleCreateFile}
+                    className="flex items-center justify-between px-4 py-2 bg-surface-elevated hover:bg-bg-hover border border-outline rounded-md text-xs text-on-surface transition-all"
+                  >
+                    <span>Create New File</span>
+                    <span className="text-[10px] text-on-surface-muted bg-[#252526] px-1.5 py-0.5 rounded">Alt+N</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <Editor
+                height="100%"
+                path={activeFile}
+                language={
+                  activeFile.endsWith('.py')
+                    ? 'python'
+                    : activeFile.endsWith('.java')
+                    ? 'java'
+                    : (activeFile.endsWith('.cpp') || activeFile.endsWith('.cc'))
+                    ? 'cpp'
+                    : activeFile.endsWith('.c')
+                    ? 'c'
+                    : activeFile.endsWith('.md')
+                    ? 'markdown'
+                    : 'javascript'
+                }
+                theme="vs-dark"
+                loading="Loading Editor Workspace..."
+                onMount={handleEditorDidMount}
+                options={{
+                  fontSize: 14,
+                  fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                  minimap: { enabled: false },
+                  smoothScrolling: true,
+                  automaticLayout: true,
+                  lineNumbersMinChars: 3,
+                  cursorBlinking: 'smooth',
+                  cursorSmoothCaretAnimation: 'on',
+                  padding: { top: 12 },
+                  readOnly: false, // Must be false so y-monaco can apply edits!
+                  contextmenu: (() => {
+                    const isReadOnly = role === 'Viewer' || (editorOnlyMode && role === 'Editor' && !inVoice);
+                    window._collabIdeReadOnly = isReadOnly;
+                    return !isReadOnly; // Disable context menu if read only to prevent pasting
+                  })(),
+                }}
+              />
+            )}
 
             {/* View only watermark */}
             {role === 'Viewer' && (
@@ -1075,33 +1648,53 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
         {/* Right side tab panels (Participants / Chat) */}
         {rightPanelOpen && (
           <aside className="w-[280px] h-full bg-surface-panel border-l border-outline-subtle flex flex-col shrink-0">
-            <div className="flex border-b border-outline-subtle">
+            <div className="flex items-center justify-between border-b border-outline-subtle pr-2 bg-surface-panel">
+              <div className="flex flex-1">
+                <button
+                  className={`flex-1 py-3 text-sm font-medium transition-all ${
+                    rightPanelTab === 'participants'
+                      ? 'text-accent-blue border-b-2 border-accent-blue'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  }`}
+                  onClick={() => setRightPanelTab('participants')}
+                >
+                  Participants ({onlineCount})
+                </button>
+                <button
+                  className={`flex-1 py-3 text-sm font-medium transition-all ${
+                    rightPanelTab === 'chat'
+                      ? 'text-accent-blue border-b-2 border-accent-blue'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  }`}
+                  onClick={() => setRightPanelTab('chat')}
+                >
+                  Chat
+                </button>
+              </div>
               <button
-                className={`flex-1 py-3 text-sm font-medium transition-all ${
-                  rightPanelTab === 'participants'
-                    ? 'text-accent-blue border-b-2 border-accent-blue'
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-                onClick={() => setRightPanelTab('participants')}
+                onClick={() => setRightPanelOpen(false)}
+                className="p-1 text-on-surface-variant hover:text-on-surface rounded hover:bg-surface-elevated transition-colors ml-1"
+                title="Collapse Panel"
               >
-                Participants ({onlineCount})
-              </button>
-              <button
-                className={`flex-1 py-3 text-sm font-medium transition-all ${
-                  rightPanelTab === 'chat'
-                    ? 'text-accent-blue border-b-2 border-accent-blue'
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-                onClick={() => setRightPanelTab('chat')}
-              >
-                Chat
+                <span className="material-symbols-outlined text-[18px]">chevron_right</span>
               </button>
             </div>
 
             {rightPanelTab === 'participants' && (
-              <div className="p-4 flex flex-col gap-4 overflow-y-auto flex-1">
+              <div className="p-4 flex flex-col gap-4 overflow-y-auto flex-1 select-none">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-on-surface-muted uppercase tracking-wider">Online</span>
+                  <button
+                    onClick={() => setIsOnlineListOpen(!isOnlineListOpen)}
+                    className="flex items-center gap-1 text-xs font-semibold text-on-surface-muted uppercase tracking-wider hover:text-on-surface transition-colors"
+                  >
+                    <span
+                      className="material-symbols-outlined text-[16px] transition-transform duration-200"
+                      style={{ transform: isOnlineListOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+                    >
+                      expand_more
+                    </span>
+                    <span>Online ({onlineCount})</span>
+                  </button>
                   {isUserLeader && (
                     <div className="flex gap-2 text-[11px]">
                       <button onClick={handleMuteAll} className="text-accent-red hover:underline">Mute all</button>
@@ -1111,6 +1704,9 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                     </div>
                   )}
                 </div>
+
+                {isOnlineListOpen && (
+                  <div className="flex flex-col gap-2">
 
                 {/* Local user entry */}
                 <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-surface-elevated">
@@ -1214,6 +1810,8 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                       </div>
                     );
                   })}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1268,12 +1866,14 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
         )}
       </div>
 
+
+
       {/* Status Bar */}
       <footer className="h-[22px] bg-accent-blue text-white px-3 flex items-center justify-between text-[11px] shrink-0 z-40">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-accent-green shadow-[0_0_4px_rgba(30,142,62,0.6)]" />
-            <span>{syncStatus}</span>
+            <span>{syncStatus} (v2)</span>
           </div>
           <div className="h-3 w-px bg-white/20" />
           <span>{onlineCount} online</span>
@@ -1360,6 +1960,99 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
         )}
       </div>
 
+      {/* Floating File Context Menu (VS Code style) */}
+      {activeFileMenu && (
+        <>
+          <div 
+            className="fixed inset-0 z-50 cursor-default" 
+            onClick={() => setActiveFileMenu(null)}
+            onContextMenu={(e) => { e.preventDefault(); setActiveFileMenu(null); }}
+          />
+          <div 
+            className="fixed bg-[#1b1c1c] border border-[#2b2b2b] rounded-md shadow-2xl py-1 z-[60] w-36 text-xs text-on-surface-variant font-sans select-none"
+            style={{ 
+              left: `${Math.min(window.innerWidth - 150, activeFileMenu.x)}px`, 
+              top: `${Math.min(window.innerHeight - 100, activeFileMenu.y)}px` 
+            }}
+          >
+            <button 
+              className="w-full text-left px-3 py-2 hover:bg-[#2a2b2b] hover:text-on-surface flex items-center gap-2 transition-colors"
+              onClick={() => {
+                const target = activeFileMenu.fileName;
+                setActiveFileMenu(null);
+                handleRenameFile(target);
+              }}
+            >
+              <span className="material-symbols-outlined text-[15px]">edit</span>
+              <span>Rename...</span>
+            </button>
+            <button 
+              className="w-full text-left px-3 py-2 hover:bg-accent-red/20 hover:text-accent-red text-accent-red flex items-center gap-2 transition-colors border-t border-[#2b2b2b]"
+              onClick={() => {
+                const target = activeFileMenu.fileName;
+                setActiveFileMenu(null);
+                handleDeleteFile(target);
+              }}
+            >
+              <span className="material-symbols-outlined text-[15px]">delete</span>
+              <span>Delete</span>
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Delete File Confirmation Modal */}
+      {deleteConfirmFile && (
+        <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center backdrop-blur-sm">
+          <div className="w-full max-w-[400px] bg-[#1b1c1c] border border-border-default rounded-radius-lg p-6 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-[#2b2b2b] pb-3">
+              <h3 className="text-text-base font-semibold text-on-surface">
+                {isLastFileWarning ? 'Cannot Delete' : 'Confirm Delete'}
+              </h3>
+              <button onClick={() => { setDeleteConfirmFile(null); setIsLastFileWarning(false); }} className="text-text-muted hover:text-text-primary">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <p className="text-text-secondary text-text-sm leading-relaxed">
+              {isLastFileWarning
+                ? 'Workspace must contain at least one file. You cannot delete the last remaining file.'
+                : <>Are you sure you want to delete <span className="font-semibold text-on-surface">{deleteConfirmFile}</span>? This action cannot be undone.</>
+              }
+            </p>
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-[#2b2b2b]">
+              {isLastFileWarning ? (
+                <button
+                  type="button"
+                  onClick={() => { setDeleteConfirmFile(null); setIsLastFileWarning(false); }}
+                  className="px-4 py-1.5 bg-accent-blue text-white rounded-md text-text-sm hover:opacity-90 transition-colors"
+                >
+                  Got it
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => { setDeleteConfirmFile(null); setIsLastFileWarning(false); }}
+                    className="px-4 py-1.5 border border-[#404751] text-on-surface rounded-md text-text-sm hover:bg-[#252626]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmDelete}
+                    className="px-4 py-1.5 bg-accent-red text-white rounded-md text-text-sm hover:opacity-90 transition-colors"
+                  >
+                    Delete
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Admin lock overlay notifications */}
       {mutedByLeaderMsg && (
         <div className="fixed bottom-24 left-6 z-50 bg-[#1b1c1c] border-l-4 border-accent-red px-4 py-3 rounded-lg shadow-2xl max-w-sm">
@@ -1367,6 +2060,35 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
             <MicOff size={16} /> Muted by Room Leader
           </div>
           <div className="text-xs text-on-surface-variant mt-1">{mutedByLeaderMsg}</div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] animate-[slideUp_0.3s_ease-out]"
+          style={{ animation: 'slideUp 0.3s ease-out' }}
+        >
+          <div className={`flex items-center gap-2.5 px-4 py-2.5 rounded-lg shadow-2xl border text-sm font-medium backdrop-blur-md ${
+            toastMessage.type === 'success'
+              ? 'bg-[#0d2818] border-green-600/40 text-green-300'
+              : toastMessage.type === 'error'
+              ? 'bg-[#2a0f0f] border-red-600/40 text-red-300'
+              : toastMessage.type === 'warning'
+              ? 'bg-[#2a2000] border-yellow-600/40 text-yellow-300'
+              : 'bg-[#0d1b2a] border-blue-600/40 text-blue-300'
+          }`}>
+            <span className="material-symbols-outlined text-[18px]">
+              {toastMessage.type === 'success' ? 'check_circle' : toastMessage.type === 'error' ? 'error' : toastMessage.type === 'warning' ? 'warning' : 'info'}
+            </span>
+            <span>{toastMessage.text}</span>
+            <button
+              onClick={() => setToastMessage(null)}
+              className="ml-2 opacity-60 hover:opacity-100 transition-opacity"
+            >
+              <span className="material-symbols-outlined text-[16px]">close</span>
+            </button>
+          </div>
         </div>
       )}
     </div>
