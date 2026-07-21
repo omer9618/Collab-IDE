@@ -12,3 +12,17 @@ services:
         value: 5000
       - key: MONGODB_URI
         value: "mongodb://Omerdb:omerdb9090@ac-2q1l5ak-shard-00-00.bu4pxqj.mongodb.net:27017,ac-2q1l5ak-shard-00-01.bu4pxqj.mongodb.net:27017,ac-2q1l5ak-shard-00-02.bu4pxqj.mongodb.net:27017/collabide?ssl=true&replicaSet=atlas-vy5m0v-shard-0&authSource=admin&appName=Cluster0"
+      - key: MOCK_EMAIL_VERIFICATION
+        value: "true"
+      - key: JUDGE0_API_URL
+        value: "https://judge0-ce.p.rapidapi.com"
+      - key: JUDGE0_API_KEY
+        value: "16017cdd07msh5004bc6496397afp1148bfjsnacceb9cf7944"
+      - key: EXECUTION_MOCK_MODE
+        value: "false"
+      - key: TURN_SECRET
+        value: "collabide-turn-hmac-secret-2026-changeme"
+      - key: STUN_SERVER_URL
+        value: "stun:stun.l.google.com:19302"
+      - key: TURN_SERVER_URL
+        value: "turn:openrelay.metered.ca:80"
