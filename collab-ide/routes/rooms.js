@@ -81,6 +81,11 @@ router.get('/', protect, async (req, res) => {
         myRole: role,
         participantCount: room.participants.length,
         updatedAt: room.updatedAt,
+        files: room.files ? room.files.map(f => f.name) : [],
+        participants: room.participants.map(p => ({
+          displayName: p.user && p.user.displayName ? p.user.displayName : 'Unknown',
+          avatarColor: p.user && p.user.avatarColor ? p.user.avatarColor : '#1a73e8'
+        })),
       };
     });
 

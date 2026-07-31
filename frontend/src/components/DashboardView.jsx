@@ -1,14 +1,46 @@
 import React, { useState, useEffect } from 'react';
-import { createRoom, joinRoom, logoutUser } from '../services/api';
+import { createRoom, joinRoom, logoutUser, getRooms } from '../services/api';
 
 const RANDOM_ADJECTIVES = ['Super', 'Sleek', 'Hyper', 'Delta', 'Quantum', 'Cyber', 'Mega', 'Apex'];
 const RANDOM_NOUNS = ['Space', 'Node', 'Grid', 'Core', 'Doc', 'Byte', 'Stack', 'Nexus'];
+
+const getRelativeTime = (dateStr) => {
+  if (!dateStr) return 'Unknown';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  if (hours < 24) return `${hours} hours ago`;
+  if (days === 1) return 'Yesterday';
+  return `${days} days ago`;
+};
+
+const getRoomLang = (files) => {
+  if (!files || files.length === 0) return 'TXT';
+  const firstFile = files[0];
+  if (firstFile.endsWith('.js')) return 'JS';
+  if (firstFile.endsWith('.py')) return 'PY';
+  if (firstFile.endsWith('.html')) return 'HTML';
+  if (firstFile.endsWith('.css')) return 'CSS';
+  return 'TXT';
+};
+
+const formatFilesText = (files) => {
+  if (!files || files.length === 0) return 'No files';
+  if (files.length === 1) return files[0];
+  if (files.length === 2) return `${files[0]}, ${files[1]}`;
+  return `${files[0]}, ${files[1]}, +${files.length - 2}`;
+};
 
 export default function DashboardView({ user, onRoomSelect, onLogout }) {
   const [roomName, setRoomName] = useState('');
   const [joinUuid, setJoinUuid] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [fetchingRooms, setFetchingRooms] = useState(true);
 
   // Modals & Panels toggle
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -16,11 +48,25 @@ export default function DashboardView({ user, onRoomSelect, onLogout }) {
   const [showSettingsDrawer, setShowSettingsDrawer] = useState(false);
   const [activeTab, setActiveTab] = useState('my-rooms'); // my-rooms, joined-rooms
 
-  // Mock list of user rooms
-  const [myRooms, setMyRooms] = useState([
-    { uuid: 'd12241f2-9f65-422a-858d-f87ca66d4b4a', name: 'web-engine-auth', lang: 'JS', time: '2 hours ago', files: 'main.js, auth.js, +1', peers: ['O', 'H'] },
-    { uuid: 'a09f04a9-4ac1-48c5-9f30-6a4ce837fbe6', name: 'api-service-v2', lang: 'PY', time: 'Yesterday', files: 'app.py, routes.py, +3', peers: ['O', 'A'] }
-  ]);
+  const [allRooms, setAllRooms] = useState([]);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadRooms = async () => {
+      try {
+        const data = await getRooms();
+        if (mounted) {
+          setAllRooms(data);
+        }
+      } catch (err) {
+        if (mounted) setError(err.message);
+      } finally {
+        if (mounted) setFetchingRooms(false);
+      }
+    };
+    loadRooms();
+    return () => { mounted = false; };
+  }, []);
 
   const generateRandomName = () => {
     const adj = RANDOM_ADJECTIVES[Math.floor(Math.random() * RANDOM_ADJECTIVES.length)];
@@ -225,62 +271,85 @@ export default function DashboardView({ user, onRoomSelect, onLogout }) {
 
             {/* Room List grid */}
             <div className="flex-1 space-y-3">
-              {(activeTab === 'my-rooms' ? myRooms : []).map((room) => (
-                <div
-                  key={room.uuid}
-                  className="bg-[#1f2020] border border-[#404751] rounded-lg p-4 flex items-center justify-between hover:border-accent-blue transition-all group cursor-pointer"
-                  onClick={() => onRoomSelect(room.uuid)}
-                >
-                  <div className="flex items-center gap-4">
-                    <div
-                      className={`w-10 h-10 rounded-sm flex items-center justify-center font-bold text-text-xs ${
-                        room.lang === 'JS'
-                          ? 'bg-[#e3e300] text-black'
-                          : room.lang === 'PY'
-                          ? 'bg-[#007acc] text-white'
-                          : 'bg-purple-600 text-white'
-                      }`}
-                    >
-                      {room.lang}
-                    </div>
-                    <div>
-                      <h3 className="text-text-base font-semibold text-on-surface">{room.name}</h3>
-                      <div className="flex items-center gap-2 text-text-xs text-on-surface-variant mt-0.5">
-                        <span>Owner</span>
-                        <span>•</span>
-                        <span>{room.time}</span>
-                        <span>•</span>
-                        <span>{room.files}</span>
+              {fetchingRooms ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="w-6 h-6 border-2 border-accent-blue border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : (
+                <>
+                  {allRooms
+                    .filter((r) => activeTab === 'my-rooms' ? r.myRole === 'Owner' : r.myRole !== 'Owner')
+                    .map((room) => {
+                      const lang = getRoomLang(room.files);
+                      const timeStr = getRelativeTime(room.updatedAt);
+                      const filesStr = formatFilesText(room.files);
+                      return (
+                        <div
+                          key={room.uuid}
+                          className="bg-[#1f2020] border border-[#404751] rounded-lg p-4 flex items-center justify-between hover:border-accent-blue transition-all group cursor-pointer"
+                          onClick={() => onRoomSelect(room.uuid)}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div
+                              className={`w-10 h-10 rounded-sm flex items-center justify-center font-bold text-text-xs ${
+                                lang === 'JS'
+                                  ? 'bg-[#e3e300] text-black'
+                                  : lang === 'PY'
+                                  ? 'bg-[#007acc] text-white'
+                                  : lang === 'HTML'
+                                  ? 'bg-orange-600 text-white'
+                                  : 'bg-purple-600 text-white'
+                              }`}
+                            >
+                              {lang}
+                            </div>
+                            <div>
+                              <h3 className="text-text-base font-semibold text-on-surface">{room.name}</h3>
+                              <div className="flex items-center gap-2 text-text-xs text-on-surface-variant mt-0.5">
+                                <span>{room.myRole}</span>
+                                <span>•</span>
+                                <span>{timeStr}</span>
+                                <span>•</span>
+                                <span>{filesStr}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-6">
+                            <div className="flex -space-x-2">
+                              {room.participants.map((p, idx) => (
+                                <div
+                                  key={idx}
+                                  className="w-7 h-7 rounded-full border-2 border-[#1f2020] flex items-center justify-center text-[10px] font-bold text-white relative z-10"
+                                  style={{ backgroundColor: p.avatarColor, zIndex: 10 - idx }}
+                                  title={p.displayName}
+                                >
+                                  {p.displayName.charAt(0).toUpperCase()}
+                                </div>
+                              ))}
+                            </div>
+                            <button className="px-4 py-1.5 bg-[#292a2a] text-on-surface rounded-md text-text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                              Open →
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  
+                  {allRooms.filter((r) => activeTab === 'my-rooms' ? r.myRole === 'Owner' : r.myRole !== 'Owner').length === 0 && (
+                    <div className="text-center py-12 border border-dashed border-[#404751] rounded-lg">
+                      <span className="material-symbols-outlined text-[48px] text-text-muted mb-2">folder</span>
+                      <div className="text-text-base text-on-surface">
+                        {activeTab === 'my-rooms' ? 'No rooms created yet' : 'No joined rooms yet'}
+                      </div>
+                      <div className="text-text-xs text-text-muted mt-1">
+                        {activeTab === 'my-rooms' ? 'Click Create new room to get started.' : 'Use a share code to join another user\'s room.'}
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-6">
-                    <div className="flex -space-x-2">
-                      {room.peers.map((peer, idx) => (
-                        <div
-                          key={idx}
-                          className="w-7 h-7 rounded-full bg-accent-blue border-2 border-[#1f2020] flex items-center justify-center text-[10px] font-bold text-white"
-                          style={{ backgroundColor: idx === 1 ? '#1e8e3e' : '#1a73e8' }}
-                        >
-                          {peer}
-                        </div>
-                      ))}
-                    </div>
-                    <button className="px-4 py-1.5 bg-[#292a2a] text-on-surface rounded-md text-text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                      Open →
-                    </button>
-                  </div>
-                </div>
-              ))}
-
-              {activeTab === 'joined-rooms' && (
-                <div className="text-center py-12 border border-dashed border-[#404751] rounded-lg">
-                  <span className="material-symbols-outlined text-[48px] text-text-muted mb-2">folder</span>
-                  <div className="text-text-base text-on-surface">No joined rooms yet</div>
-                  <div className="text-text-xs text-text-muted mt-1">Use a share code to join another user's room.</div>
-                </div>
+                  )}
+                </>
               )}
             </div>
+
 
             {/* Quick Join Footer */}
             <div className="mt-12 py-8 border-t border-[#2b2b2b] flex flex-col items-center">
