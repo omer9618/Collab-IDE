@@ -1,0 +1,32 @@
+{
+  "name": "softex-governance-skills",
+  "version": "1.0.0",
+  "description": "A collection of behavioral governance skills for autonomous software engineering swarms.",
+  "entries": [
+    {
+      "name": "sdlc-documentation-mastery",
+      "path": "skills/sdlc-documentation-mastery/SKILL.md",
+      "description": "Platform-agnostic dual-track documentation governance."
+    },
+    {
+      "name": "softex-documentation-mastery",
+      "path": "skills/softex-documentation-mastery/SKILL.md",
+      "description": "Softex-native documentation governance with tight tool coupling."
+    },
+    {
+      "name": "general-business-documentation",
+      "path": "skills/general-business-documentation/SKILL.md",
+      "description": "Rules for HR, Meeting Minutes, and Proposals using BLUF principles."
+    },
+    {
+      "name": "external-audit-mastery",
+      "path": "skills/external-audit-mastery/SKILL.md",
+      "description": "Protocols for reverse-engineering and auditing third-party codebases."
+    },
+    {
+      "name": "project-management",
+      "path": "skills/project-management/SKILL.md",
+      "description": "Agile/Waterfall execution and tracking methodologies."
+    }
+  ]
+}

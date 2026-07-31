@@ -376,8 +376,8 @@ wss.on('connection', async (ws, req) => {
                 return typeof parent === 'string' && !parent.endsWith(':chat');
               });
               
-              if (isEditingFile) {
-                // Drop file edits silently, but allow chat messages!
+              if (isEditingFile || (decoded.ds && decoded.ds.clients && decoded.ds.clients.size > 0)) {
+                // Drop file edits and deletions silently, but allow chat messages!
                 return;
               }
             } else {

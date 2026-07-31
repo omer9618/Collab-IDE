@@ -390,22 +390,45 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
     if (!model) return;
     model.setEOL(0); // Enforce LF line endings (0) to prevent cursor offset misalignment between CRLF and LF clients
 
-    import('y-monaco').then(({ MonacoBinding }) => {
-      if (monacoBindingRef.current) monacoBindingRef.current.destroy();
-      monacoBindingRef.current = new MonacoBinding(
-        ytext,
-        model,
-        new Set([editor]),
-        provider.awareness
-      );
-    });
+    const isReadOnly = role === 'Viewer' || (editorOnlyMode && role === 'Editor' && !inVoice);
+
+    if (monacoBindingRef.current) {
+      if (typeof monacoBindingRef.current.destroy === 'function') {
+        monacoBindingRef.current.destroy();
+      } else {
+        ytext.unobserve(monacoBindingRef.current);
+      }
+      monacoBindingRef.current = null;
+    }
+
+    if (isReadOnly) {
+      const updateModel = () => {
+        const text = ytext.toString();
+        if (model.getValue() !== text) {
+          model.setValue(text);
+        }
+      };
+      updateModel();
+      ytext.observe(updateModel);
+      monacoBindingRef.current = updateModel;
+    } else {
+      import('y-monaco').then(({ MonacoBinding }) => {
+        if (monacoBindingRef.current) return;
+        monacoBindingRef.current = new MonacoBinding(
+          ytext,
+          model,
+          new Set([editor]),
+          provider.awareness
+        );
+      });
+    }
   };
 
   useEffect(() => {
     if (editorRef.current && ydoc && provider) {
       bindEditorModel(activeFile);
     }
-  }, [activeFile, ydoc, provider]);
+  }, [activeFile, ydoc, provider, role, editorOnlyMode, inVoice]);
 
   // Run code handler
   const handleRunCode = async () => {
@@ -1514,7 +1537,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                   cursorBlinking: 'smooth',
                   cursorSmoothCaretAnimation: 'on',
                   padding: { top: 12 },
-                  readOnly: false, // Must be false so y-monaco can apply edits!
+                  readOnly: role === 'Viewer' || (editorOnlyMode && role === 'Editor' && !inVoice),
                   contextmenu: (() => {
                     const isReadOnly = role === 'Viewer' || (editorOnlyMode && role === 'Editor' && !inVoice);
                     window._collabIdeReadOnly = isReadOnly;
