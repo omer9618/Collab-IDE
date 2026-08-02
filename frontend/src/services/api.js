@@ -5,7 +5,9 @@
  * Automatically handles JWT header attachment.
  */
 
-const API_BASE = 'https://collabide-backend-avau.onrender.com/api';
+const API_BASE = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
+  ? '/api' 
+  : 'https://collabide-backend-avau.onrender.com/api';
 
 let accessToken = localStorage.getItem('token') || null;
 
@@ -64,6 +66,31 @@ async function request(path, options = {}) {
 
 // ─── AUTH ENDPOINTS ───────────────────────────────────────────────────────────
 
+export async function getAuthConfig() {
+  const res = await request('/auth/config');
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to fetch auth config');
+  return data;
+}
+
+export async function checkEmail(email) {
+  const res = await request(`/auth/check-email?email=${encodeURIComponent(email)}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Email check failed');
+  return data;
+}
+
+export async function googleLogin(accessToken) {
+  const res = await request('/auth/google-login', {
+    method: 'POST',
+    body: JSON.stringify({ accessToken }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Google login failed');
+  setToken(data.accessToken);
+  return data;
+}
+
 export async function registerUser({ email, password, displayName, avatarColor }) {
   const res = await request('/auth/register', {
     method: 'POST',
@@ -98,13 +125,6 @@ export async function getProfile() {
 }
 
 // ─── ROOMS ENDPOINTS ──────────────────────────────────────────────────────────
-
-export async function getRooms() {
-  const res = await request('/rooms');
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message || 'Failed to fetch rooms');
-  return data;
-}
 
 export async function createRoom(name) {
   const res = await request('/rooms', {

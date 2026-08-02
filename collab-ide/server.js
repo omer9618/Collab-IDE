@@ -376,8 +376,8 @@ wss.on('connection', async (ws, req) => {
                 return typeof parent === 'string' && !parent.endsWith(':chat');
               });
               
-              if (isEditingFile || (decoded.ds && decoded.ds.clients && decoded.ds.clients.size > 0)) {
-                // Drop file edits and deletions silently, but allow chat messages!
+              if (isEditingFile) {
+                // Drop file edits silently, but allow chat messages!
                 return;
               }
             } else {
@@ -480,6 +480,6 @@ async function gracefulShutdown() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`\n✅  CollabIDE Backend → http://localhost:${PORT}`);
+  console.log(`\n✅  Collide Backend → http://localhost:${PORT}`);
   console.log(`⚡  JWT Asymmetric signatures initialized.\n`);
 });

@@ -9,7 +9,7 @@ const { protect } = require('../middleware/auth'); // We will export it from mid
 const router = express.Router();
 
 // Password complexity regex
-const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
 // Rate limiters (NFR-14 & NFR-35)
 const authLimiter = rateLimit({
@@ -108,7 +108,7 @@ router.get('/verify', async (req, res) => {
     res.send(`
       <div style="font-family: sans-serif; text-align: center; margin-top: 50px;">
         <h1 style="color: #a6e3a1;">Verification Successful! 🎉</h1>
-        <p>Your email has been verified. You can now close this tab and log in to CollabIDE.</p>
+        <p>Your email has been verified. You can now close this tab and log in to Collide.</p>
       </div>
     `);
   } catch (error) {
@@ -424,6 +424,134 @@ router.get('/verify-mock', async (req, res) => {
     await user.save();
     res.json({ message: `Mock email verification successful for ${email}` });
   } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/auth/config
+// @desc    Get public client configuration
+// @access  Public
+router.get('/config', (req, res) => {
+  res.json({
+    googleClientId: process.env.GOOGLE_CLIENT_ID || '542385108420-t7d7rc0tbbpcr6v4k2q41g2jopgfq1f0.apps.googleusercontent.com'
+  });
+});
+
+// @route   GET /api/auth/check-email
+// @desc    Check if an email is registered and how
+// @access  Public
+router.get('/check-email', authLimiter, async (req, res) => {
+  try {
+    const { email } = req.query;
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    if (!user) {
+      return res.json({ exists: false });
+    }
+    res.json({
+      exists: true,
+      isGoogleUser: !!user.googleId,
+      isLocalUser: !!user.password
+    });
+  } catch (error) {
+    console.error('Check email error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   POST /api/auth/google-login
+// @desc    Authenticate user via Google Access Token
+// @access  Public
+router.post('/google-login', authLimiter, async (req, res) => {
+  try {
+    const { accessToken } = req.body;
+    if (!accessToken) {
+      return res.status(400).json({ message: 'Access token is required' });
+    }
+
+    // Fetch user profile info from Google
+    const googleRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!googleRes.ok) {
+      const errorText = await googleRes.text();
+      console.error('Google profile fetch failed:', errorText);
+      return res.status(401).json({ message: 'Invalid Google access token' });
+    }
+
+    const googleUser = await googleRes.json();
+    const { email, name, sub: googleId } = googleUser;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Google account is missing an email address' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Check if user exists by email
+    let user = await User.findOne({ email: normalizedEmail });
+
+    if (user) {
+      // If user exists but doesn't have googleId linked, link it now
+      if (!user.googleId) {
+        user.googleId = googleId;
+      }
+      // Google-authenticated users are automatically verified
+      if (!user.isVerified) {
+        user.isVerified = true;
+        user.verificationToken = undefined;
+      }
+      await user.save();
+    } else {
+      // Create a new user since they don't exist
+      const USER_COLORS = ['#1a73e8', '#1e8e3e', '#f9ab00', '#a142f4', '#e52592'];
+      const randomColor = USER_COLORS[Math.floor(Math.random() * USER_COLORS.length)];
+
+      user = new User({
+        email: normalizedEmail,
+        displayName: name || 'Google User',
+        googleId,
+        isVerified: true,
+        avatarColor: randomColor,
+      });
+
+      await user.save();
+    }
+
+    // Generate tokens
+    const newAccessToken = generateAccessToken(user._id);
+
+    // Gather device info
+    const deviceInfo = `${req.ip} - ${req.headers['user-agent'] || 'Unknown Device'}`;
+
+    // Generate refresh token
+    const { plaintext, tokenDoc } = RefreshToken.generate(user._id, null, deviceInfo);
+    await tokenDoc.save();
+
+    // Set HttpOnly cookie
+    res.cookie('refreshToken', plaintext, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    res.json({
+      accessToken: newAccessToken,
+      user: {
+        id: user._id,
+        email: user.email,
+        displayName: user.displayName,
+        avatarColor: user.avatarColor,
+      },
+    });
+  } catch (error) {
+    console.error('Google login error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

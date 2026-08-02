@@ -9,12 +9,12 @@ export default defineConfig({
     allowedHosts: true,
     proxy: {
       '/api': {
-        target: 'https://70489dd616f14c3d-103-25-138-13.serveousercontent.com',
+        target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
       },
       '/socket.io': {
-        target: 'https://70489dd616f14c3d-103-25-138-13.serveousercontent.com',
+        target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
         ws: true,

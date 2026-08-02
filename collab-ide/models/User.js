@@ -13,7 +13,6 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: true,
     },
     displayName: {
       type: String,
@@ -23,6 +22,11 @@ const userSchema = new mongoose.Schema(
     avatarColor: {
       type: String,
       default: '#89b4fa',
+    },
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
     },
     isVerified: {
       type: Boolean,
@@ -46,7 +50,7 @@ const userSchema = new mongoose.Schema(
 // Hash password before saving
 userSchema.pre('save', async function () {
   const user = this;
-  if (!user.isModified('password')) return;
+  if (!user.isModified('password') || !user.password) return;
 
   const salt = await bcrypt.genSalt(12); // cost factor 12 per FR-01
   user.password = await bcrypt.hash(user.password, salt);
