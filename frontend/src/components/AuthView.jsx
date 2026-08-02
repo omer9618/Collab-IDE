@@ -141,25 +141,24 @@ export default function AuthView({ onAuthSuccess }) {
   const strength = getPasswordStrength();
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen w-full bg-[#0b0c0d] text-[#e3e2e2] px-4 py-12 overflow-y-auto">
+    <div className="flex flex-col items-center justify-center min-h-screen w-full bg-bg-base text-text-primary font-ui px-4 py-12 overflow-y-auto">
       
       {/* Header Section */}
       <header className="flex flex-col items-center text-center select-none max-w-[600px] mb-8">
-        <div className="flex items-center space-x-2 mb-6 opacity-80 hover:opacity-100 transition-opacity cursor-pointer" onClick={() => window.location.reload()}>
-          <span className="material-symbols-outlined text-[24px] text-white">terminal</span>
-          <span className="font-sans font-bold text-[14px] tracking-[0.2em] text-white">COLLIDE</span>
+        <div className="flex items-center space-x-2 mb-6 cursor-pointer" onClick={() => window.location.reload()}>
+          <img src="/logo.png" className="h-16 object-contain" alt="CollabIDE Logo" />
         </div>
-        <h1 className="font-serif text-[42px] md:text-[54px] font-normal leading-[1.1] tracking-tight text-white mb-4">
-          Question what's next
+        <h1 className="font-semibold text-text-2xl text-on-surface mb-2">
+          Sign in to CollabIDE
         </h1>
-        <p className="font-serif text-[16px] md:text-[19px] text-[#8a919d] italic max-w-[420px] leading-relaxed">
+        <p className="text-text-base text-text-secondary max-w-[420px]">
           Your collaborative partner for big coding ambitions
         </p>
       </header>
 
       {/* Auth Card Container */}
       <main className="w-full max-w-[400px]">
-        <div className="bg-[#121415] border border-[#2b2d30] rounded-2xl p-8 shadow-2xl transition-all duration-300">
+        <div className="bg-[#1b1c1c] border border-border-default rounded-radius-lg p-8 shadow-2xl transition-all duration-300">
           
           {error && (
             <div className="mb-5 p-3.5 bg-red-950/40 border border-accent-red/30 rounded-xl text-accent-red text-[13px] leading-normal flex items-start space-x-2">
@@ -181,7 +180,7 @@ export default function AuthView({ onAuthSuccess }) {
               <button
                 type="button"
                 onClick={handleGoogleSignIn}
-                className="w-full flex items-center justify-center space-x-3 h-[48px] bg-transparent border border-[#3e4246] hover:bg-[#1a1c1d] active:scale-[0.99] rounded-xl text-white font-medium text-[15px] transition-all"
+                className="w-full flex items-center justify-center space-x-3 h-[48px] bg-transparent border border-border-default hover:bg-[#252626] active:scale-[0.99] rounded-radius-md text-on-surface font-medium text-[14px] transition-all"
               >
                 <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
                   <path
@@ -206,9 +205,9 @@ export default function AuthView({ onAuthSuccess }) {
 
               {/* Separator OR */}
               <div className="flex items-center my-5 select-none">
-                <div className="flex-grow border-t border-[#2b2d30]/70"></div>
+                <div className="flex-grow border-t border-border-default"></div>
                 <span className="px-4 text-[10px] text-text-muted uppercase tracking-[0.2em] font-bold">OR</span>
-                <div className="flex-grow border-t border-[#2b2d30]/70"></div>
+                <div className="flex-grow border-t border-border-default"></div>
               </div>
 
               {/* Email input and submit */}
@@ -219,30 +218,30 @@ export default function AuthView({ onAuthSuccess }) {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Enter your email"
-                  className="w-full h-[48px] px-4 bg-[#181a1b] border border-[#303337] focus:border-white focus:outline-none rounded-xl text-white text-[15px] transition-colors placeholder-text-muted/60"
+                  className="w-full h-[48px] px-4 bg-[#111212] border border-border-default focus:border-border-active focus:outline-none rounded-radius-md text-text-primary text-[14px] transition-colors placeholder:text-text-muted"
                 />
                 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full h-[48px] bg-white hover:bg-neutral-200 active:scale-[0.99] text-black font-semibold text-[15px] rounded-xl transition-all flex items-center justify-center space-x-2"
+                  className="w-full h-[48px] bg-accent-blue hover:bg-blue-600 active:scale-[0.99] text-white font-medium text-[14px] rounded-radius-md transition-all flex items-center justify-center space-x-2"
                 >
                   <span>{loading ? 'Checking...' : 'Continue with email'}</span>
                 </button>
               </div>
 
-              <p className="text-[12px] text-text-muted/85 text-center mt-6 select-none leading-relaxed">
-                By continuing, you acknowledge Collide's{' '}
-                <a href="#" className="underline hover:text-white transition-colors">Privacy Policy</a>.
+              <p className="text-[12px] text-text-muted text-center mt-6 select-none leading-relaxed">
+                By continuing, you acknowledge CollabIDE's{' '}
+                <a href="#" className="underline hover:text-on-surface transition-colors">Privacy Policy</a>.
               </p>
             </form>
           ) : (
             <form onSubmit={handleAuthSubmit} className="space-y-5">
               {/* Selected Email Box */}
-              <div className="flex items-center justify-between bg-[#181a1b] border border-[#2b2d30]/60 rounded-xl px-4 py-2.5">
+              <div className="flex items-center justify-between bg-[#111212] border border-border-default rounded-radius-md px-4 py-2.5">
                 <div className="flex flex-col min-w-0">
                   <span className="text-[10px] text-text-muted uppercase tracking-wider font-semibold">Email</span>
-                  <span className="text-[13.5px] text-white truncate max-w-[240px] font-medium">{email}</span>
+                  <span className="text-[13.5px] text-on-surface truncate max-w-[240px] font-medium">{email}</span>
                 </div>
                 <button
                   type="button"
@@ -251,14 +250,14 @@ export default function AuthView({ onAuthSuccess }) {
                     setError('');
                     setMessage('');
                   }}
-                  className="text-text-muted hover:text-white p-1 rounded-lg hover:bg-neutral-800 transition-colors flex shrink-0"
+                  className="text-text-muted hover:text-on-surface p-1 rounded-radius-md hover:bg-[#252626] transition-colors flex shrink-0"
                 >
                   <span className="material-symbols-outlined text-[18px]">edit</span>
                 </button>
               </div>
 
               <div className="space-y-1">
-                <h2 className="text-[18px] font-semibold text-white">
+                <h2 className="text-[18px] font-semibold text-on-surface">
                   {isExistingUser ? 'Welcome back!' : 'Create your account'}
                 </h2>
                 <p className="text-[13px] text-text-secondary">
@@ -280,7 +279,7 @@ export default function AuthView({ onAuthSuccess }) {
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
                       placeholder="e.g. John Doe"
-                      className="w-full h-[40px] px-3.5 bg-[#181a1b] border border-[#303337] focus:border-white focus:outline-none rounded-xl text-white text-[14px] transition-colors"
+                      className="w-full h-[40px] px-3.5 bg-[#111212] border border-border-default focus:border-border-active focus:outline-none rounded-radius-md text-text-primary text-[14px] transition-colors"
                     />
                   </div>
 
@@ -293,7 +292,7 @@ export default function AuthView({ onAuthSuccess }) {
                           key={color}
                           type="button"
                           className={`w-6 h-6 rounded-full transition-all border ${
-                            avatarColor === color ? 'ring-2 ring-white border-[#121415]' : 'border-transparent'
+                            avatarColor === color ? 'ring-2 ring-border-active border-transparent' : 'border-transparent'
                           }`}
                           style={{ backgroundColor: color }}
                           onClick={() => setAvatarColor(color)}
@@ -320,12 +319,12 @@ export default function AuthView({ onAuthSuccess }) {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full h-[40px] px-3.5 pr-10 bg-[#181a1b] border border-[#303337] focus:border-white focus:outline-none rounded-xl text-white text-[14px] transition-colors"
+                    className="w-full h-[40px] px-3.5 pr-10 bg-[#111212] border border-border-default focus:border-border-active focus:outline-none rounded-radius-md text-text-primary text-[14px] transition-colors"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-white"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
                   >
                     <span className="material-symbols-outlined text-[18px]">
                       {showPassword ? 'visibility_off' : 'visibility'}
@@ -363,7 +362,7 @@ export default function AuthView({ onAuthSuccess }) {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full h-[44px] bg-white hover:bg-neutral-200 active:scale-[0.99] text-black font-semibold text-[14.5px] rounded-xl transition-all flex items-center justify-center space-x-2"
+                  className="w-full h-[44px] bg-accent-blue hover:bg-blue-600 active:scale-[0.99] text-white font-medium text-[14px] rounded-radius-md transition-all flex items-center justify-center space-x-2"
                 >
                   <span>{loading ? 'Processing...' : isExistingUser ? 'Sign In' : 'Create Account'}</span>
                 </button>
@@ -375,7 +374,7 @@ export default function AuthView({ onAuthSuccess }) {
                     setError('');
                     setMessage('');
                   }}
-                  className="w-full h-[38px] bg-transparent hover:bg-neutral-800/40 text-text-muted hover:text-white font-medium text-[13px] rounded-xl transition-all"
+                  className="w-full h-[38px] bg-transparent hover:bg-[#252626] text-text-muted hover:text-on-surface font-medium text-[13px] rounded-radius-md transition-all"
                 >
                   Go back
                 </button>
