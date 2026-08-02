@@ -251,16 +251,6 @@ export default function DashboardView({ user, onRoomSelect, onLogout }) {
               <h2 className="text-text-xl font-semibold text-on-surface">
                 {activeTab === 'my-rooms' ? 'My Rooms' : 'Joined Rooms'}
               </h2>
-              <button
-                className="px-4 py-2 border border-[#404751] text-on-surface rounded-md text-text-sm font-medium hover:bg-[#252626] transition-colors flex items-center gap-2"
-                onClick={() => {
-                  generateRandomName();
-                  setShowCreateModal(true);
-                }}
-              >
-                <span className="material-symbols-outlined text-[18px]">add</span>
-                <span>New room</span>
-              </button>
             </div>
 
             {error && (
