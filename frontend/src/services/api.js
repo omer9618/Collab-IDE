@@ -130,7 +130,7 @@ export async function getRooms() {
   const res = await request('/rooms');
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || 'Failed to fetch rooms');
-  return data.rooms;
+  return Array.isArray(data) ? data : (data.rooms || []);
 }
 
 export async function createRoom(name) {
