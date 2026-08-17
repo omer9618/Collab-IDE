@@ -1084,53 +1084,6 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
             <span>Run</span>
           </button>
 
-          <button
-            onClick={() => setConsoleOpen(!consoleOpen)}
-            className={`flex items-center gap-1.5 px-3 py-1 text-sm font-medium rounded-md border transition-all ${
-              consoleOpen
-                ? 'bg-surface-elevated text-accent-blue border-accent-blue'
-                : 'text-on-surface-variant border-outline hover:text-on-surface hover:bg-surface-elevated'
-            }`}
-          >
-            <span className="material-symbols-outlined text-[18px]">terminal</span>
-            <span>Terminal</span>
-          </button>
-
-          <div className="text-sm text-on-surface-variant bg-surface-elevated px-2.5 py-1 rounded border border-outline font-medium">
-            {!activeFile
-              ? 'No File'
-              : activeFile.endsWith('.py')
-              ? 'Python'
-              : activeFile.endsWith('.java')
-              ? 'Java'
-              : (activeFile.endsWith('.cpp') || activeFile.endsWith('.cc'))
-              ? 'C++'
-              : activeFile.endsWith('.c')
-              ? 'C'
-              : activeFile.endsWith('.md')
-              ? 'Markdown'
-              : 'JavaScript'}
-          </div>
-
-          <button
-            className={`flex items-center gap-1.5 px-2 py-1 text-sm rounded transition-colors ${
-              rightPanelOpen && rightPanelTab === 'participants'
-                ? 'bg-surface-elevated text-on-surface'
-                : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-elevated'
-            }`}
-            onClick={() => {
-              if (rightPanelOpen && rightPanelTab === 'participants') {
-                setRightPanelOpen(false);
-              } else {
-                setRightPanelOpen(true);
-                setRightPanelTab('participants');
-              }
-            }}
-            title={rightPanelOpen && rightPanelTab === 'participants' ? 'Collapse Participants' : 'Expand Participants'}
-          >
-            <span className="w-2 h-2 rounded-full bg-accent-green" />
-            <span>{onlineCount} online</span>
-          </button>
 
           <button
             onClick={() => setRightPanelOpen(!rightPanelOpen)}
@@ -1165,40 +1118,6 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
               onClick={() => setSidebarOpen(!sidebarOpen)}
             >
               <span className="material-symbols-outlined">folder</span>
-            </button>
-            <button
-              className={`w-full py-2 border-l-2 transition-all ${
-                rightPanelOpen && rightPanelTab === 'participants'
-                  ? 'border-accent-blue text-accent-blue'
-                  : 'border-transparent text-on-surface-variant hover:text-on-surface'
-              }`}
-              onClick={() => {
-                if (rightPanelOpen && rightPanelTab === 'participants') {
-                  setRightPanelOpen(false);
-                } else {
-                  setRightPanelOpen(true);
-                  setRightPanelTab('participants');
-                }
-              }}
-            >
-              <span className="material-symbols-outlined">group</span>
-            </button>
-            <button
-              className={`w-full py-2 border-l-2 transition-all ${
-                rightPanelOpen && rightPanelTab === 'chat'
-                  ? 'border-accent-blue text-accent-blue'
-                  : 'border-transparent text-on-surface-variant hover:text-on-surface'
-              }`}
-              onClick={() => {
-                if (rightPanelOpen && rightPanelTab === 'chat') {
-                  setRightPanelOpen(false);
-                } else {
-                  setRightPanelOpen(true);
-                  setRightPanelTab('chat');
-                }
-              }}
-            >
-              <span className="material-symbols-outlined">chat</span>
             </button>
           </div>
 
@@ -1935,26 +1854,6 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
             </button>
           )}
 
-          <button
-            onClick={() => {
-              setRightPanelOpen(true);
-              setRightPanelTab('chat');
-            }}
-            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-elevated text-on-surface-variant transition-colors"
-            title="Open Chat"
-          >
-            <span className="material-symbols-outlined">chat</span>
-          </button>
-          <button
-            onClick={() => {
-              setRightPanelOpen(true);
-              setRightPanelTab('participants');
-            }}
-            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-elevated text-on-surface-variant transition-colors"
-            title="Participants"
-          >
-            <span className="material-symbols-outlined">group</span>
-          </button>
         </div>
 
         {inVoice && (
