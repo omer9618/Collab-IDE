@@ -146,6 +146,8 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
   const [folderMenuTarget, setFolderMenuTarget] = useState(null); // { path, x, y }
   const [consoleOpen, setConsoleOpen] = useState(true);
   const [consoleHeight, setConsoleHeight] = useState(200);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(200);
+  const [rightPanelWidth, setRightPanelWidth] = useState(200);
   const [consoleTab, setConsoleTab] = useState('output'); // output, terminal, problems
 
   // Code run/output
@@ -483,6 +485,37 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
   };
 
   // Resize console height via mouse drag
+
+  const handleLeftPanelResize = (e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = leftPanelWidth;
+    const doResize = (moveEvent) => {
+      setLeftPanelWidth(Math.max(150, Math.min(startWidth + (moveEvent.clientX - startX), 600)));
+    };
+    const stopResize = () => {
+      window.removeEventListener('mousemove', doResize);
+      window.removeEventListener('mouseup', stopResize);
+    };
+    window.addEventListener('mousemove', doResize);
+    window.addEventListener('mouseup', stopResize);
+  };
+
+  const handleRightPanelResize = (e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = rightPanelWidth;
+    const doResize = (moveEvent) => {
+      setRightPanelWidth(Math.max(150, Math.min(startWidth - (moveEvent.clientX - startX), 600)));
+    };
+    const stopResize = () => {
+      window.removeEventListener('mousemove', doResize);
+      window.removeEventListener('mouseup', stopResize);
+    };
+    window.addEventListener('mousemove', doResize);
+    window.addEventListener('mouseup', stopResize);
+  };
+
   const handleConsoleResize = (e) => {
     e.preventDefault();
     const startY = e.clientY;
@@ -1136,7 +1169,8 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
 
         {/* Sidebar explorer panel */}
         {sidebarOpen && (
-          <nav className="w-[200px] h-full bg-surface-panel border-r border-outline-subtle flex flex-col shrink-0 select-none">
+          <nav style={{ width: `${leftPanelWidth}px` }} className="h-full bg-surface-panel border-r border-outline-subtle flex flex-col shrink-0 select-none relative">
+            <div className="absolute top-0 right-0 w-[4px] h-full bg-transparent hover:bg-accent-blue cursor-col-resize transition-colors z-50 translate-x-1/2" onMouseDown={handleLeftPanelResize} />
             {/* Explorer Top Header */}
             <div className="px-2 py-1 flex items-center justify-between border-b border-outline-subtle">
               <span className="text-[9.5px] font-semibold text-on-surface uppercase tracking-wider">Explorer</span>
@@ -1589,7 +1623,8 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
 
         {/* Right side tab panels (Participants / Chat) */}
         {rightPanelOpen && (
-          <aside className="w-[200px] h-full bg-surface-panel border-l border-outline-subtle flex flex-col shrink-0">
+          <aside style={{ width: `${rightPanelWidth}px` }} className="h-full bg-surface-panel border-l border-outline-subtle flex flex-col shrink-0 relative">
+            <div className="absolute top-0 left-0 w-[4px] h-full bg-transparent hover:bg-accent-blue cursor-col-resize transition-colors z-50 -translate-x-1/2" onMouseDown={handleRightPanelResize} />
             <div className="flex items-center justify-between border-b border-outline-subtle pr-2 bg-surface-panel">
               <div className="flex flex-1">
                 <button
