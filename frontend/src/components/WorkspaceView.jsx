@@ -1020,12 +1020,12 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
   return (
     <div className="bg-surface text-on-surface font-ui overflow-hidden h-screen flex flex-col select-none">
       {/* Top Bar (56px) */}
-      <header className="h-[44px] shrink-0 bg-surface border-b border-outline-subtle flex items-center justify-between px-3 z-40">
-        <div className="flex items-center gap-4">
+      <header className="h-[36px] shrink-0 bg-surface border-b border-outline-subtle flex items-center justify-between px-2 z-40">
+        <div className="flex items-center gap-1">
           <div className="flex items-center cursor-pointer" onClick={() => { leaveVoice(); onBack(); }}>
-            <img src="/logo.png" className="h-6 object-contain" alt="CollabIDE Logo" />
+            <img src="/logo.png" className="h-10 object-contain" alt="CollabIDE Logo" />
           </div>
-          <div className="h-4 w-px bg-outline mx-1" />
+          <div className="h-[40px] w-px bg-outline mx-1" />
           <button
             onClick={() => {
               navigator.clipboard.writeText(window.location.href);
@@ -1034,7 +1034,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
             className="text-sm text-on-surface-variant hover:text-on-surface transition-colors flex items-center gap-1 group"
           >
             {room?.name || 'Loading room...'}
-            <span className="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100 transition-opacity">content_copy</span>
+            <span className="material-symbols-outlined text-[12px] opacity-0 group-hover:opacity-100 transition-opacity">content_copy</span>
           </button>
           
           {/* File tabs inside Top Bar */}
@@ -1042,14 +1042,14 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
             {openedFiles.map((fileName) => (
               <div
                 key={fileName}
-                className={`px-3 h-[44px] text-[13px] flex items-center gap-2 border-b-2 transition-all group/tab ${
+                className={`px-2 h-[36px] text-[9.5px] flex items-center gap-1 border-b-2 transition-all group/tab ${
                   activeFile === fileName
                     ? 'text-on-surface bg-surface-elevated border-accent-blue'
                     : 'text-on-surface-variant border-transparent hover:bg-surface-elevated'
                 }`}
               >
                 <button
-                  className="flex items-center gap-2 h-full outline-none focus:outline-none"
+                  className="flex items-center gap-1 h-full outline-none focus:outline-none"
                   onClick={() => setActiveFile(fileName)}
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-accent-blue" />
@@ -1063,24 +1063,24 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                   }}
                   title="Close Tab"
                 >
-                  <span className="material-symbols-outlined text-[14px]">close</span>
+                  <span className="material-symbols-outlined text-[12px]">close</span>
                 </button>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={handleRunCode}
             disabled={isRunning || role === 'Viewer' || !activeFile || activeFile.endsWith('.md')}
-            className={`flex items-center gap-1.5 px-3 py-1 text-white text-[13px] font-medium rounded-md transition-all shadow ${
+            className={`flex items-center gap-1.5 px-2 py-1 text-white text-[9.5px] font-medium rounded-md transition-all shadow ${
               (isRunning || role === 'Viewer' || !activeFile || activeFile.endsWith('.md'))
                 ? 'bg-gray-700 opacity-50 cursor-not-allowed'
                 : 'bg-accent-blue hover:opacity-90'
             }`}
           >
-            <span className="material-symbols-outlined text-[18px]">play_arrow</span>
+            <span className="material-symbols-outlined text-[12px]">play_arrow</span>
             <span>Run</span>
           </button>
 
@@ -1092,13 +1092,13 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
             }`}
             title={rightPanelOpen ? 'Collapse Panel' : 'Expand Panel'}
           >
-            <span className="material-symbols-outlined text-[18px]">
+            <span className="material-symbols-outlined text-[12px]">
               {rightPanelOpen ? 'dock_to_left' : 'view_sidebar'}
             </span>
           </button>
 
           <button
-            className="w-7 h-7 rounded-full bg-accent-blue flex items-center justify-center text-white text-[10px] font-bold border border-white/20"
+            className="w-7 h-7 rounded-full bg-accent-blue flex items-center justify-center text-white text-[9px] font-bold border border-white/20"
             style={{ backgroundColor: getUserColor(user.id || user._id, user.displayName) }}
           >
             {user.displayName.charAt(0).toUpperCase()}
@@ -1109,10 +1109,10 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
       {/* Main container */}
       <div className="flex flex-1 overflow-hidden">
         {/* Activity Bar (48px) */}
-        <aside className="w-[48px] h-full flex flex-col items-center py-3 bg-surface-base border-r border-outline-subtle shrink-0">
-          <div className="flex flex-col gap-4 w-full items-center">
+        <aside className="w-[40px] h-full flex flex-col items-center py-1.5 bg-surface-base border-r border-outline-subtle shrink-0">
+          <div className="flex flex-col gap-1 w-full items-center">
             <button
-              className={`w-full py-2 border-l-2 transition-all ${
+              className={`w-full py-1 border-l-2 transition-all ${
                 sidebarOpen ? 'border-accent-blue text-accent-blue' : 'border-transparent text-on-surface-variant hover:text-on-surface'
               }`}
               onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -1121,12 +1121,12 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
             </button>
           </div>
 
-          <div className="mt-auto flex flex-col gap-4 w-full items-center">
-            <button className="w-full py-2 text-on-surface-variant hover:text-on-surface">
+          <div className="mt-auto flex flex-col gap-1 w-full items-center">
+            <button className="w-full py-1 text-on-surface-variant hover:text-on-surface">
               <span className="material-symbols-outlined">settings</span>
             </button>
             <button
-              className="w-full py-2 text-on-surface-variant hover:text-accent-red"
+              className="w-full py-1 text-on-surface-variant hover:text-accent-red"
               onClick={() => { leaveVoice(); onBack(); }}
             >
               <span className="material-symbols-outlined">logout</span>
@@ -1136,26 +1136,26 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
 
         {/* Sidebar explorer panel */}
         {sidebarOpen && (
-          <nav className="w-[240px] h-full bg-surface-panel border-r border-outline-subtle flex flex-col shrink-0 select-none">
+          <nav className="w-[200px] h-full bg-surface-panel border-r border-outline-subtle flex flex-col shrink-0 select-none">
             {/* Explorer Top Header */}
-            <div className="px-3 py-2 flex items-center justify-between border-b border-outline-subtle">
-              <span className="text-[11px] font-semibold text-on-surface uppercase tracking-wider">Explorer</span>
+            <div className="px-2 py-1 flex items-center justify-between border-b border-outline-subtle">
+              <span className="text-[9.5px] font-semibold text-on-surface uppercase tracking-wider">Explorer</span>
             </div>
 
             <div className="flex-1 overflow-y-auto py-2">
               {/* Workspace Root Row */}
-              <div className="px-2 py-1 mx-1 my-0.5 rounded-md flex items-center justify-between group/root cursor-pointer hover:bg-surface-elevated/50 text-xs font-semibold text-on-surface">
+              <div className="px-2 py-1 mx-1 my-0.5 rounded-md flex items-center justify-between group/root cursor-pointer hover:bg-surface-elevated/50 text-[9px] font-semibold text-on-surface">
                 <div
                   className="flex items-center gap-1.5 min-w-0 flex-1"
                   onClick={() => setIsFilesTreeOpen(!isFilesTreeOpen)}
                 >
                   <span
-                    className="material-symbols-outlined text-[18px] text-on-surface-muted transition-transform duration-200"
+                    className="material-symbols-outlined text-[12px] text-on-surface-muted transition-transform duration-200"
                     style={{ transform: isFilesTreeOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
                   >
                     expand_more
                   </span>
-                  <span className="material-symbols-outlined text-[18px] text-on-surface-muted">folder_open</span>
+                  <span className="material-symbols-outlined text-[12px] text-on-surface-muted">folder_open</span>
                   <span className="truncate">{room?.name || 'Workspace'}</span>
                 </div>
 
@@ -1211,7 +1211,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                           <div key={node.path}>
                             {/* Folder Row */}
                             <div
-                              className="flex items-center gap-2 py-1.5 cursor-pointer text-on-surface-variant hover:bg-bg-hover group/folder transition-all"
+                              className="flex items-center gap-1 py-1.5 cursor-pointer text-on-surface-variant hover:bg-bg-hover group/folder transition-all"
                               style={{ paddingLeft: `${indent}px`, paddingRight: '8px' }}
                               onClick={() => setExpandedFolders(prev => {
                                 const s = new Set(prev);
@@ -1238,21 +1238,21 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                                     onClick={(e) => { e.stopPropagation(); handleCreateFile(node.path); }}
                                     title="New File inside folder"
                                   >
-                                    <span className="material-symbols-outlined text-[16px]">note_add</span>
+                                    <span className="material-symbols-outlined text-[12px]">note_add</span>
                                   </button>
                                   <button
                                     className="p-1 hover:bg-surface-elevated rounded text-on-surface-muted hover:text-on-surface"
                                     onClick={(e) => { e.stopPropagation(); handleCreateFolder(node.path); }}
                                     title="New Subfolder"
                                   >
-                                    <span className="material-symbols-outlined text-[16px]">create_new_folder</span>
+                                    <span className="material-symbols-outlined text-[12px]">create_new_folder</span>
                                   </button>
                                   <button
                                     className="p-1 hover:bg-red-500/20 rounded text-on-surface-muted hover:text-red-400"
                                     onClick={(e) => { e.stopPropagation(); handleDeleteFolder(node.path); }}
                                     title="Delete Folder"
                                   >
-                                    <span className="material-symbols-outlined text-[16px]">delete</span>
+                                    <span className="material-symbols-outlined text-[12px]">delete</span>
                                   </button>
                                 </div>
                               )}
@@ -1261,14 +1261,14 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                             {/* Inline folder/file creation input shown inside this folder */}
                             {isOpen && isCreatingFolder && createInsideFolder === node.path && (
                               <div
-                                className="flex items-center gap-2 py-1.5 bg-surface-elevated"
+                                className="flex items-center gap-1 py-1.5 bg-surface-elevated"
                                 style={{ paddingLeft: `${indent + 24}px`, paddingRight: '8px' }}
                               >
-                                <span className="material-symbols-outlined text-[15px] text-yellow-500/80 shrink-0">folder</span>
+                                <span className="material-symbols-outlined text-[13px] text-yellow-500/80 shrink-0">folder</span>
                                 <input
                                   id="new-folder-input"
                                   type="text"
-                                  className="bg-[#121414] border border-accent-blue rounded text-xs px-1.5 py-0.5 text-on-surface outline-none w-full font-mono"
+                                  className="bg-[#121414] border border-accent-blue rounded text-[9px] px-1.5 py-0.5 text-on-surface outline-none w-full font-mono"
                                   value={newFolderNameInput}
                                   onChange={(e) => setNewFolderNameInput(e.target.value)}
                                   onKeyDown={handleNewFolderKeyDown}
@@ -1279,14 +1279,14 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                             )}
                             {isOpen && isCreatingFile && createInsideFolder === node.path && (
                               <div
-                                className="flex items-center gap-2 py-1.5 bg-surface-elevated"
+                                className="flex items-center gap-1 py-1.5 bg-surface-elevated"
                                 style={{ paddingLeft: `${indent + 24}px`, paddingRight: '8px' }}
                               >
                                 <span className={`w-2 h-2 rounded-full shrink-0 bg-gray-500`} />
                                 <input
                                   id="new-file-input"
                                   type="text"
-                                  className="bg-[#121414] border border-accent-blue rounded text-xs px-1.5 py-0.5 text-on-surface outline-none w-full font-mono"
+                                  className="bg-[#121414] border border-accent-blue rounded text-[9px] px-1.5 py-0.5 text-on-surface outline-none w-full font-mono"
                                   value={newFileNameInput}
                                   onChange={(e) => setNewFileNameInput(e.target.value)}
                                   onKeyDown={handleNewFileKeyDown}
@@ -1306,7 +1306,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                       return (
                         <div
                           key={node.path}
-                          className={`flex items-center gap-2.5 py-1.5 cursor-pointer transition-all group/file ${
+                          className={`flex items-center gap-1.5 py-1.5 cursor-pointer transition-all group/file ${
                             activeFile === node.path
                               ? 'bg-surface-elevated border-l-2 border-accent-blue text-on-surface'
                               : 'text-on-surface-variant hover:bg-bg-hover'
@@ -1326,7 +1326,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                             <input
                               id="rename-file-input"
                               type="text"
-                              className="bg-[#121414] border border-accent-blue rounded text-xs px-1.5 py-0.5 text-on-surface outline-none w-full font-mono"
+                              className="bg-[#121414] border border-accent-blue rounded text-[9px] px-1.5 py-0.5 text-on-surface outline-none w-full font-mono"
                               value={renameInputVal}
                               onChange={(e) => setRenameInputVal(e.target.value)}
                               onKeyDown={(e) => handleRenameKeyDown(e, node.path)}
@@ -1343,7 +1343,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                               onClick={(e) => { e.stopPropagation(); handleFileDoubleClick(e, node.path); }}
                               title="File options"
                             >
-                              <span className="material-symbols-outlined text-[18px]">more_horiz</span>
+                              <span className="material-symbols-outlined text-[12px]">more_horiz</span>
                             </button>
                           )}
                         </div>
@@ -1357,12 +1357,12 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                   <div className="pt-0.5">
                     {/* Root-level inline creation inputs */}
                     {isCreatingFolder && createInsideFolder === '' && (
-                      <div className="flex items-center gap-2 py-1.5 bg-surface-elevated mx-2 rounded mb-1" style={{ paddingLeft: '16px', paddingRight: '8px' }}>
-                        <span className="material-symbols-outlined text-[15px] text-yellow-500/80 shrink-0">folder</span>
+                      <div className="flex items-center gap-1 py-1.5 bg-surface-elevated mx-2 rounded mb-1" style={{ paddingLeft: '16px', paddingRight: '8px' }}>
+                        <span className="material-symbols-outlined text-[13px] text-yellow-500/80 shrink-0">folder</span>
                         <input
                           id="new-folder-input"
                           type="text"
-                          className="bg-[#121414] border border-accent-blue rounded text-xs px-1.5 py-0.5 text-on-surface outline-none w-full font-mono"
+                          className="bg-[#121414] border border-accent-blue rounded text-[9px] px-1.5 py-0.5 text-on-surface outline-none w-full font-mono"
                           value={newFolderNameInput}
                           onChange={(e) => setNewFolderNameInput(e.target.value)}
                           onKeyDown={handleNewFolderKeyDown}
@@ -1372,12 +1372,12 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                       </div>
                     )}
                     {isCreatingFile && createInsideFolder === '' && (
-                      <div className="flex items-center gap-2 py-1.5 bg-surface-elevated mx-2 rounded mb-1" style={{ paddingLeft: '16px', paddingRight: '8px' }}>
+                      <div className="flex items-center gap-1 py-1.5 bg-surface-elevated mx-2 rounded mb-1" style={{ paddingLeft: '16px', paddingRight: '8px' }}>
                         <span className="w-2 h-2 rounded-full bg-gray-500 shrink-0" />
                         <input
                           id="new-file-input"
                           type="text"
-                          className="bg-[#121414] border border-accent-blue rounded text-xs px-1.5 py-0.5 text-on-surface outline-none w-full font-mono"
+                          className="bg-[#121414] border border-accent-blue rounded text-[9px] px-1.5 py-0.5 text-on-surface outline-none w-full font-mono"
                           value={newFileNameInput}
                           onChange={(e) => setNewFileNameInput(e.target.value)}
                           onKeyDown={handleNewFileKeyDown}
@@ -1394,7 +1394,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
 
             <div className="p-4 border-t border-outline-subtle mt-auto">
               <button
-                className="w-full text-left text-[13px] text-accent-blue hover:underline flex items-center gap-1"
+                className="w-full text-left text-[9.5px] text-accent-blue hover:underline flex items-center gap-1"
                 onClick={() => {
                   navigator.clipboard.writeText(window.location.href);
                   showToast('Share link copied!', 'success');
@@ -1413,16 +1413,16 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
               <div className="w-full h-full flex flex-col items-center justify-center bg-surface-panel select-none">
                 <img src="/logo.png" className="h-20 object-contain mb-8 opacity-40 filter grayscale" alt="CollabIDE Logo" />
                 <h2 className="text-lg font-semibold text-on-surface mb-2">No File Open</h2>
-                <p className="text-xs text-on-surface-muted max-w-xs text-center mb-6">
+                <p className="text-[9px] text-on-surface-muted max-w-xs text-center mb-6">
                   Select a file from the explorer sidebar, or click the new file button to create one.
                 </p>
-                <div className="flex flex-col gap-2 w-full max-w-xs">
+                <div className="flex flex-col gap-1 w-full max-w-xs">
                   <button 
                     onClick={handleCreateFile}
-                    className="flex items-center justify-between px-4 py-2 bg-surface-elevated hover:bg-bg-hover border border-outline rounded-md text-xs text-on-surface transition-all"
+                    className="flex items-center justify-between px-2 py-1 bg-surface-elevated hover:bg-bg-hover border border-outline rounded-md text-[9px] text-on-surface transition-all"
                   >
                     <span>Create New File</span>
-                    <span className="text-[10px] text-on-surface-muted bg-[#252526] px-1.5 py-0.5 rounded">Alt+N</span>
+                    <span className="text-[9px] text-on-surface-muted bg-[#252526] px-1.5 py-0.5 rounded">Alt+N</span>
                   </button>
                 </div>
               </div>
@@ -1468,18 +1468,18 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
 
             {/* View only watermark */}
             {role === 'Viewer' && (
-              <div className="absolute bottom-4 left-6 pointer-events-none select-none text-text-muted opacity-30 font-semibold tracking-wider text-[11px]">
+              <div className="absolute bottom-4 left-6 pointer-events-none select-none text-text-muted opacity-30 font-semibold tracking-wider text-[9.5px]">
                 VIEW ONLY
               </div>
             )}
 
             {/* User editing count badge */}
-            <div className="absolute bottom-4 right-6 glass-panel px-3 py-1.5 rounded-full flex items-center gap-2 border border-outline/30 shadow-lg z-10">
+            <div className="absolute bottom-4 right-6 glass-panel px-2 py-1.5 rounded-full flex items-center gap-1 border border-outline/30 shadow-lg z-10">
               <div className="flex -space-x-1.5">
-                <div className="w-4 h-4 rounded-full bg-accent-blue border border-surface" />
-                <div className="w-4 h-4 rounded-full bg-accent-green border border-surface" />
+                <div className="w-4 h-[40px] rounded-full bg-accent-blue border border-surface" />
+                <div className="w-4 h-[40px] rounded-full bg-accent-green border border-surface" />
               </div>
-              <span className="text-[11px] font-medium text-on-surface-variant">{onlineCount} editing</span>
+              <span className="text-[9.5px] font-medium text-on-surface-variant">{onlineCount} editing</span>
             </div>
           </div>
 
@@ -1493,10 +1493,10 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                  className="absolute top-0 left-0 w-full h-[4px] bg-outline-subtle hover:bg-accent-blue cursor-row-resize transition-colors" 
                  onMouseDown={handleConsoleResize}
                />
-              <div className="flex items-center justify-between px-2 h-8 border-b border-outline-subtle">
+              <div className="flex items-center justify-between px-2 h-[40px] border-b border-outline-subtle">
                 <div className="flex h-full">
                   <button
-                    className={`px-3 text-[12px] font-medium h-full transition-all ${
+                    className={`px-2 text-[9px] font-medium h-full transition-all ${
                       consoleTab === 'output' ? 'text-accent-blue border-b-2 border-accent-blue' : 'text-on-surface-variant hover:text-on-surface'
                     }`}
                     onClick={() => setConsoleTab('output')}
@@ -1504,7 +1504,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                     Output
                   </button>
                   <button
-                    className={`px-3 text-[12px] font-medium h-full transition-all ${
+                    className={`px-2 text-[9px] font-medium h-full transition-all ${
                       consoleTab === 'terminal' ? 'text-accent-blue border-b-2 border-accent-blue' : 'text-on-surface-variant hover:text-on-surface'
                     }`}
                     onClick={() => setConsoleTab('terminal')}
@@ -1512,7 +1512,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                     Terminal
                   </button>
                   <button
-                    className={`px-3 text-[12px] font-medium h-full transition-all ${
+                    className={`px-2 text-[9px] font-medium h-full transition-all ${
                       consoleTab === 'problems' ? 'text-accent-blue border-b-2 border-accent-blue' : 'text-on-surface-variant hover:text-on-surface'
                     }`}
                     onClick={() => setConsoleTab('problems')}
@@ -1526,26 +1526,26 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                     onClick={handleCopyOutput}
                     title="Copy Output"
                   >
-                    <span className="material-symbols-outlined text-[18px]">content_copy</span>
+                    <span className="material-symbols-outlined text-[12px]">content_copy</span>
                   </button>
                   <button
                     className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-on-surface rounded transition-colors"
                     onClick={handleClearOutput}
                     title="Clear Output"
                   >
-                    <span className="material-symbols-outlined text-[18px]">delete_sweep</span>
+                    <span className="material-symbols-outlined text-[12px]">delete_sweep</span>
                   </button>
                   <button
                     className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-on-surface rounded transition-colors"
                     onClick={() => setConsoleOpen(false)}
                     title="Minimize Console"
                   >
-                    <span className="material-symbols-outlined text-[18px]">keyboard_arrow_down</span>
+                    <span className="material-symbols-outlined text-[12px]">keyboard_arrow_down</span>
                   </button>
                 </div>
               </div>
 
-              <div className="flex-1 p-3 font-code text-[11px] overflow-y-auto bg-[#0d0e0f]">
+              <div className="flex-1 p-3 font-code text-[9.5px] overflow-y-auto bg-[#0d0e0f]">
                 {consoleTab === 'output' && (
                   <div className="text-on-surface">
                     {outputLines.length === 0 ? (
@@ -1574,7 +1574,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                     <div className="text-accent-green">$ CollabIDE interactive prompt active.</div>
                     <div className="flex items-center gap-1 mt-2">
                       <span className="text-on-surface">collab-ide/src %</span>
-                      <span className="w-1.5 h-4 bg-on-surface-muted animate-pulse" />
+                      <span className="w-1.5 h-[40px] bg-on-surface-muted animate-pulse" />
                     </div>
                   </div>
                 )}
@@ -1589,11 +1589,11 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
 
         {/* Right side tab panels (Participants / Chat) */}
         {rightPanelOpen && (
-          <aside className="w-[240px] h-full bg-surface-panel border-l border-outline-subtle flex flex-col shrink-0">
+          <aside className="w-[200px] h-full bg-surface-panel border-l border-outline-subtle flex flex-col shrink-0">
             <div className="flex items-center justify-between border-b border-outline-subtle pr-2 bg-surface-panel">
               <div className="flex flex-1">
                 <button
-                  className={`flex-1 py-2 text-[13px] font-medium transition-all ${
+                  className={`flex-1 py-1 text-[9.5px] font-medium transition-all ${
                     rightPanelTab === 'participants'
                       ? 'text-accent-blue border-b-2 border-accent-blue'
                       : 'text-on-surface-variant hover:text-on-surface'
@@ -1603,7 +1603,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                   Participants ({onlineCount})
                 </button>
                 <button
-                  className={`flex-1 py-2 text-[13px] font-medium transition-all ${
+                  className={`flex-1 py-1 text-[9.5px] font-medium transition-all ${
                     rightPanelTab === 'chat'
                       ? 'text-accent-blue border-b-2 border-accent-blue'
                       : 'text-on-surface-variant hover:text-on-surface'
@@ -1618,19 +1618,19 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                 className="p-1 text-on-surface-variant hover:text-on-surface rounded hover:bg-surface-elevated transition-colors ml-1"
                 title="Collapse Panel"
               >
-                <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+                <span className="material-symbols-outlined text-[12px]">chevron_right</span>
               </button>
             </div>
 
             {rightPanelTab === 'participants' && (
-              <div className="p-3 flex flex-col gap-3 overflow-y-auto flex-1 select-none">
+              <div className="p-3 flex flex-col gap-1.5 overflow-y-auto flex-1 select-none">
                 <div className="flex items-center justify-between">
                   <button
                     onClick={() => setIsOnlineListOpen(!isOnlineListOpen)}
-                    className="flex items-center gap-1 text-xs font-semibold text-on-surface-muted uppercase tracking-wider hover:text-on-surface transition-colors"
+                    className="flex items-center gap-1 text-[9px] font-semibold text-on-surface-muted uppercase tracking-wider hover:text-on-surface transition-colors"
                   >
                     <span
-                      className="material-symbols-outlined text-[16px] transition-transform duration-200"
+                      className="material-symbols-outlined text-[12px] transition-transform duration-200"
                       style={{ transform: isOnlineListOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
                     >
                       expand_more
@@ -1638,7 +1638,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                     <span>Online ({onlineCount})</span>
                   </button>
                   {isUserLeader && (
-                    <div className="flex gap-2 text-[11px]">
+                    <div className="flex gap-1 text-[9.5px]">
                       <button onClick={handleMuteAll} className="text-accent-red hover:underline">Mute all</button>
                       <button onClick={toggleEditorOnlyVoice} className="text-accent-blue hover:underline">
                         {editorOnlyMode ? 'Unlock Voice' : 'Lock Voice'}
@@ -1648,13 +1648,13 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                 </div>
 
                 {isOnlineListOpen && (
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-1">
 
                 {/* Local user entry */}
-                <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-surface-elevated">
+                <div className="flex items-center gap-1.5 p-2 rounded-lg hover:bg-surface-elevated">
                   <div className="relative">
                     <div
-                      className="w-8 h-8 rounded-full bg-accent-blue flex items-center justify-center text-white text-xs font-bold"
+                      className="w-8 h-[40px] rounded-full bg-accent-blue flex items-center justify-center text-white text-[9px] font-bold"
                       style={{ backgroundColor: getUserColor(user.id || user._id, user.displayName) }}
                     >
                       {user.displayName.charAt(0).toUpperCase()}
@@ -1667,11 +1667,11 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-on-surface truncate">{user.displayName} (You)</span>
-                      <span className="text-[10px] px-1.5 py-0.5 bg-[#3d3000] text-[#f9ab00] rounded-sm font-medium uppercase">
+                      <span className="text-[9px] px-1.5 py-0.5 bg-[#3d3000] text-[#f9ab00] rounded-sm font-medium uppercase">
                         {role}
                       </span>
                     </div>
-                    <span className="text-[11px] text-accent-green">
+                    <span className="text-[9.5px] text-accent-green">
                       {inVoice ? (isMuted ? 'Muted' : 'Speaking...') : 'Offline Voice'}
                     </span>
                   </div>
@@ -1692,10 +1692,10 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                     };
 
                     return (
-                      <div key={p.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-surface-elevated group">
+                      <div key={p.id} className="flex items-center gap-1.5 p-2 rounded-lg hover:bg-surface-elevated group">
                         <div className="relative">
                           <div
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                            className="w-8 h-[40px] rounded-full flex items-center justify-center text-white text-[9px] font-bold"
                             style={{ backgroundColor: p.color || '#89b4fa' }}
                           >
                             {(p.name || 'U').charAt(0).toUpperCase()}
@@ -1712,19 +1712,19 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                               <select
                                 value={p.role || 'Viewer'}
                                 onChange={(e) => handleRoleChange(p.id, e.target.value)}
-                                className="bg-[#1e1e2e] border border-outline-subtle rounded text-[10px] text-on-surface px-1 py-0.5 outline-none cursor-pointer focus:border-accent-blue"
+                                className="bg-[#1e1e2e] border border-outline-subtle rounded text-[9px] text-on-surface px-1 py-0.5 outline-none cursor-pointer focus:border-accent-blue"
                               >
                                 <option value="Viewer">Viewer</option>
                                 <option value="Editor">Editor</option>
                                 {role === 'Owner' && <option value="Room Leader">Room Leader</option>}
                               </select>
                             ) : (
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded-sm font-medium uppercase ${getRoleBadgeClass(p.role)}`}>
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded-sm font-medium uppercase ${getRoleBadgeClass(p.role)}`}>
                                 {p.role || 'Viewer'}
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-1 text-[11px] text-on-surface-muted">
+                          <div className="flex items-center gap-1 text-[9.5px] text-on-surface-muted">
                             {voiceP ? (
                               voiceP.isMuted ? (
                                 <>
@@ -1761,21 +1761,21 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
               <div className="flex flex-col flex-1 overflow-hidden">
                 <div
                   id="chat-msg-container"
-                  className="flex-1 p-4 overflow-y-auto flex flex-col gap-4 bg-[#121414]"
+                  className="flex-1 p-4 overflow-y-auto flex flex-col gap-1 bg-[#121414]"
                 >
                   {chatMessages.map((msg, idx) => {
                     const isMine = msg.userId === (user.id || user._id);
                     const msgColor = getUserColor(msg.userId, msg.displayName);
                     return (
                       <div key={idx} className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
                           <div
-                            className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
+                            className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[9px] font-bold"
                             style={{ backgroundColor: msgColor }}
                           >
                             {msg.displayName.charAt(0).toUpperCase()}
                           </div>
-                          <span className="text-xs font-semibold" style={{ color: msgColor }}>
+                          <span className="text-[9px] font-semibold" style={{ color: msgColor }}>
                             {msg.displayName}
                           </span>
                           <span className="text-[9px] text-on-surface-muted ml-auto">{msg.time}</span>
@@ -1786,10 +1786,10 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                   })}
                 </div>
 
-                <div className="p-3 border-t border-outline-subtle bg-surface-panel flex items-center gap-2">
+                <div className="p-3 border-t border-outline-subtle bg-surface-panel flex items-center gap-1">
                   <input
                     type="text"
-                    className="flex-1 bg-surface border border-outline rounded-md px-3 py-1.5 text-sm text-on-surface focus:border-accent-blue focus:ring-0 outline-none transition-colors"
+                    className="flex-1 bg-surface border border-outline rounded-md px-2 py-1.5 text-sm text-on-surface focus:border-accent-blue focus:ring-0 outline-none transition-colors"
                     placeholder="Type a message..."
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
@@ -1799,7 +1799,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                     onClick={handleSendChat}
                     className="p-1.5 bg-accent-blue text-white rounded-md hover:opacity-90"
                   >
-                    <span className="material-symbols-outlined text-[16px]">arrow_upward</span>
+                    <span className="material-symbols-outlined text-[12px]">arrow_upward</span>
                   </button>
                 </div>
               </div>
@@ -1811,8 +1811,8 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
 
 
       {/* Status Bar */}
-      <footer className="h-[22px] bg-accent-blue text-white px-3 flex items-center justify-between text-[11px] shrink-0 z-40">
-        <div className="flex items-center gap-4">
+      <footer className="h-[22px] bg-accent-blue text-white px-2 flex items-center justify-between text-[9.5px] shrink-0 z-40">
+        <div className="flex items-center gap-1">
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-accent-green shadow-[0_0_4px_rgba(30,142,62,0.6)]" />
             <span>{syncStatus} (v2)</span>
@@ -1820,7 +1820,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
           <div className="h-3 w-px bg-white/20" />
           <span>{onlineCount} online</span>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-1">
           <span>{activeFile.endsWith('.js') ? 'JavaScript' : 'Python'}</span>
           <div className="h-3 w-px bg-white/20" />
           <span className="cursor-pointer hover:underline" onClick={() => navigator.clipboard.writeText(roomUuid)}>
@@ -1832,8 +1832,8 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
       </footer>
 
       {/* Floating Voice Dock */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-6 h-[44px] glass-panel rounded-full border border-outline/50 shadow-2xl z-50 transition-all hover:scale-[1.01]">
-        <div className="flex items-center gap-2">
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-6 h-[36px] glass-panel rounded-full border border-outline/50 shadow-2xl z-50 transition-all hover:scale-[1.01]">
+        <div className="flex items-center gap-1">
           {inVoice ? (
             <button
               onClick={toggleMuteSelf}
@@ -1859,20 +1859,20 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
         {inVoice && (
           <>
             <div className="w-px h-6 bg-outline mx-1" />
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               {isUserLeader && (
                 <>
-                  <button onClick={handleMuteAll} className="px-3 py-1 text-[12px] font-medium text-accent-red hover:bg-accent-red/10 rounded-md transition-colors">
+                  <button onClick={handleMuteAll} className="px-2 py-1 text-[9px] font-medium text-accent-red hover:bg-accent-red/10 rounded-md transition-colors">
                     Mute all
                   </button>
-                  <button onClick={toggleEditorOnlyVoice} className="px-3 py-1 text-[12px] font-medium text-accent-blue hover:bg-accent-blue/10 rounded-md transition-colors">
+                  <button onClick={toggleEditorOnlyVoice} className="px-2 py-1 text-[9px] font-medium text-accent-blue hover:bg-accent-blue/10 rounded-md transition-colors">
                     {editorOnlyMode ? 'Unlock voice' : 'Lock voice'}
                   </button>
                 </>
               )}
               <button
                 onClick={leaveVoice}
-                className="ml-2 px-4 h-9 flex items-center justify-center rounded-full bg-accent-red text-white text-[13px] font-medium hover:opacity-90 transition-all gap-2"
+                className="ml-2 px-2 h-9 flex items-center justify-center rounded-full bg-accent-red text-white text-[9.5px] font-medium hover:opacity-90 transition-all gap-1"
               >
                 <PhoneOff size={14} />
                 <span>Leave</span>
@@ -1891,32 +1891,32 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
             onContextMenu={(e) => { e.preventDefault(); setActiveFileMenu(null); }}
           />
           <div 
-            className="fixed bg-[#1b1c1c] border border-[#2b2b2b] rounded-md shadow-2xl py-1 z-[60] w-36 text-xs text-on-surface-variant font-sans select-none"
+            className="fixed bg-[#1b1c1c] border border-[#2b2b2b] rounded-md shadow-2xl py-1 z-[60] w-36 text-[9px] text-on-surface-variant font-sans select-none"
             style={{ 
               left: `${Math.min(window.innerWidth - 150, activeFileMenu.x)}px`, 
               top: `${Math.min(window.innerHeight - 100, activeFileMenu.y)}px` 
             }}
           >
             <button 
-              className="w-full text-left px-3 py-2 hover:bg-[#2a2b2b] hover:text-on-surface flex items-center gap-2 transition-colors"
+              className="w-full text-left px-2 py-1 hover:bg-[#2a2b2b] hover:text-on-surface flex items-center gap-1 transition-colors"
               onClick={() => {
                 const target = activeFileMenu.fileName;
                 setActiveFileMenu(null);
                 handleRenameFile(target);
               }}
             >
-              <span className="material-symbols-outlined text-[15px]">edit</span>
+              <span className="material-symbols-outlined text-[13px]">edit</span>
               <span>Rename...</span>
             </button>
             <button 
-              className="w-full text-left px-3 py-2 hover:bg-accent-red/20 hover:text-accent-red text-accent-red flex items-center gap-2 transition-colors border-t border-[#2b2b2b]"
+              className="w-full text-left px-2 py-1 hover:bg-accent-red/20 hover:text-accent-red text-accent-red flex items-center gap-1 transition-colors border-t border-[#2b2b2b]"
               onClick={() => {
                 const target = activeFileMenu.fileName;
                 setActiveFileMenu(null);
                 handleDeleteFile(target);
               }}
             >
-              <span className="material-symbols-outlined text-[15px]">delete</span>
+              <span className="material-symbols-outlined text-[13px]">delete</span>
               <span>Delete</span>
             </button>
           </div>
@@ -1943,12 +1943,12 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
               }
             </p>
 
-            <div className="flex justify-end gap-3 pt-3 border-t border-[#2b2b2b]">
+            <div className="flex justify-end gap-1.5 pt-3 border-t border-[#2b2b2b]">
               {isLastFileWarning ? (
                 <button
                   type="button"
                   onClick={() => { setDeleteConfirmFile(null); setIsLastFileWarning(false); }}
-                  className="px-4 py-1.5 bg-accent-blue text-white rounded-md text-text-sm hover:opacity-90 transition-colors"
+                  className="px-2 py-1.5 bg-accent-blue text-white rounded-md text-text-sm hover:opacity-90 transition-colors"
                 >
                   Got it
                 </button>
@@ -1957,14 +1957,14 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                   <button
                     type="button"
                     onClick={() => { setDeleteConfirmFile(null); setIsLastFileWarning(false); }}
-                    className="px-4 py-1.5 border border-[#404751] text-on-surface rounded-md text-text-sm hover:bg-[#252626]"
+                    className="px-2 py-1.5 border border-[#404751] text-on-surface rounded-md text-text-sm hover:bg-[#252626]"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={handleConfirmDelete}
-                    className="px-4 py-1.5 bg-accent-red text-white rounded-md text-text-sm hover:opacity-90 transition-colors"
+                    className="px-2 py-1.5 bg-accent-red text-white rounded-md text-text-sm hover:opacity-90 transition-colors"
                   >
                     Delete
                   </button>
@@ -1977,11 +1977,11 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
 
       {/* Admin lock overlay notifications */}
       {mutedByLeaderMsg && (
-        <div className="fixed bottom-24 left-6 z-50 bg-[#1b1c1c] border-l-4 border-accent-red px-4 py-3 rounded-lg shadow-2xl max-w-sm">
-          <div className="flex items-center gap-2 text-accent-red font-semibold text-sm">
+        <div className="fixed bottom-24 left-6 z-50 bg-[#1b1c1c] border-l-4 border-accent-red px-2 py-1.5 rounded-lg shadow-2xl max-w-sm">
+          <div className="flex items-center gap-1 text-accent-red font-semibold text-sm">
             <MicOff size={16} /> Muted by Room Leader
           </div>
-          <div className="text-xs text-on-surface-variant mt-1">{mutedByLeaderMsg}</div>
+          <div className="text-[9px] text-on-surface-variant mt-1">{mutedByLeaderMsg}</div>
         </div>
       )}
 
@@ -1991,7 +1991,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
           className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] animate-[slideUp_0.3s_ease-out]"
           style={{ animation: 'slideUp 0.3s ease-out' }}
         >
-          <div className={`flex items-center gap-2.5 px-4 py-2.5 rounded-lg shadow-2xl border text-sm font-medium backdrop-blur-md ${
+          <div className={`flex items-center gap-1.5 px-2 py-2.5 rounded-lg shadow-2xl border text-sm font-medium backdrop-blur-md ${
             toastMessage.type === 'success'
               ? 'bg-[#0d2818] border-green-600/40 text-green-300'
               : toastMessage.type === 'error'
@@ -2000,7 +2000,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
               ? 'bg-[#2a2000] border-yellow-600/40 text-yellow-300'
               : 'bg-[#0d1b2a] border-blue-600/40 text-blue-300'
           }`}>
-            <span className="material-symbols-outlined text-[18px]">
+            <span className="material-symbols-outlined text-[12px]">
               {toastMessage.type === 'success' ? 'check_circle' : toastMessage.type === 'error' ? 'error' : toastMessage.type === 'warning' ? 'warning' : 'info'}
             </span>
             <span>{toastMessage.text}</span>
@@ -2008,7 +2008,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
               onClick={() => setToastMessage(null)}
               className="ml-2 opacity-60 hover:opacity-100 transition-opacity"
             >
-              <span className="material-symbols-outlined text-[16px]">close</span>
+              <span className="material-symbols-outlined text-[12px]">close</span>
             </button>
           </div>
         </div>
