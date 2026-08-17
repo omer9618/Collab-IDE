@@ -1020,10 +1020,10 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
   return (
     <div className="bg-surface text-on-surface font-ui overflow-hidden h-screen flex flex-col select-none">
       {/* Top Bar (56px) */}
-      <header className="h-[56px] shrink-0 bg-surface border-b border-outline-subtle flex items-center justify-between px-3 z-40">
+      <header className="h-[44px] shrink-0 bg-surface border-b border-outline-subtle flex items-center justify-between px-3 z-40">
         <div className="flex items-center gap-4">
           <div className="flex items-center cursor-pointer" onClick={() => { leaveVoice(); onBack(); }}>
-            <img src="/logo.png" className="h-12 object-contain" alt="CollabIDE Logo" />
+            <img src="/logo.png" className="h-6 object-contain" alt="CollabIDE Logo" />
           </div>
           <div className="h-4 w-px bg-outline mx-1" />
           <button
@@ -1042,7 +1042,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
             {openedFiles.map((fileName) => (
               <div
                 key={fileName}
-                className={`px-3 h-[56px] text-sm flex items-center gap-2 border-b-2 transition-all group/tab ${
+                className={`px-3 h-[44px] text-[13px] flex items-center gap-2 border-b-2 transition-all group/tab ${
                   activeFile === fileName
                     ? 'text-on-surface bg-surface-elevated border-accent-blue'
                     : 'text-on-surface-variant border-transparent hover:bg-surface-elevated'
@@ -1074,7 +1074,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
           <button
             onClick={handleRunCode}
             disabled={isRunning || role === 'Viewer' || !activeFile || activeFile.endsWith('.md')}
-            className={`flex items-center gap-1.5 px-3 py-1 text-white text-sm font-medium rounded-md transition-all shadow ${
+            className={`flex items-center gap-1.5 px-3 py-1 text-white text-[13px] font-medium rounded-md transition-all shadow ${
               (isRunning || role === 'Viewer' || !activeFile || activeFile.endsWith('.md'))
                 ? 'bg-gray-700 opacity-50 cursor-not-allowed'
                 : 'bg-accent-blue hover:opacity-90'
@@ -1136,15 +1136,15 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
 
         {/* Sidebar explorer panel */}
         {sidebarOpen && (
-          <nav className="w-[260px] h-full bg-surface-panel border-r border-outline-subtle flex flex-col shrink-0 select-none">
+          <nav className="w-[240px] h-full bg-surface-panel border-r border-outline-subtle flex flex-col shrink-0 select-none">
             {/* Explorer Top Header */}
-            <div className="px-4 py-3 flex items-center justify-between border-b border-outline-subtle">
+            <div className="px-3 py-2 flex items-center justify-between border-b border-outline-subtle">
               <span className="text-[11px] font-semibold text-on-surface uppercase tracking-wider">Explorer</span>
             </div>
 
             <div className="flex-1 overflow-y-auto py-2">
               {/* Workspace Root Row */}
-              <div className="px-3 py-2 flex items-center justify-between group/root cursor-pointer hover:bg-surface-elevated/50 text-xs font-semibold text-on-surface">
+              <div className="px-2 py-1 mx-1 my-0.5 rounded-md flex items-center justify-between group/root cursor-pointer hover:bg-surface-elevated/50 text-xs font-semibold text-on-surface">
                 <div
                   className="flex items-center gap-1.5 min-w-0 flex-1"
                   onClick={() => setIsFilesTreeOpen(!isFilesTreeOpen)}
@@ -1493,10 +1493,10 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                  className="absolute top-0 left-0 w-full h-[4px] bg-outline-subtle hover:bg-accent-blue cursor-row-resize transition-colors" 
                  onMouseDown={handleConsoleResize}
                />
-              <div className="flex items-center justify-between px-2 h-9 border-b border-outline-subtle">
+              <div className="flex items-center justify-between px-2 h-8 border-b border-outline-subtle">
                 <div className="flex h-full">
                   <button
-                    className={`px-4 text-[13px] font-medium h-full transition-all ${
+                    className={`px-3 text-[12px] font-medium h-full transition-all ${
                       consoleTab === 'output' ? 'text-accent-blue border-b-2 border-accent-blue' : 'text-on-surface-variant hover:text-on-surface'
                     }`}
                     onClick={() => setConsoleTab('output')}
@@ -1504,7 +1504,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                     Output
                   </button>
                   <button
-                    className={`px-4 text-[13px] font-medium h-full transition-all ${
+                    className={`px-3 text-[12px] font-medium h-full transition-all ${
                       consoleTab === 'terminal' ? 'text-accent-blue border-b-2 border-accent-blue' : 'text-on-surface-variant hover:text-on-surface'
                     }`}
                     onClick={() => setConsoleTab('terminal')}
@@ -1512,7 +1512,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                     Terminal
                   </button>
                   <button
-                    className={`px-4 text-[13px] font-medium h-full transition-all ${
+                    className={`px-3 text-[12px] font-medium h-full transition-all ${
                       consoleTab === 'problems' ? 'text-accent-blue border-b-2 border-accent-blue' : 'text-on-surface-variant hover:text-on-surface'
                     }`}
                     onClick={() => setConsoleTab('problems')}
@@ -1545,7 +1545,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                 </div>
               </div>
 
-              <div className="flex-1 p-4 font-code text-[12px] overflow-y-auto bg-[#0d0e0f]">
+              <div className="flex-1 p-3 font-code text-[11px] overflow-y-auto bg-[#0d0e0f]">
                 {consoleTab === 'output' && (
                   <div className="text-on-surface">
                     {outputLines.length === 0 ? (
@@ -1589,11 +1589,11 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
 
         {/* Right side tab panels (Participants / Chat) */}
         {rightPanelOpen && (
-          <aside className="w-[280px] h-full bg-surface-panel border-l border-outline-subtle flex flex-col shrink-0">
+          <aside className="w-[240px] h-full bg-surface-panel border-l border-outline-subtle flex flex-col shrink-0">
             <div className="flex items-center justify-between border-b border-outline-subtle pr-2 bg-surface-panel">
               <div className="flex flex-1">
                 <button
-                  className={`flex-1 py-3 text-sm font-medium transition-all ${
+                  className={`flex-1 py-2 text-[13px] font-medium transition-all ${
                     rightPanelTab === 'participants'
                       ? 'text-accent-blue border-b-2 border-accent-blue'
                       : 'text-on-surface-variant hover:text-on-surface'
@@ -1603,7 +1603,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                   Participants ({onlineCount})
                 </button>
                 <button
-                  className={`flex-1 py-3 text-sm font-medium transition-all ${
+                  className={`flex-1 py-2 text-[13px] font-medium transition-all ${
                     rightPanelTab === 'chat'
                       ? 'text-accent-blue border-b-2 border-accent-blue'
                       : 'text-on-surface-variant hover:text-on-surface'
@@ -1623,7 +1623,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
             </div>
 
             {rightPanelTab === 'participants' && (
-              <div className="p-4 flex flex-col gap-4 overflow-y-auto flex-1 select-none">
+              <div className="p-3 flex flex-col gap-3 overflow-y-auto flex-1 select-none">
                 <div className="flex items-center justify-between">
                   <button
                     onClick={() => setIsOnlineListOpen(!isOnlineListOpen)}
@@ -1832,7 +1832,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
       </footer>
 
       {/* Floating Voice Dock */}
-      <div className="fixed bottom-[34px] left-1/2 -translate-x-1/2 flex items-center gap-3 px-6 h-[56px] glass-panel rounded-full border border-outline/50 shadow-2xl z-50 transition-all hover:scale-[1.01]">
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-6 h-[44px] glass-panel rounded-full border border-outline/50 shadow-2xl z-50 transition-all hover:scale-[1.01]">
         <div className="flex items-center gap-2">
           {inVoice ? (
             <button
