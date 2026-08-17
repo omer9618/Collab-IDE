@@ -1789,7 +1789,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                 <div className="p-3 border-t border-outline-subtle bg-surface-panel flex items-center gap-1">
                   <input
                     type="text"
-                    className="flex-1 bg-surface border border-outline rounded-md px-2 py-1.5 text-sm text-on-surface focus:border-accent-blue focus:ring-0 outline-none transition-colors"
+                    className="flex-1 min-w-0 bg-surface border border-outline rounded-md px-2 py-1.5 text-sm text-on-surface focus:border-accent-blue focus:ring-0 outline-none transition-colors"
                     placeholder="Type a message..."
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
