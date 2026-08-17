@@ -1025,7 +1025,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
           <div className="flex items-center cursor-pointer" onClick={() => { leaveVoice(); onBack(); }}>
             <img src="/logo.png" className="h-10 object-contain" alt="CollabIDE Logo" />
           </div>
-          <div className="h-[40px] w-px bg-outline mx-1" />
+          <div className="h-4 w-px bg-outline mx-1" />
           <button
             onClick={() => {
               navigator.clipboard.writeText(window.location.href);
@@ -1098,7 +1098,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
           </button>
 
           <button
-            className="w-7 h-7 rounded-full bg-accent-blue flex items-center justify-center text-white text-[9px] font-bold border border-white/20"
+            className="w-7 h-7 rounded-full shrink-0 bg-accent-blue flex items-center justify-center text-white text-[9px] font-bold border border-white/20"
             style={{ backgroundColor: getUserColor(user.id || user._id, user.displayName) }}
           >
             {user.displayName.charAt(0).toUpperCase()}
@@ -1476,8 +1476,8 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
             {/* User editing count badge */}
             <div className="absolute bottom-4 right-6 glass-panel px-2 py-1.5 rounded-full flex items-center gap-1 border border-outline/30 shadow-lg z-10">
               <div className="flex -space-x-1.5">
-                <div className="w-4 h-[40px] rounded-full bg-accent-blue border border-surface" />
-                <div className="w-4 h-[40px] rounded-full bg-accent-green border border-surface" />
+                <div className="w-4 h-4 rounded-full bg-accent-blue border border-surface" />
+                <div className="w-4 h-4 rounded-full bg-accent-green border border-surface" />
               </div>
               <span className="text-[9.5px] font-medium text-on-surface-variant">{onlineCount} editing</span>
             </div>
@@ -1493,7 +1493,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                  className="absolute top-0 left-0 w-full h-[4px] bg-outline-subtle hover:bg-accent-blue cursor-row-resize transition-colors" 
                  onMouseDown={handleConsoleResize}
                />
-              <div className="flex items-center justify-between px-2 h-[40px] border-b border-outline-subtle">
+              <div className="flex items-center justify-between px-2 h-8 border-b border-outline-subtle">
                 <div className="flex h-full">
                   <button
                     className={`px-2 text-[9px] font-medium h-full transition-all ${
@@ -1574,7 +1574,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                     <div className="text-accent-green">$ CollabIDE interactive prompt active.</div>
                     <div className="flex items-center gap-1 mt-2">
                       <span className="text-on-surface">collab-ide/src %</span>
-                      <span className="w-1.5 h-[40px] bg-on-surface-muted animate-pulse" />
+                      <span className="w-1.5 h-4 bg-on-surface-muted animate-pulse" />
                     </div>
                   </div>
                 )}
@@ -1654,7 +1654,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                 <div className="flex items-center gap-1.5 p-2 rounded-lg hover:bg-surface-elevated">
                   <div className="relative">
                     <div
-                      className="w-8 h-[40px] rounded-full bg-accent-blue flex items-center justify-center text-white text-[9px] font-bold"
+                      className="w-8 h-8 rounded-full shrink-0 bg-accent-blue flex items-center justify-center text-white text-[9px] font-bold"
                       style={{ backgroundColor: getUserColor(user.id || user._id, user.displayName) }}
                     >
                       {user.displayName.charAt(0).toUpperCase()}
@@ -1695,7 +1695,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                       <div key={p.id} className="flex items-center gap-1.5 p-2 rounded-lg hover:bg-surface-elevated group">
                         <div className="relative">
                           <div
-                            className="w-8 h-[40px] rounded-full flex items-center justify-center text-white text-[9px] font-bold"
+                            className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-white text-[9px] font-bold"
                             style={{ backgroundColor: p.color || '#89b4fa' }}
                           >
                             {(p.name || 'U').charAt(0).toUpperCase()}
@@ -1770,7 +1770,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                       <div key={idx} className="flex flex-col gap-1">
                         <div className="flex items-center gap-1">
                           <div
-                            className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[9px] font-bold"
+                            className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-white text-[9px] font-bold"
                             style={{ backgroundColor: msgColor }}
                           >
                             {msg.displayName.charAt(0).toUpperCase()}
