@@ -1,0 +1,20 @@
+Issue Type,Summary,Description,Epic Name,Epic Link
+Epic,Auth Module,"Authentication module (FR-01–06, NFR-11–16)",Auth,
+Epic,Rooms & Roles,"Rooms and Role Management",Rooms & Roles,
+Epic,Real-Time Editing,"CRDT and Monaco Integration",Real-Time Editing,
+Epic,Execution,"Judge0 execution environment",Execution,
+Epic,AI Code Assistant,"LLM integration and UI",AI Code Assistant,
+Epic,Voice,"WebRTC voice chat",Voice,
+Epic,Infrastructure & Security,"Deployment and hardening",Infrastructure & Security,
+Task,Sprint 1: Auth module backend,"Implement FR-01–06 and verify NFR-11–16",,Auth
+Task,Sprint 2: Rooms & role hierarchy backend,"Implement FR-10–13 and FR-39–44",,Rooms & Roles
+Task,Sprint 3: WebSocket relay & role enforcement,"Implement NFR-17–20",,Rooms & Roles
+Task,Sprint 4: Yjs CRDT sync backend,"Implement FR-16–21 and verify NFR-01–09",,Real-Time Editing
+Task,Sprint 5: Judge0 code execution integration,"Implement FR-27–33 and verify NFR-24–27",,Execution
+Task,Sprint 6: AI Assistant Backend Service & LLM Proxy,"Implement FR-34–36 and verify NFR-28–31",,AI Code Assistant
+Task,Sprint 7: React shell + Monaco / Yjs binding,"Implement FR-22–26",,Real-Time Editing
+Task,Sprint 8: AI Code Assistant UI & In-File Edit Binding,"Implement FR-37–38",,AI Code Assistant
+Task,Sprint 9: Room Leader UI & dynamic role enforcement,"Implement FR-39–44 client side",,Rooms & Roles
+Task,Sprint 10: WebRTC voice chat integration,"Implement FR-45–53 and verify NFR-21–23",,Voice
+Task,Sprint 11: PM2 / Nginx / security hardening,"Implement NFR-32–43",,Infrastructure & Security
+Task,Sprint 12: End-to-end testing & deployment prep,"Finalize deployment and testing",,Infrastructure & Security
