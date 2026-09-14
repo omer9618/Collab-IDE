@@ -155,8 +155,8 @@ router.post('/login', authLimiter, async (req, res) => {
     // Set HttpOnly cookie (FR-02)
     res.cookie('refreshToken', plaintext, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: true, // MUST be true for sameSite: 'none'
+      sameSite: 'none', // Required for cross-origin Vercel -> Render requests
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -222,8 +222,8 @@ router.post('/refresh', async (req, res) => {
     // Update cookie
     res.cookie('refreshToken', plaintext, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: true,
+      sameSite: 'none',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -536,8 +536,8 @@ router.post('/google-login', authLimiter, async (req, res) => {
     // Set HttpOnly cookie
     res.cookie('refreshToken', plaintext, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: true,
+      sameSite: 'none',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
