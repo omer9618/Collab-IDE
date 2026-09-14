@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "jira": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-jira"],
+      "env": {
+        "JIRA_BASE_URL": "https://omersiddiqui70.atlassian.net",
+        "JIRA_EMAIL": "omersiddiqui70@gmail.com",
+        "JIRA_API_TOKEN": "ATATT3xFfGF0qKjwvvHu_-4KX6KlwyxfNTsBo7rSjdg38tTFnNBypHrNtvD71Cql0LVmNeuULYQsxZPdRLBOpDGA0uj0SBhgMDUGcDTp_4Ztl2pOmvA2SkbEmWwH8Cmvg3sJfOk5jSRTDGZkYJJZ-TahNRH-9a-nQmij4GWDXJWPREIpJXC_g9I=B0DF92BD"
+      }
+    }
+  }
+}
