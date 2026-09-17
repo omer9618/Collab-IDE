@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createRoom, joinRoom, logoutUser, getRooms } from '../services/api';
+import ProfileDrawer from './ProfileDrawer';
 
 const RANDOM_ADJECTIVES = ['Super', 'Sleek', 'Hyper', 'Delta', 'Quantum', 'Cyber', 'Mega', 'Apex'];
 const RANDOM_NOUNS = ['Space', 'Node', 'Grid', 'Core', 'Doc', 'Byte', 'Stack', 'Nexus'];
@@ -35,7 +36,7 @@ const formatFilesText = (files) => {
   return `${files[0]}, ${files[1]}, +${files.length - 2}`;
 };
 
-export default function DashboardView({ user, onRoomSelect, onLogout }) {
+export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpdate }) {
   const [roomName, setRoomName] = useState('');
   const [joinUuid, setJoinUuid] = useState('');
   const [error, setError] = useState('');
@@ -181,7 +182,11 @@ export default function DashboardView({ user, onRoomSelect, onLogout }) {
         {/* Sidebar (240px) */}
         <aside className="w-[240px] bg-[#1b1c1c] border-r border-[#2b2b2b] flex flex-col shrink-0">
           {/* Profile Panel */}
-          <div className="p-4 border-b border-[#2b2b2b]">
+          <div
+            className="p-4 border-b border-[#2b2b2b] cursor-pointer hover:bg-[#252626]/60 transition-colors group"
+            onClick={() => setShowSettingsDrawer(true)}
+            title="Open Profile & Settings"
+          >
             <div className="flex items-center gap-3">
               <div
                 className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-text-lg relative"
@@ -469,60 +474,16 @@ export default function DashboardView({ user, onRoomSelect, onLogout }) {
         </div>
       )}
 
-      {/* Settings Drawer (Right Side Drawer) */}
-      {showSettingsDrawer && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowSettingsDrawer(false)} />
-          <div className="relative w-[320px] h-full bg-[#1b1c1c] border-l border-[#2b2b2b] shadow-2xl flex flex-col p-6 space-y-6">
-            <div className="flex justify-between items-center border-b border-[#2b2b2b] pb-3">
-              <h3 className="text-text-base font-semibold text-on-surface">Settings</h3>
-              <button onClick={() => setShowSettingsDrawer(false)} className="text-text-muted hover:text-text-primary">
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-
-            <div className="flex-1 space-y-6 overflow-y-auto no-scrollbar">
-              {/* Profile details */}
-              <div className="space-y-3">
-                <div className="text-text-xs font-semibold text-outline tracking-wider uppercase">Account</div>
-                <div className="space-y-1">
-                  <div className="text-[11px] text-text-muted">Display Name</div>
-                  <div className="text-text-sm text-text-primary bg-[#121414] px-3 py-2 rounded border border-[#2b2b2b]">
-                    {user.displayName}
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-[11px] text-text-muted">Email Address</div>
-                  <div className="text-text-sm text-text-muted bg-[#121414]/50 px-3 py-2 rounded border border-[#2b2b2b]/50">
-                    {user.email}
-                  </div>
-                </div>
-              </div>
-
-              {/* Preferences */}
-              <div className="space-y-3">
-                <div className="text-text-xs font-semibold text-outline tracking-wider uppercase">Appearance</div>
-                <div className="flex justify-between items-center text-text-sm">
-                  <span>Theme</span>
-                  <div className="flex gap-1 bg-[#121414] p-0.5 rounded border border-[#2b2b2b]">
-                    <button className="px-2 py-0.5 bg-[#292a2a] text-accent-blue rounded text-xs">Dark</button>
-                    <button className="px-2 py-0.5 text-text-muted rounded text-xs cursor-not-allowed" disabled>Light</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="border-t border-[#2b2b2b] pt-4">
-              <button
-                className="w-full py-2 bg-red-950/20 border border-accent-red/30 hover:bg-red-950/40 text-accent-red rounded text-text-sm font-medium transition-colors"
-                onClick={handleLogoutClick}
-              >
-                Sign Out
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Profile & Settings Slide-out Drawer (FR-08) */}
+      <ProfileDrawer
+        isOpen={showSettingsDrawer}
+        onClose={() => setShowSettingsDrawer(false)}
+        user={user}
+        allRooms={allRooms}
+        onUserUpdate={onUserUpdate}
+        onRoomSelect={onRoomSelect}
+        onLogoutClick={handleLogoutClick}
+      />
     </div>
   );
 }

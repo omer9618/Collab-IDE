@@ -59,6 +59,10 @@ export default function App() {
     window.history.pushState({ path: cleanUrl }, '', cleanUrl);
   };
 
+  const handleUserUpdate = (updatedUser) => {
+    setUser((prev) => (prev ? { ...prev, ...updatedUser } : updatedUser));
+  };
+
   const handleLogout = () => {
     setUser(null);
     setRoomUuid(null);
@@ -104,6 +108,7 @@ export default function App() {
       user={user}
       onRoomSelect={handleRoomSelect}
       onLogout={handleLogout}
+      onUserUpdate={handleUserUpdate}
     />
   );
 }
