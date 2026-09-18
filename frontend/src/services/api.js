@@ -124,6 +124,35 @@ export async function getProfile() {
   return data.user;
 }
 
+export async function updateProfile({ displayName, avatarColor }) {
+  const res = await request('/auth/profile', {
+    method: 'PUT',
+    body: JSON.stringify({ displayName, avatarColor }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to update profile');
+  return data.user;
+}
+
+export async function requestEmailChange(newEmail) {
+  const res = await request('/auth/change-email', {
+    method: 'POST',
+    body: JSON.stringify({ newEmail }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to request email change');
+  return data;
+}
+
+export async function cancelEmailChange() {
+  const res = await request('/auth/cancel-email-change', {
+    method: 'POST',
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to cancel email change');
+  return data.user;
+}
+
 // ─── ROOMS ENDPOINTS ──────────────────────────────────────────────────────────
 
 export async function getRooms() {

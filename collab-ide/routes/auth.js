@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
@@ -22,6 +23,18 @@ const authLimiter = rateLimit({
     const ip = req.ip || '';
     return ip === '127.0.0.1' || ip === '::1' || ip.endsWith('127.0.0.1') || process.env.NODE_ENV === 'test';
   }, // Skip for local development/testing loops
+});
+
+const verifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // Max 20 verification attempts per window
+  message: { message: 'Too many verification attempts, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => {
+    const ip = req.ip || '';
+    return ip === '127.0.0.1' || ip === '::1' || ip.endsWith('127.0.0.1') || process.env.NODE_ENV === 'test';
+  },
 });
 
 // Helper: Generate JWT access token (15 mins expiry, RS256)
@@ -389,7 +402,9 @@ router.post('/reset-password', async (req, res) => {
 // @access  Private
 router.get('/me', protect, async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select('-password -verificationToken -resetPasswordToken -resetPasswordExpires');
+    const user = await User.findById(req.user._id).select(
+      '-password -verificationToken -resetPasswordToken -resetPasswordExpires -pendingEmailToken'
+    );
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -399,11 +414,265 @@ router.get('/me', protect, async (req, res) => {
         id: user._id,
         email: user.email,
         displayName: user.displayName,
-        avatarColor: user.avatarColor
-      }
+        avatarColor: user.avatarColor,
+        isVerified: user.isVerified,
+        pendingEmail: user.pendingEmail || null,
+        pendingEmailExpires: user.pendingEmailExpires || null,
+      },
     });
   } catch (error) {
     console.error('Get profile error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   PUT /api/auth/profile
+// @desc    Update user display name and/or avatar color (FR-08)
+// @access  Private
+router.put('/profile', protect, async (req, res) => {
+  try {
+    const { displayName, avatarColor } = req.body;
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (displayName !== undefined) {
+      if (typeof displayName !== 'string' || !displayName.trim()) {
+        return res.status(400).json({ message: 'Display name cannot be empty' });
+      }
+      if (displayName.trim().length > 50) {
+        return res.status(400).json({ message: 'Display name must be 50 characters or less' });
+      }
+      user.displayName = displayName.trim();
+    }
+
+    if (avatarColor !== undefined) {
+      const HEX_COLOR_REGEX = /^#([0-9A-Fa-f]{6})$/;
+      if (typeof avatarColor !== 'string' || !HEX_COLOR_REGEX.test(avatarColor)) {
+        return res.status(400).json({ message: 'Avatar color must be a valid 6-digit hex code (e.g. #1a73e8)' });
+      }
+      user.avatarColor = avatarColor;
+    }
+
+    await user.save();
+
+    res.json({
+      message: 'Profile updated successfully',
+      user: {
+        id: user._id,
+        _id: user._id,
+        email: user.email,
+        displayName: user.displayName,
+        avatarColor: user.avatarColor,
+        isVerified: user.isVerified,
+        pendingEmail: user.pendingEmail || null,
+      },
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// RFC standard simple email regex
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// @route   POST /api/auth/change-email
+// @desc    Initiate email change with re-verification (FR-08)
+// @access  Private
+router.post('/change-email', protect, authLimiter, async (req, res) => {
+  try {
+    const { newEmail } = req.body;
+
+    if (!newEmail || typeof newEmail !== 'string') {
+      return res.status(400).json({ message: 'New email address is required' });
+    }
+
+    const normalizedEmail = newEmail.trim().toLowerCase();
+
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
+      return res.status(400).json({ message: 'Invalid email address format' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (user.email.toLowerCase() === normalizedEmail) {
+      return res.status(400).json({ message: 'New email must be different from current email' });
+    }
+
+    // Check if new email is already registered to another user (case-normalized)
+    const existingUser = await User.findOne({
+      email: normalizedEmail,
+      _id: { $ne: user._id },
+    });
+    if (existingUser) {
+      return res.status(400).json({ message: 'This email address is already registered to another account' });
+    }
+
+    // Check if new email is pending verification for another user
+    const existingPending = await User.findOne({
+      pendingEmail: normalizedEmail,
+      _id: { $ne: user._id },
+      pendingEmailExpires: { $gt: new Date() },
+    });
+    if (existingPending) {
+      return res.status(400).json({ message: 'This email address is already pending verification for another account' });
+    }
+
+    // Generate secure random token and SHA-256 hash at rest
+    const plaintextToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(plaintextToken).digest('hex');
+
+    user.pendingEmail = normalizedEmail;
+    user.pendingEmailToken = tokenHash;
+    user.pendingEmailExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    await user.save();
+
+    // Security Alert to current email
+    console.log('\n🛡️  [SECURITY ALERT] Email Change Requested:');
+    console.log(`    To (Current Account Email): ${user.email}`);
+    console.log(`    Notice: A request was made to change your CollabIDE account email to "${normalizedEmail}". If you did not make this request, please secure your account immediately.\n`);
+
+    // Verification link for new email
+    const verificationLink = `${req.protocol}://${req.get('host')}/api/auth/verify-email-change?token=${plaintextToken}`;
+    console.log('✉️  [MOCK EMAIL] Verification Link for New Email:');
+    console.log(`    To (New Email): ${normalizedEmail}`);
+    console.log(`    Link: ${verificationLink}\n`);
+
+    res.json({
+      message: 'Verification link sent to new email address. Please check your inbox (or server console) to confirm.',
+      pendingEmail: normalizedEmail,
+      pendingEmailExpires: user.pendingEmailExpires,
+    });
+  } catch (error) {
+    console.error('Change email error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/auth/verify-email-change
+// @desc    Verify and commit email address change (Rate-limited, single-use)
+// @access  Public
+router.get('/verify-email-change', verifyLimiter, async (req, res) => {
+  try {
+    const { token } = req.query;
+    if (!token || typeof token !== 'string') {
+      return res.status(400).send(`
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; margin-top: 60px; background: #0d0e0f; color: #e3e2e2; padding: 40px; border-radius: 12px; max-width: 500px; margin-left: auto; margin-right: auto; border: 1px solid #2b2b2b;">
+          <h1 style="color: #f44336; margin-bottom: 12px; font-size: 20px;">Invalid Verification Link</h1>
+          <p style="color: #8a919d; font-size: 14px;">Verification token is missing.</p>
+        </div>
+      `);
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+      pendingEmailToken: tokenHash,
+      pendingEmailExpires: { $gt: new Date() },
+    });
+
+    if (!user || !user.pendingEmail) {
+      return res.status(400).send(`
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; margin-top: 60px; background: #0d0e0f; color: #e3e2e2; padding: 40px; border-radius: 12px; max-width: 500px; margin-left: auto; margin-right: auto; border: 1px solid #2b2b2b;">
+          <h1 style="color: #f44336; margin-bottom: 12px; font-size: 20px;">Verification Link Expired or Already Used</h1>
+          <p style="color: #8a919d; font-size: 14px; line-height: 1.5;">This verification link has already been used or has expired (valid for 24 hours). Please request a new email change in CollabIDE.</p>
+        </div>
+      `);
+    }
+
+    const oldEmail = user.email;
+    const newEmail = user.pendingEmail;
+
+    // Double check that newEmail wasn't registered in the interim
+    const collisionUser = await User.findOne({ email: newEmail, _id: { $ne: user._id } });
+    if (collisionUser) {
+      user.pendingEmail = undefined;
+      user.pendingEmailToken = undefined;
+      user.pendingEmailExpires = undefined;
+      await user.save();
+      return res.status(400).send(`
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; margin-top: 60px; background: #0d0e0f; color: #e3e2e2; padding: 40px; border-radius: 12px; max-width: 500px; margin-left: auto; margin-right: auto; border: 1px solid #2b2b2b;">
+          <h1 style="color: #f44336; margin-bottom: 12px; font-size: 20px;">Email Already In Use</h1>
+          <p style="color: #8a919d; font-size: 14px;">The email address ${newEmail} is already registered to another account.</p>
+        </div>
+      `);
+    }
+
+    // Commit change & single-use cleanup
+    user.email = newEmail;
+    user.isVerified = true;
+    user.pendingEmail = undefined;
+    user.pendingEmailToken = undefined;
+    user.pendingEmailExpires = undefined;
+    await user.save();
+
+    console.log(`\n✅ [EMAIL CHANGED] User ${user._id} email updated from ${oldEmail} to ${newEmail}.\n`);
+
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Email Verified — CollabIDE</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin: 0; padding: 0; background-color: #0d0e0f; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; color: #e3e2e2;">
+        <div style="background: #1b1c1c; border: 1px solid #2b2b2b; border-radius: 12px; padding: 40px; text-align: center; max-width: 480px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);">
+          <div style="width: 56px; height: 56px; border-radius: 50%; background: rgba(30, 142, 62, 0.2); border: 1px solid #1e8e3e; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+          <h1 style="font-size: 22px; font-weight: 600; margin: 0 0 10px 0; color: #ffffff;">Email Address Updated</h1>
+          <p style="font-size: 14px; color: #8a919d; line-height: 1.5; margin: 0 0 24px 0;">
+            Your CollabIDE account email has successfully been changed to <strong style="color: #e3e2e2;">${newEmail}</strong>.
+          </p>
+          <a href="/" style="display: inline-block; background-color: #007acc; color: #ffffff; text-decoration: none; padding: 10px 24px; border-radius: 6px; font-size: 14px; font-weight: 500;">
+            Return to CollabIDE
+          </a>
+        </div>
+      </body>
+      </html>
+    `);
+  } catch (error) {
+    console.error('Verify email change error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   POST /api/auth/cancel-email-change
+// @desc    Cancel a pending email change
+// @access  Private
+router.post('/cancel-email-change', protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    user.pendingEmail = undefined;
+    user.pendingEmailToken = undefined;
+    user.pendingEmailExpires = undefined;
+    await user.save();
+
+    res.json({
+      message: 'Pending email change cancelled',
+      user: {
+        id: user._id,
+        _id: user._id,
+        email: user.email,
+        displayName: user.displayName,
+        avatarColor: user.avatarColor,
+        pendingEmail: null,
+      },
+    });
+  } catch (error) {
+    console.error('Cancel email change error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
