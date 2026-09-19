@@ -84,6 +84,37 @@ This document lists all test cases designed to verify the functional and non-fun
 
 ---
 
+### TC-ROOM-03 — Room Listing Dashboard Payload (FR-14)
+* **Description:** Verify that `GET /api/rooms` returns every room the caller owns or has joined, and that each entry carries the room name, the caller's own role, the last active time, and the live online participant count.
+* **Prerequisites:** Owner and Viewer accounts logged in; room created in `TC-ROOM-01` and joined in `TC-ROOM-02`.
+* **Input Data:** Owner JWT Bearer token; separately, Viewer JWT Bearer token.
+* **Execution Steps:**
+  1. Submit `GET /api/rooms` with the Owner's JWT.
+  2. Verify each entry contains `name`, `myRole`, `lastActiveAt`, `onlineCount`, and `participantCount`.
+  3. Repeat with the Viewer's JWT and confirm `myRole` is `'Viewer'` for the same room — the field must reflect the caller, not the room owner.
+  4. Confirm rooms are ordered by `lastActiveAt` descending.
+* **Expected Result:** HTTP 200 with an array of rooms; `myRole` differs per caller for the same room; `onlineCount` never exceeds `participantCount`; legacy rooms with no `lastActiveAt` fall back to `updatedAt`.
+* **Actual Result:** _Pending execution_
+* **Status:** ⏳ **PENDING**
+
+---
+
+### TC-ROOM-04 — Live Online Participant Count (FR-14)
+* **Description:** Verify that `onlineCount` is derived from live WebSocket connections and updates as participants connect and disconnect, and that multiple tabs opened by the same user count only once.
+* **Prerequisites:** Room from `TC-ROOM-01` with both Owner and Viewer as participants; server running.
+* **Input Data:** Room UUID; Owner and Viewer JWTs.
+* **Execution Steps:**
+  1. With nobody connected, call `GET /api/rooms/presence` and confirm the room reports `onlineCount: 0`.
+  2. Open a WebSocket connection as the Owner; poll the endpoint and confirm the count rises to 1.
+  3. Open a second WebSocket as the Owner (simulating a second browser tab); confirm the count remains 1 (deduplicated by user).
+  4. Connect as the Viewer; confirm the count rises to 2.
+  5. Close all connections; confirm the count returns to 0 and `lastActiveAt` is updated to the disconnect time.
+* **Expected Result:** Counts track live sockets accurately, deduplicated per user; `lastActiveAt` advances on connect, on debounced document save, and on disconnect, without altering `updatedAt`.
+* **Actual Result:** _Pending execution_
+* **Status:** ⏳ **PENDING**
+
+---
+
 ### TC-WS-01 — WebSocket Connection Handshake Blocking (No Token)
 * **Description:** Verify that the WebSocket server rejects connections during the HTTP upgrade phase if no JWT access token is provided.
 * **Prerequisites:** Express server running.

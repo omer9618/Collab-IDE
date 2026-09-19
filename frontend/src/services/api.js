@@ -133,6 +133,18 @@ export async function getRooms() {
   return Array.isArray(data) ? data : (data.rooms || []);
 }
 
+/**
+ * FR-14: poll only the live bits (online counts + last active time) so the
+ * dashboard can stay fresh without re-fetching every room's file list.
+ * Returns a map of { [roomUuid]: { onlineCount, lastActiveAt } }.
+ */
+export async function getRoomsPresence() {
+  const res = await request('/rooms/presence');
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to fetch room presence');
+  return data.presence || {};
+}
+
 export async function createRoom(name) {
   const res = await request('/rooms', {
     method: 'POST',

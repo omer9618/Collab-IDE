@@ -71,6 +71,17 @@ const roomSchema = new mongoose.Schema(
     },
     // Last 20 execution results for this room (NFR-37 compliant — capped in route handler)
     executionHistory: [executionResultSchema],
+    /**
+     * FR-14: last time a participant was actually present in this room.
+     * Distinct from `updatedAt`, which also moves on metadata writes such as
+     * role changes or joins. Bumped on WebSocket connect, disconnect, and on
+     * each debounced document persist.
+     */
+    lastActiveAt: {
+      type: Date,
+      default: Date.now,
+      index: true,
+    },
   },
   {
     timestamps: true,

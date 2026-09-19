@@ -1,21 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { createRoom, joinRoom, logoutUser, getRooms } from '../services/api';
+import { createRoom, joinRoom, logoutUser, getRooms, getRoomsPresence } from '../services/api';
+
+// FR-14: how often the dashboard refreshes online counts / last active time
+const PRESENCE_POLL_MS = 15000;
 
 const RANDOM_ADJECTIVES = ['Super', 'Sleek', 'Hyper', 'Delta', 'Quantum', 'Cyber', 'Mega', 'Apex'];
 const RANDOM_NOUNS = ['Space', 'Node', 'Grid', 'Core', 'Doc', 'Byte', 'Stack', 'Nexus'];
 
 const getRelativeTime = (dateStr) => {
   if (!dateStr) return 'Unknown';
-  const diff = Date.now() - new Date(dateStr).getTime();
+  const parsed = new Date(dateStr).getTime();
+  if (Number.isNaN(parsed)) return 'Unknown';
+
+  const diff = Date.now() - parsed;
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
-  
+
   if (minutes < 1) return 'Just now';
   if (minutes < 60) return `${minutes} min ago`;
-  if (hours < 24) return `${hours} hours ago`;
+  if (hours < 24) return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
   if (days === 1) return 'Yesterday';
-  return `${days} days ago`;
+  if (days < 30) return `${days} days ago`;
+  return new Date(parsed).toLocaleDateString();
 };
 
 const getRoomLang = (files) => {
@@ -49,7 +56,9 @@ export default function DashboardView({ user, onRoomSelect, onLogout }) {
   const [activeTab, setActiveTab] = useState('my-rooms'); // my-rooms, joined-rooms
 
   const [allRooms, setAllRooms] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
 
+  // Initial full load of the room list (FR-14)
   useEffect(() => {
     let mounted = true;
     const loadRooms = async () => {
@@ -67,6 +76,80 @@ export default function DashboardView({ user, onRoomSelect, onLogout }) {
     loadRooms();
     return () => { mounted = false; };
   }, []);
+
+  /**
+   * FR-14: keep online counts and last-active times live.
+   * Polls the lightweight /rooms/presence endpoint instead of the full list,
+   * and pauses while the tab is hidden so a backgrounded dashboard does not
+   * keep hitting the API.
+   */
+  useEffect(() => {
+    let mounted = true;
+    let timerId = null;
+
+    const applyPresence = async () => {
+      if (document.hidden) return;
+      try {
+        const presence = await getRoomsPresence();
+        if (!mounted) return;
+
+        setAllRooms(prev => prev.map(room => {
+          const live = presence[room.uuid];
+          if (!live) return { ...room, onlineCount: 0 };
+          return {
+            ...room,
+            onlineCount: live.onlineCount,
+            lastActiveAt: live.lastActiveAt || room.lastActiveAt,
+          };
+        }));
+      } catch {
+        // Presence is non-critical — a failed poll keeps the last known counts
+        // on screen rather than surfacing an error over the whole dashboard.
+      }
+    };
+
+    const startPolling = () => {
+      if (timerId) return;
+      timerId = setInterval(applyPresence, PRESENCE_POLL_MS);
+    };
+
+    const stopPolling = () => {
+      if (timerId) clearInterval(timerId);
+      timerId = null;
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        applyPresence();
+        startPolling();
+      }
+    };
+
+    startPolling();
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      mounted = false;
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, []);
+
+  // Manual full refresh (room list + presence)
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    setError('');
+    try {
+      const data = await getRooms();
+      setAllRooms(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const generateRandomName = () => {
     const adj = RANDOM_ADJECTIVES[Math.floor(Math.random() * RANDOM_ADJECTIVES.length)];
@@ -251,6 +334,17 @@ export default function DashboardView({ user, onRoomSelect, onLogout }) {
               <h2 className="text-text-xl font-semibold text-on-surface">
                 {activeTab === 'my-rooms' ? 'My Rooms' : 'Joined Rooms'}
               </h2>
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                title="Refresh rooms"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-text-xs text-on-surface-variant border border-[#404751] rounded-md hover:text-on-surface hover:bg-[#252626] transition-colors disabled:opacity-50"
+              >
+                <span className={`material-symbols-outlined text-[16px] ${refreshing ? 'animate-spin' : ''}`}>
+                  refresh
+                </span>
+                <span>Refresh</span>
+              </button>
             </div>
 
             {error && (
@@ -271,8 +365,14 @@ export default function DashboardView({ user, onRoomSelect, onLogout }) {
                     .filter((r) => activeTab === 'my-rooms' ? r.myRole === 'Owner' : r.myRole !== 'Owner')
                     .map((room) => {
                       const lang = getRoomLang(room.files);
-                      const timeStr = getRelativeTime(room.updatedAt);
+                      // FR-14: "last active" is presence-based, not metadata-based
+                      const timeStr = getRelativeTime(room.lastActiveAt || room.updatedAt);
                       const filesStr = formatFilesText(room.files);
+                      const onlineCount = room.onlineCount || 0;
+                      // Show whoever is online first, so the avatar strip reflects
+                      // the live session rather than join order.
+                      const sortedParticipants = [...(room.participants || [])]
+                        .sort((a, b) => (b.isOnline === true) - (a.isOnline === true));
                       return (
                         <div
                           key={room.uuid}
@@ -296,26 +396,71 @@ export default function DashboardView({ user, onRoomSelect, onLogout }) {
                             <div>
                               <h3 className="text-text-base font-semibold text-on-surface">{room.name}</h3>
                               <div className="flex items-center gap-2 text-text-xs text-on-surface-variant mt-0.5">
-                                <span>{room.myRole}</span>
+                                <span className={`px-1.5 py-0.5 rounded-sm text-[10px] font-semibold uppercase ${
+                                  room.myRole === 'Owner'
+                                    ? 'bg-[#3d3000] text-[#f9ab00]'
+                                    : room.myRole === 'Room Leader'
+                                    ? 'bg-[#2b1d3d] text-[#c58af9]'
+                                    : room.myRole === 'Editor'
+                                    ? 'bg-[#0d2e1a] text-[#81c995]'
+                                    : 'bg-[#252626] text-on-surface-variant'
+                                }`}>
+                                  {room.myRole}
+                                </span>
                                 <span>•</span>
-                                <span>{timeStr}</span>
+                                <span title={new Date(room.lastActiveAt || room.updatedAt).toLocaleString()}>
+                                  Active {timeStr}
+                                </span>
                                 <span>•</span>
                                 <span>{filesStr}</span>
                               </div>
                             </div>
                           </div>
                           <div className="flex items-center gap-6">
+                            {/* FR-14: current online participant count */}
+                            <div
+                              className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] font-medium ${
+                                onlineCount > 0
+                                  ? 'bg-accent-green/10 text-accent-green'
+                                  : 'bg-[#252626] text-text-muted'
+                              }`}
+                              title={
+                                onlineCount > 0
+                                  ? `${onlineCount} of ${room.participantCount} members online now`
+                                  : 'Nobody is in this room right now'
+                              }
+                            >
+                              <span
+                                className={`w-2 h-2 rounded-full ${
+                                  onlineCount > 0 ? 'bg-accent-green animate-pulse' : 'bg-text-muted'
+                                }`}
+                              />
+                              <span>
+                                {onlineCount > 0 ? `${onlineCount} online` : 'Empty'}
+                              </span>
+                            </div>
+
                             <div className="flex -space-x-2">
-                              {room.participants.map((p, idx) => (
+                              {sortedParticipants.slice(0, 5).map((p, idx) => (
                                 <div
-                                  key={idx}
-                                  className="w-7 h-7 rounded-full border-2 border-[#1f2020] flex items-center justify-center text-[10px] font-bold text-white relative z-10"
+                                  key={p.userId || idx}
+                                  className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-[10px] font-bold text-white relative z-10 transition-opacity ${
+                                    p.isOnline ? 'border-accent-green' : 'border-[#1f2020] opacity-50'
+                                  }`}
                                   style={{ backgroundColor: p.avatarColor, zIndex: 10 - idx }}
-                                  title={p.displayName}
+                                  title={`${p.displayName} — ${p.role}${p.isOnline ? ' (online)' : ''}`}
                                 >
                                   {p.displayName.charAt(0).toUpperCase()}
                                 </div>
                               ))}
+                              {sortedParticipants.length > 5 && (
+                                <div
+                                  className="w-7 h-7 rounded-full border-2 border-[#1f2020] bg-[#292a2a] flex items-center justify-center text-[10px] font-bold text-on-surface-variant relative z-0"
+                                  title={`${sortedParticipants.length - 5} more members`}
+                                >
+                                  +{sortedParticipants.length - 5}
+                                </div>
+                              )}
                             </div>
                             <button className="px-4 py-1.5 bg-[#292a2a] text-on-surface rounded-md text-text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
                               Open →
