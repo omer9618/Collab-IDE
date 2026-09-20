@@ -152,8 +152,10 @@ async function getOrCreateYdoc(roomUuid) {
     if (room.ydocState) {
       // Restore Yjs document using the binary state update snapshot to preserve clocks and client IDs
       try {
-        const buffer = room.ydocState.buffer || room.ydocState;
-        Y.applyUpdate(ydoc, new Uint8Array(buffer));
+        const bufferData = room.ydocState;
+        // MUST use byteOffset and length to avoid pulling garbage bytes from Node's shared memory pool!
+        const uint8Array = new Uint8Array(bufferData.buffer, bufferData.byteOffset, bufferData.length);
+        Y.applyUpdate(ydoc, uint8Array);
       } catch (err) {
         console.error('Failed to apply ydocState:', err);
       }
@@ -163,6 +165,16 @@ async function getOrCreateYdoc(roomUuid) {
       if (yfiles.length === 0 && room.files && room.files.length > 0) {
         const fileNames = Array.from(new Set(room.files.map(f => f.name)));
         yfiles.push(fileNames);
+        
+        // Populate actual contents if ydoc was completely empty (e.g., corrupted buffer failure)
+        room.files.forEach(file => {
+          const ytext = ydoc.getText(`${roomUuid}:${file.name}`);
+          if (ytext.toString() === '') {
+            ydoc.transact(() => {
+              ytext.insert(0, file.content || '');
+            });
+          }
+        });
       }
     } else if (room.files) {
       // Fallback for legacy rooms or first-time load: populate via text insert
