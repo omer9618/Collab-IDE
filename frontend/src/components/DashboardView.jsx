@@ -291,27 +291,27 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
           {/* Rooms navigation */}
           <div className="flex-1 py-2">
             <div className="px-4 py-2 text-text-xs font-semibold text-outline tracking-wider uppercase">Rooms</div>
-            <nav className="space-y-0.5">
+            <nav className="space-y-1 px-2">
               <button
-                className={`w-full flex items-center gap-3 px-4 py-1.5 text-left text-text-sm border-l-2 transition-all ${
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left text-[13px] font-medium transition-colors ${
                   activeTab === 'my-rooms'
-                    ? 'bg-[#292a2a] text-on-surface border-accent-blue'
-                    : 'text-on-surface-variant hover:bg-[#252626] border-transparent'
+                    ? 'bg-[#1c2b41]/80 text-[#9fcaff]'
+                    : 'text-on-surface-variant hover:bg-[#2b2d30]/60 hover:text-on-surface'
                 }`}
                 onClick={() => setActiveTab('my-rooms')}
               >
-                <span className="material-symbols-outlined text-[18px]">radio_button_checked</span>
+                <span className="material-symbols-outlined text-[18px]">folder_open</span>
                 <span>My Rooms</span>
               </button>
               <button
-                className={`w-full flex items-center gap-3 px-4 py-1.5 text-left text-text-sm border-l-2 transition-all ${
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left text-[13px] font-medium transition-colors ${
                   activeTab === 'joined-rooms'
-                    ? 'bg-[#292a2a] text-on-surface border-accent-blue'
-                    : 'text-on-surface-variant hover:bg-[#252626] border-transparent'
+                    ? 'bg-[#1c2b41]/80 text-[#9fcaff]'
+                    : 'text-on-surface-variant hover:bg-[#2b2d30]/60 hover:text-on-surface'
                 }`}
                 onClick={() => setActiveTab('joined-rooms')}
               >
-                <span className="material-symbols-outlined text-[18px]">radio_button_unchecked</span>
+                <span className="material-symbols-outlined text-[18px]">group</span>
                 <span>Joined Rooms</span>
               </button>
             </nav>
