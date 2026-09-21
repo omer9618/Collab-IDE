@@ -12,6 +12,7 @@ import {
   getToken,
   promoteMember,
   getProfile,
+  getRooms,
 } from '../services/api';
 import {
   Folder,
@@ -111,8 +112,14 @@ function buildFileTree(files) {
   return root;
 }
 
-export default function WorkspaceView({ roomUuid, user, onBack }) {
+export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) {
   const [room, setRoom] = useState(null);
+  const [joinedRooms, setJoinedRooms] = useState([]);
+  const [showRoomDropdown, setShowRoomDropdown] = useState(false);
+
+  useEffect(() => {
+    getRooms().then(rooms => setJoinedRooms(rooms)).catch(console.error);
+  }, []);
   const [role, setRole] = useState('Viewer');
   const [files, setFiles] = useState([]);
   const [openedFiles, setOpenedFiles] = useState([]);
@@ -1066,16 +1073,63 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
             <img src="/logo.png" className="h-10 object-contain" alt="CollabIDE Logo" />
           </div>
           <div className="h-4 w-px bg-outline mx-1" />
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(window.location.href);
-              showToast('Invite link copied!', 'success');
-            }}
-            className="text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors flex items-center gap-1.5 group"
-          >
-            {room?.name || 'Loading room...'}
-            <Copy size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setShowRoomDropdown(!showRoomDropdown)}
+              className="text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors flex items-center gap-1.5 group"
+            >
+              {room?.name || 'Loading room...'}
+              <ChevronDown size={14} className={`transition-transform duration-200 ${showRoomDropdown ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showRoomDropdown && (
+              <div className="absolute top-full left-0 mt-2 w-56 bg-surface-panel border border-outline-subtle rounded-md shadow-lg z-50 overflow-hidden">
+                <div className="p-2 border-b border-outline-subtle flex justify-between items-center">
+                  <span className="text-[10px] font-semibold text-on-surface-muted uppercase tracking-wider">Switch Workspace</span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowRoomDropdown(false);
+                    }}
+                    className="p-0.5 text-on-surface-muted hover:text-on-surface hover:bg-[#2b2d30] rounded"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+                <div className="max-h-60 overflow-y-auto py-1">
+                  {joinedRooms.map(r => (
+                    <button
+                      key={r.uuid}
+                      className={`w-full text-left px-3 py-1.5 text-[11.5px] font-medium hover:bg-[#2b2d30] transition-colors ${r.uuid === roomUuid ? 'text-[#9fcaff] bg-[#1c2b41]/30' : 'text-on-surface'}`}
+                      onClick={() => {
+                        setShowRoomDropdown(false);
+                        if (r.uuid !== roomUuid && onRoomSelect) {
+                          onRoomSelect(r.uuid);
+                        }
+                      }}
+                    >
+                      {r.name}
+                    </button>
+                  ))}
+                  {joinedRooms.length === 0 && (
+                    <div className="px-3 py-2 text-[11px] text-on-surface-muted italic">No other workspaces</div>
+                  )}
+                </div>
+                <div className="p-2 border-t border-outline-subtle bg-black/20">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(window.location.href);
+                      showToast('Invite link copied!', 'success');
+                      setShowRoomDropdown(false);
+                    }}
+                    className="w-full text-left text-[11px] font-medium text-accent-blue hover:bg-accent-blue/10 px-2 py-1.5 rounded transition-colors flex items-center gap-1.5"
+                  >
+                    <Copy size={13} /> Copy Invite Link
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
           
           {/* File tabs inside Top Bar */}
           <div className="flex items-center gap-1.5 ml-3 overflow-x-auto no-scrollbar">

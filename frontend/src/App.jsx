@@ -95,9 +95,11 @@ export default function App() {
   if (roomUuid) {
     return (
       <WorkspaceView
+        key={roomUuid}
         roomUuid={roomUuid}
         user={user}
         onBack={handleBackToDashboard}
+        onRoomSelect={handleRoomSelect}
       />
     );
   }
