@@ -53,6 +53,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
   // Modals & Panels toggle
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showSignoutConfirm, setShowSignoutConfirm] = useState(false);
+  const [showSignoutAllConfirm, setShowSignoutAllConfirm] = useState(false);
   const [showSettingsDrawer, setShowSettingsDrawer] = useState(false);
   const [activeTab, setActiveTab] = useState('my-rooms'); // my-rooms, joined-rooms
 
@@ -203,16 +204,17 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
     }
   };
 
-  const handleLogoutAllClick = async () => {
-    // We can just confirm with the standard browser confirm for simplicity, 
-    // or use the same modal with different text. Let's use standard confirm here since it's a destructive action.
-    if (window.confirm('Are you sure you want to sign out of ALL devices? This will invalidate all your active sessions.')) {
-      try {
-        await logoutAllDevices();
-        onLogout();
-      } catch (err) {
-        onLogout();
-      }
+  const handleLogoutAllClick = () => {
+    setShowSignoutAllConfirm(true);
+  };
+
+  const handleConfirmLogoutAll = async () => {
+    setShowSignoutAllConfirm(false);
+    try {
+      await logoutAllDevices();
+      onLogout();
+    } catch (err) {
+      onLogout();
     }
   };
 
@@ -626,6 +628,41 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                 className="px-4 py-1.5 bg-accent-red text-white rounded-md text-text-sm hover:opacity-90 transition-colors"
               >
                 Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sign Out All Devices Confirmation Modal */}
+      {showSignoutAllConfirm && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm">
+          <div className="w-full max-w-[400px] bg-[#1b1c1c] border border-border-default rounded-radius-lg p-6 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-[#2b2b2b] pb-3">
+              <h3 className="text-text-base font-semibold text-accent-red">Sign Out of All Devices</h3>
+              <button onClick={() => setShowSignoutAllConfirm(false)} className="text-text-muted hover:text-text-primary">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <p className="text-text-secondary text-text-sm leading-relaxed">
+              Are you sure you want to sign out of <strong className="text-accent-red">ALL</strong> devices? This is a destructive action that will immediately drop any active voice calls and file syncs on your other devices.
+            </p>
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-[#2b2b2b]">
+              <button
+                type="button"
+                onClick={() => setShowSignoutAllConfirm(false)}
+                className="px-4 py-1.5 border border-[#404751] text-on-surface rounded-md text-text-sm hover:bg-[#252626]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmLogoutAll}
+                className="px-4 py-1.5 bg-red-950/40 border border-accent-red text-accent-red hover:bg-accent-red hover:text-white rounded-md text-text-sm transition-colors"
+              >
+                Sign Out of All Devices
               </button>
             </div>
           </div>
