@@ -1146,27 +1146,29 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
       {/* Main container */}
       <div className="flex flex-1 overflow-hidden">
         {/* Activity Bar (48px) */}
-        <aside className="w-[40px] h-full flex flex-col items-center py-1.5 bg-surface-base border-r border-outline-subtle shrink-0">
-          <div className="flex flex-col gap-1 w-full items-center">
+        <aside className="w-[40px] h-full flex flex-col items-center py-2 bg-surface-base border-r border-outline-subtle shrink-0">
+          <div className="flex flex-col gap-2 w-full items-center">
             <button
-              className={`w-full py-1 border-l-2 transition-all ${
-                sidebarOpen ? 'border-accent-blue text-accent-blue' : 'border-transparent text-on-surface-variant hover:text-on-surface'
+              className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                sidebarOpen ? 'bg-[#1c2b41]/60 text-[#9fcaff]' : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
               }`}
               onClick={() => setSidebarOpen(!sidebarOpen)}
+              title="Explorer"
             >
-              <span className="material-symbols-outlined">folder</span>
+              <Folder size={18} strokeWidth={2.5} />
             </button>
           </div>
 
-          <div className="mt-auto flex flex-col gap-1 w-full items-center">
-            <button className="w-full py-1 text-on-surface-variant hover:text-on-surface">
-              <span className="material-symbols-outlined">settings</span>
+          <div className="mt-auto flex flex-col gap-2 w-full items-center">
+            <button className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] transition-colors" title="Settings">
+              <Settings size={18} />
             </button>
             <button
-              className="w-full py-1 text-on-surface-variant hover:text-accent-red"
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-accent-red hover:bg-red-950/30 transition-colors"
               onClick={() => { leaveVoice(); onBack(); }}
+              title="Exit Room"
             >
-              <span className="material-symbols-outlined">logout</span>
+              <LogOut size={18} />
             </button>
           </div>
         </aside>
