@@ -1079,10 +1079,10 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
             {openedFiles.map((fileName) => (
               <div
                 key={fileName}
-                className={`px-2 h-[36px] text-[9.5px] flex items-center gap-1 border-b-2 transition-all group/tab ${
+                className={`px-3 h-[36px] text-[9.5px] flex items-center gap-1 border-b-[3px] transition-all group/tab ${
                   activeFile === fileName
-                    ? 'text-on-surface bg-surface-elevated border-accent-blue'
-                    : 'text-on-surface-variant border-transparent hover:bg-surface-elevated'
+                    ? 'text-accent-blue border-accent-blue bg-transparent'
+                    : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] border-transparent'
                 }`}
               >
                 <button
@@ -1251,8 +1251,8 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                           <div key={node.path}>
                             {/* Folder Row */}
                             <div
-                              className="flex items-center gap-1 py-1.5 cursor-pointer text-on-surface-variant hover:bg-bg-hover group/folder transition-all"
-                              style={{ paddingLeft: `${indent}px`, paddingRight: '8px' }}
+                              className="flex items-center gap-1 py-1.5 mx-1.5 rounded-md cursor-pointer text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] group/folder transition-all"
+                              style={{ paddingLeft: `${indent - 6}px`, paddingRight: '8px' }}
                               onClick={() => setExpandedFolders(prev => {
                                 const s = new Set(prev);
                                 if (s.has(node.path)) s.delete(node.path); else s.add(node.path);
@@ -1346,12 +1346,12 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                       return (
                         <div
                           key={node.path}
-                          className={`flex items-center gap-1.5 py-1.5 cursor-pointer transition-all group/file ${
+                          className={`flex items-center gap-1.5 py-1.5 mx-1.5 rounded-md cursor-pointer transition-colors group/file ${
                             activeFile === node.path
-                              ? 'bg-surface-elevated border-l-2 border-accent-blue text-on-surface'
-                              : 'text-on-surface-variant hover:bg-bg-hover'
+                              ? 'bg-[#1c2b41]/60 text-[#9fcaff]'
+                              : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
                           }`}
-                          style={{ paddingLeft: `${indent}px`, paddingRight: '8px' }}
+                          style={{ paddingLeft: `${indent - 6}px`, paddingRight: '8px' }}
                           onClick={() => {
                             setActiveFile(node.path);
                             if (!openedFiles.includes(node.path)) {
@@ -1536,24 +1536,24 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
               <div className="flex items-center justify-between px-2 h-8 border-b border-outline-subtle">
                 <div className="flex h-full">
                   <button
-                    className={`px-2 text-[9px] font-medium h-full transition-all ${
-                      consoleTab === 'output' ? 'text-accent-blue border-b-2 border-accent-blue' : 'text-on-surface-variant hover:text-on-surface'
+                    className={`px-3 text-[9px] font-medium h-full transition-colors ${
+                      consoleTab === 'output' ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent' : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
                     }`}
                     onClick={() => setConsoleTab('output')}
                   >
                     Output
                   </button>
                   <button
-                    className={`px-2 text-[9px] font-medium h-full transition-all ${
-                      consoleTab === 'terminal' ? 'text-accent-blue border-b-2 border-accent-blue' : 'text-on-surface-variant hover:text-on-surface'
+                    className={`px-3 text-[9px] font-medium h-full transition-colors ${
+                      consoleTab === 'terminal' ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent' : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
                     }`}
                     onClick={() => setConsoleTab('terminal')}
                   >
                     Terminal
                   </button>
                   <button
-                    className={`px-2 text-[9px] font-medium h-full transition-all ${
-                      consoleTab === 'problems' ? 'text-accent-blue border-b-2 border-accent-blue' : 'text-on-surface-variant hover:text-on-surface'
+                    className={`px-3 text-[9px] font-medium h-full transition-colors ${
+                      consoleTab === 'problems' ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent' : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
                     }`}
                     onClick={() => setConsoleTab('problems')}
                   >
@@ -1634,20 +1634,20 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
             <div className="flex items-center justify-between border-b border-outline-subtle pr-2 bg-surface-panel">
               <div className="flex flex-1">
                 <button
-                  className={`flex-1 py-1 text-[9.5px] font-medium transition-all ${
+                  className={`flex-1 py-1.5 text-[9.5px] font-medium transition-colors ${
                     rightPanelTab === 'participants'
-                      ? 'text-accent-blue border-b-2 border-accent-blue'
-                      : 'text-on-surface-variant hover:text-on-surface'
+                      ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent'
+                      : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
                   }`}
                   onClick={() => setRightPanelTab('participants')}
                 >
                   Participants ({onlineCount})
                 </button>
                 <button
-                  className={`flex-1 py-1 text-[9.5px] font-medium transition-all ${
+                  className={`flex-1 py-1.5 text-[9.5px] font-medium transition-colors ${
                     rightPanelTab === 'chat'
-                      ? 'text-accent-blue border-b-2 border-accent-blue'
-                      : 'text-on-surface-variant hover:text-on-surface'
+                      ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent'
+                      : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
                   }`}
                   onClick={() => setRightPanelTab('chat')}
                 >
@@ -1692,7 +1692,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                   <div className="flex flex-col gap-1">
 
                 {/* Local user entry */}
-                <div className="flex items-center gap-1.5 p-2 rounded-lg hover:bg-surface-elevated">
+                <div className="flex items-center gap-1.5 p-2 rounded-lg hover:bg-[#2b2d30]">
                   <div className="relative">
                     <div
                       className="w-8 h-8 rounded-full shrink-0 bg-accent-blue flex items-center justify-center text-white text-[9px] font-bold"
