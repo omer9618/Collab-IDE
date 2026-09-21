@@ -13,6 +13,7 @@ This document provides bidirectional traceability between the CollabIDE Software
 | :--- | :--- | :--- | :--- | :--- |
 | **FR-01 to FR-06** | Authentication, JWT, Refresh Tokens, Logout | High | Implemented | `routes/auth.js`, `AuthView.jsx` |
 | **FR-10 to FR-13** | Room Creation, Joining, Persistence, Roles | High | Implemented | `routes/rooms.js`, `Room` model |
+| **FR-14** | Room Listing Dashboard (role, last active, online count) | Medium | Implemented | `routes/rooms.js` (`GET /`, `GET /presence`), `server.js` presence snapshot, `DashboardView.jsx` |
 | **FR-16 to FR-20** | CRDT Sync, Cursors, Disconnect Handling | High | Implemented | `y-websocket`, `WorkspaceView.jsx` |
 | **FR-21** | Multi-File Support | Medium | **Pending** | N/A |
 | **FR-27 to FR-30** | Judge0 Code Execution & Broadcasting | High | Implemented | `routes/execution.js`, `render.yaml` |

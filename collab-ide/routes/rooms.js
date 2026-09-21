@@ -56,8 +56,16 @@ router.post('/', protect, async (req, res) => {
   }
 });
 
+// Helper: live online userIds for a room, sourced from the WebSocket server (FR-14).
+// Returns an empty Set when the WS layer has not registered its hook yet, so the
+// dashboard degrades to "0 online" rather than failing.
+function getOnlineUserIds(roomUuid, presenceMap) {
+  if (!presenceMap) return new Set();
+  return presenceMap.get(roomUuid) || new Set();
+}
+
 // @route   GET /api/rooms
-// @desc    List all rooms the user has joined or created
+// @desc    List all rooms the user has joined or created (FR-14)
 // @access  Private
 router.get('/', protect, async (req, res) => {
   try {
@@ -67,11 +75,16 @@ router.get('/', protect, async (req, res) => {
     })
       .populate('owner', 'displayName email')
       .populate('participants.user', 'displayName avatarColor')
-      .sort({ updatedAt: -1 });
+      .sort({ lastActiveAt: -1, updatedAt: -1 });
+
+    // Single presence snapshot reused across every room in this response
+    const presenceMap = global.getRoomPresence ? global.getRoomPresence() : null;
 
     // Format list to show current user's role explicitly
     const formattedRooms = rooms.map(room => {
       const role = getMemberRole(room, req.user._id);
+      const onlineUserIds = getOnlineUserIds(room.uuid, presenceMap);
+
       return {
         id: room._id,
         uuid: room.uuid,
@@ -80,11 +93,20 @@ router.get('/', protect, async (req, res) => {
         owner: room.owner,
         myRole: role,
         participantCount: room.participants.length,
+        // FR-14: how many members are connected right now, not how many joined
+        onlineCount: onlineUserIds.size,
+        // Legacy rooms predate lastActiveAt — fall back to updatedAt
+        lastActiveAt: room.lastActiveAt || room.updatedAt,
         updatedAt: room.updatedAt,
         files: room.files ? room.files.map(f => f.name) : [],
         participants: room.participants.map(p => ({
+          userId: p.user && p.user._id ? p.user._id : null,
           displayName: p.user && p.user.displayName ? p.user.displayName : 'Unknown',
-          avatarColor: p.user && p.user.avatarColor ? p.user.avatarColor : '#1a73e8'
+          avatarColor: p.user && p.user.avatarColor ? p.user.avatarColor : '#1a73e8',
+          role: p.role,
+          isOnline: p.user && p.user._id
+            ? onlineUserIds.has(p.user._id.toString())
+            : false,
         })),
       };
     });
@@ -92,6 +114,36 @@ router.get('/', protect, async (req, res) => {
     res.json(formattedRooms);
   } catch (error) {
     console.error('List rooms error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/rooms/presence
+// @desc    Lightweight online-count poll for the dashboard (FR-14).
+//          Returns only counts, so the client can refresh presence every few
+//          seconds without re-fetching full room payloads.
+// @access  Private
+// NOTE: must stay declared above GET /:uuid, otherwise Express matches
+//       "presence" as a room UUID.
+router.get('/presence', protect, async (req, res) => {
+  try {
+    const rooms = await Room.find({ 'participants.user': req.user._id })
+      .select('uuid lastActiveAt updatedAt')
+      .lean();
+
+    const presenceMap = global.getRoomPresence ? global.getRoomPresence() : null;
+
+    const presence = {};
+    rooms.forEach(room => {
+      presence[room.uuid] = {
+        onlineCount: getOnlineUserIds(room.uuid, presenceMap).size,
+        lastActiveAt: room.lastActiveAt || room.updatedAt,
+      };
+    });
+
+    res.json({ presence });
+  } catch (error) {
+    console.error('Room presence error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

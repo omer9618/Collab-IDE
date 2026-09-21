@@ -115,7 +115,9 @@ async function saveRoomStateToDB(roomUuid, ydoc) {
       { 
         $set: { 
           files: updatedFiles,
-          ydocState: ydocStateBuffer
+          ydocState: ydocStateBuffer,
+          // FR-14: editing the document is activity
+          lastActiveAt: new Date()
         } 
       }
     );
@@ -203,6 +205,51 @@ async function getOrCreateYdoc(roomUuid) {
 
   activeDocs.set(roomUuid, docState);
   return docState;
+}
+
+/**
+ * FR-14: Live presence snapshot for the room listing dashboard.
+ *
+ * Derived directly from the open WebSocket connections rather than a separate
+ * presence store, so the count can never drift out of sync with reality.
+ * Keyed by roomUuid; the value is a Set of userIds, so a user with two tabs
+ * open in the same room still counts as one online participant.
+ *
+ * @returns {Map<string, Set<string>>}
+ */
+global.getRoomPresence = () => {
+  const presence = new Map();
+
+  wss.clients.forEach(client => {
+    if (client.readyState !== WebSocket.OPEN) return;
+    if (!client.roomUuid || !client.userId) return;
+
+    if (!presence.has(client.roomUuid)) {
+      presence.set(client.roomUuid, new Set());
+    }
+    presence.get(client.roomUuid).add(client.userId);
+  });
+
+  return presence;
+};
+
+/**
+ * FR-14: Mark a room as active right now.
+ * `timestamps: false` keeps this out of `updatedAt` so the two fields stay
+ * independent — `updatedAt` tracks content/metadata writes, `lastActiveAt`
+ * tracks human presence.
+ */
+async function touchRoomActivity(roomUuid) {
+  try {
+    await Room.updateOne(
+      { uuid: roomUuid },
+      { $set: { lastActiveAt: new Date() } },
+      { timestamps: false }
+    );
+  } catch (err) {
+    // Non-fatal: a missed activity timestamp must never break the session.
+    console.error(`❌ Error touching lastActiveAt for room ${roomUuid}:`, err.message);
+  }
 }
 
 // Atomic update of user roles in memory (NFR-19)
@@ -334,6 +381,9 @@ wss.on('connection', async (ws, req) => {
 
   console.log(`[+] "${roomUuid}" — User "${user.displayName}" (${role}) connected`);
 
+  // FR-14: someone is present in the room right now
+  touchRoomActivity(roomUuid);
+
   // Max room capacity check (NFR-36)
   let roomCount = 0;
   wss.clients.forEach(client => {
@@ -436,7 +486,11 @@ wss.on('connection', async (ws, req) => {
 
   ws.on('close', () => {
     console.log(`[-] "${roomUuid}" — User "${user.displayName}" disconnected`);
-    
+
+    // FR-14: record the moment the user left, so "last active" reflects the
+    // end of the session rather than the last keystroke.
+    touchRoomActivity(roomUuid);
+
     // Check if room is empty
     let activeCount = 0;
     wss.clients.forEach(client => {

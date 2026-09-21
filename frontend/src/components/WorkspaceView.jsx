@@ -228,8 +228,9 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
     const yDocInstance = new Y.Doc();
     setYdoc(yDocInstance);
 
-    // Connect directly to public backend for WebSocket
-    const wsUrl = 'wss://collabide-backend-avau.onrender.com';
+    // Connect directly to backend for WebSocket
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const wsUrl = isLocal ? `ws://${window.location.hostname}:3000` : 'wss://collabide-backend-avau.onrender.com';
 
     const providerInstance = new WebsocketProvider(wsUrl, roomUuid, yDocInstance, {
       params: { token: getToken() },
@@ -837,8 +838,9 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
       const freshToken = getToken();
       console.log('[Voice] Token available:', !!freshToken, 'length:', freshToken?.length);
 
-      // Connect directly to public backend for Voice
-      const backendUrl = 'https://collabide-backend-avau.onrender.com';
+      // Connect directly to backend for Voice
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const backendUrl = isLocal ? 'http://localhost:3000' : 'https://collabide-backend-avau.onrender.com';
 
       const socket = io(backendUrl + '/voice', {
         auth: { token: freshToken },
