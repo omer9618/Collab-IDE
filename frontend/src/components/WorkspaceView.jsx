@@ -31,6 +31,8 @@ import {
   ChevronDown,
   FileCode,
   Share2,
+  Copy,
+  Trash2,
 } from 'lucide-react';
 
 // WhatsApp strategy color palette for distinguishable user colors in group chat (contrasty in dark mode)
@@ -1556,27 +1558,27 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                     Problems
                   </button>
                 </div>
-                <div className="flex items-center gap-0.5">
+                <div className="flex items-center gap-1">
                   <button
-                    className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-on-surface rounded transition-colors"
+                    className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] rounded transition-colors"
                     onClick={handleCopyOutput}
                     title="Copy Output"
                   >
-                    <span className="material-symbols-outlined text-[12px]">content_copy</span>
+                    <Copy size={14} />
                   </button>
                   <button
-                    className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-on-surface rounded transition-colors"
+                    className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-accent-red hover:bg-red-950/30 rounded transition-colors"
                     onClick={handleClearOutput}
                     title="Clear Output"
                   >
-                    <span className="material-symbols-outlined text-[12px]">delete_sweep</span>
+                    <Trash2 size={14} />
                   </button>
                   <button
-                    className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-on-surface rounded transition-colors"
+                    className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] rounded transition-colors"
                     onClick={() => setConsoleOpen(false)}
                     title="Minimize Console"
                   >
-                    <span className="material-symbols-outlined text-[12px]">keyboard_arrow_down</span>
+                    <ChevronDown size={16} />
                   </button>
                 </div>
               </div>
