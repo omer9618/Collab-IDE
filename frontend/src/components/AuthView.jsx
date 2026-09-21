@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { loginUser, registerUser, googleLogin, getAuthConfig } from '../services/api';
+import { Eye, EyeOff } from 'lucide-react';
 
 const USER_COLORS = ['#1a73e8', '#1e8e3e', '#f9ab00', '#a142f4', '#e52592'];
 
@@ -271,7 +272,7 @@ export default function AuthView({ onAuthSuccess }) {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8a919d] hover:text-[#9fcaff] transition-colors flex items-center justify-center"
                 >
-                  <span className="material-symbols-outlined text-[20px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>
