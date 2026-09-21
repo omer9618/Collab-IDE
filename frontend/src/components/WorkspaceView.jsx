@@ -164,6 +164,9 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
   const [leftPanelWidth, setLeftPanelWidth] = useState(200);
   const [rightPanelWidth, setRightPanelWidth] = useState(200);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showRoomDeletedModal, setShowRoomDeletedModal] = useState(false);
+  const [settingsError, setSettingsError] = useState('');
   const [consoleTab, setConsoleTab] = useState('output'); // output, terminal, problems
 
   // Code run/output
@@ -295,8 +298,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
                 setRoom((prev) => prev ? { ...prev, isClosed: false } : prev);
               } else if (data.type === 'room_deleted') {
                 console.log('[WS] Room deleted by owner');
-                alert('This room has been permanently deleted by the owner.');
-                onBack();
+                setShowRoomDeletedModal(true);
               }
             }
           } catch (e) {
@@ -2164,7 +2166,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
                       }
                       setShowSettingsModal(false);
                     } catch (err) {
-                      alert(err.message);
+                      setSettingsError(err.message);
                     }
                   }}
                 >
@@ -2172,29 +2174,113 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
                 </button>
               </div>
 
-              <div className="h-px w-full bg-outline-subtle my-2" />
+              {settingsError && (
+                <div className="bg-red-900/50 border border-red-500/50 text-red-200 px-3 py-2 rounded-md mb-2 flex items-center justify-between text-[11px]">
+                  <span>{settingsError}</span>
+                  <button onClick={() => setSettingsError('')} className="text-red-300 hover:text-white">✕</button>
+                </div>
+              )}
+              
+              {!showDeleteConfirm ? (
+                <>
+                  <div className="flex flex-col gap-1">
+                    <h3 className="text-text-sm font-semibold text-on-surface">{room?.isClosed ? 'Re-open Room' : 'Close Room'}</h3>
+                    <p className="text-[11px] text-on-surface-muted">
+                      {room?.isClosed 
+                        ? 'Re-opening the room will restore write access to editors and allow voice collaboration.' 
+                        : 'Closing the room will lock the editor for all participants and disconnect active voice sessions.'}
+                    </p>
+                    <button
+                      className="mt-2 px-4 py-2 bg-surface-elevated border border-outline hover:border-accent-blue rounded-md text-text-sm font-medium text-on-surface transition-colors"
+                      onClick={async () => {
+                        try {
+                          if (room?.isClosed) {
+                            await openRoom(roomUuid);
+                          } else {
+                            await closeRoom(roomUuid);
+                          }
+                          setShowSettingsModal(false);
+                        } catch (err) {
+                          setSettingsError(err.message);
+                        }
+                      }}
+                    >
+                      {room?.isClosed ? 'Re-open Room' : 'Close Room'}
+                    </button>
+                  </div>
 
-              <div className="flex flex-col gap-1">
-                <h3 className="text-text-sm font-semibold text-red-500">Danger Zone</h3>
-                <p className="text-[11px] text-on-surface-muted">
-                  Permanently delete this room, its code, and execution history.
-                </p>
-                <button
-                  className="mt-2 px-4 py-2 bg-red-950/30 border border-red-900/50 hover:bg-red-900/40 rounded-md text-text-sm font-medium text-red-400 transition-colors flex items-center justify-center gap-2"
-                  onClick={async () => {
-                    if (!window.confirm('Are you sure you want to permanently delete this room? This cannot be undone.')) return;
-                    try {
-                      await deleteRoom(roomUuid);
-                      setShowSettingsModal(false);
-                    } catch (err) {
-                      alert(err.message);
-                    }
-                  }}
-                >
-                  <Trash2 size={16} /> Delete Room
-                </button>
-              </div>
+                  <div className="h-px w-full bg-outline-subtle my-2" />
+
+                  <div className="flex flex-col gap-1">
+                    <h3 className="text-text-sm font-semibold text-red-500">Danger Zone</h3>
+                    <p className="text-[11px] text-on-surface-muted">
+                      Permanently delete this room, its code, and execution history.
+                    </p>
+                    <button
+                      className="mt-2 px-4 py-2 bg-red-950/30 border border-red-900/50 hover:bg-red-900/40 rounded-md text-text-sm font-medium text-red-400 transition-colors flex items-center justify-center gap-2"
+                      onClick={() => setShowDeleteConfirm(true)}
+                    >
+                      <Trash2 size={16} /> Delete Room
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-2 text-red-500 mb-1">
+                    <Trash2 size={20} />
+                    <h3 className="text-text-base font-bold">Are you absolutely sure?</h3>
+                  </div>
+                  <p className="text-[12px] text-on-surface-muted leading-relaxed">
+                    This will permanently delete the room, disconnecting all participants and wiping all code history. This action cannot be undone.
+                  </p>
+                  <div className="flex justify-end gap-2 mt-2">
+                    <button
+                      className="px-4 py-2 rounded-md text-text-sm font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-elevated transition-colors"
+                      onClick={() => { setShowDeleteConfirm(false); setSettingsError(''); }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-md text-text-sm font-medium transition-colors"
+                      onClick={async () => {
+                        try {
+                          await deleteRoom(roomUuid);
+                          setShowSettingsModal(false);
+                        } catch (err) {
+                          setSettingsError(err.message);
+                        }
+                      }}
+                    >
+                      Yes, delete it
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Room Deleted Modal */}
+      {showRoomDeletedModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in duration-200">
+          <div className="bg-[#1f2020] border border-[#404751] w-full max-w-sm rounded-xl overflow-hidden shadow-2xl flex flex-col text-center p-6">
+            <div className="w-12 h-12 rounded-full bg-red-950/30 flex items-center justify-center text-red-500 mx-auto mb-4">
+              <span className="material-symbols-outlined text-[24px]">warning</span>
+            </div>
+            <h2 className="text-text-lg font-bold text-on-surface mb-2">Room Deleted</h2>
+            <p className="text-text-sm text-text-muted leading-relaxed mb-6">
+              This room has been permanently deleted by the owner. You will now be redirected to the dashboard.
+            </p>
+            <button
+              className="w-full px-4 py-2 bg-accent-blue hover:bg-blue-600 text-white rounded-md text-text-sm font-medium transition-colors"
+              onClick={() => {
+                setShowRoomDeletedModal(false);
+                onBack();
+              }}
+            >
+              Return to Dashboard
+            </button>
           </div>
         </div>
       )}

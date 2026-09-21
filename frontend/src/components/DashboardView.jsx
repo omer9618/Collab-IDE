@@ -55,6 +55,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showSignoutConfirm, setShowSignoutConfirm] = useState(false);
   const [showSignoutAllConfirm, setShowSignoutAllConfirm] = useState(false);
+  const [deleteConfirmRoom, setDeleteConfirmRoom] = useState(null);
   const [activeMenuRoom, setActiveMenuRoom] = useState(null);
   const [showSettingsDrawer, setShowSettingsDrawer] = useState(false);
   const [activeTab, setActiveTab] = useState('my-rooms'); // my-rooms, joined-rooms
@@ -166,19 +167,24 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
       }
       handleRefresh();
     } catch (err) {
-      alert(err.message);
+      setError(err.message);
     }
   };
 
-  const handleDeleteRoom = async (e, roomUuid) => {
+  const handleDeleteRoom = (e, roomUuid) => {
     e.stopPropagation();
     setActiveMenuRoom(null);
-    if (!window.confirm('Are you sure you want to permanently delete this room? This action cannot be undone.')) return;
+    setDeleteConfirmRoom(roomUuid);
+  };
+
+  const executeDeleteRoom = async () => {
     try {
-      await deleteRoom(roomUuid);
+      await deleteRoom(deleteConfirmRoom);
       handleRefresh();
     } catch (err) {
-      alert(err.message);
+      setError(err.message);
+    } finally {
+      setDeleteConfirmRoom(null);
     }
   };
 
@@ -331,6 +337,37 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
               </div>
             </div>
           </div>
+
+          {/* Delete Room Confirmation Modal */}
+          {deleteConfirmRoom && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+              <div className="bg-[#1f2020] border border-[#404751] w-full max-w-sm rounded-xl overflow-hidden shadow-2xl flex flex-col">
+                <div className="px-5 py-4 border-b border-[#404751] flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-red-950/30 flex items-center justify-center text-red-500">
+                    <span className="material-symbols-outlined text-[18px]">warning</span>
+                  </div>
+                  <h2 className="text-text-lg font-bold text-on-surface">Delete Room</h2>
+                </div>
+                <div className="p-5 text-text-sm text-text-muted leading-relaxed">
+                  Are you sure you want to permanently delete this room? This action cannot be undone and all code history will be lost.
+                </div>
+                <div className="px-5 py-4 bg-[#1a1b1b] border-t border-[#404751] flex justify-end gap-3">
+                  <button
+                    className="px-4 py-2 rounded-md text-text-sm font-medium text-text-muted hover:text-on-surface hover:bg-[#2b2d30] transition-colors"
+                    onClick={() => setDeleteConfirmRoom(null)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="px-4 py-2 rounded-md text-text-sm font-medium bg-red-600 hover:bg-red-500 text-white transition-colors"
+                    onClick={executeDeleteRoom}
+                  >
+                    Delete Forever
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Rooms navigation */}
           <div className="flex-1 py-2">
