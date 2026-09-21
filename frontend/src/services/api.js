@@ -10,14 +10,75 @@ const API_BASE = window.location.origin.includes('localhost') || window.location
   : 'https://collabide-backend-avau.onrender.com/api';
 
 let accessToken = localStorage.getItem('token') || null;
+let refreshTimeoutId = null;
+let refreshPromise = null;
+
+function parseJwt(token) {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => 
+      '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+    ).join(''));
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    return null;
+  }
+}
+
+async function executeRefresh() {
+  if (refreshPromise) return refreshPromise;
+  
+  refreshPromise = (async () => {
+    try {
+      const refreshRes = await fetch(`${API_BASE}/auth/refresh`, { method: 'POST', credentials: 'include' });
+      if (refreshRes.ok) {
+        const refreshData = await refreshRes.json();
+        setToken(refreshData.accessToken);
+        return refreshData.accessToken;
+      } else {
+        setToken(null);
+        window.dispatchEvent(new Event('auth-expired'));
+        return null;
+      }
+    } catch (e) {
+      setToken(null);
+      window.dispatchEvent(new Event('auth-expired'));
+      return null;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+  
+  return refreshPromise;
+}
 
 export function setToken(token) {
   accessToken = token;
+  if (refreshTimeoutId) {
+    clearTimeout(refreshTimeoutId);
+    refreshTimeoutId = null;
+  }
+
   if (token) {
     localStorage.setItem('token', token);
+    const payload = parseJwt(token);
+    if (payload && payload.exp) {
+      const timeUntilExpiry = (payload.exp * 1000) - Date.now();
+      const delay = Math.max(0, timeUntilExpiry - 60000); // Trigger 1 min before expiry
+      refreshTimeoutId = setTimeout(() => {
+        executeRefresh();
+      }, delay);
+    }
   } else {
     localStorage.removeItem('token');
   }
+}
+
+// Initialize timer on boot if token exists
+if (accessToken) {
+  // Slight timeout ensures DOM events can be bound first
+  setTimeout(() => setToken(accessToken), 0);
 }
 
 export function getToken() {
@@ -25,6 +86,11 @@ export function getToken() {
 }
 
 async function request(path, options = {}) {
+  // Wait if a proactive refresh is currently running
+  if (refreshPromise) {
+    await refreshPromise;
+  }
+
   const headers = {
     'Content-Type': 'application/json',
     ...options.headers,
@@ -40,25 +106,12 @@ async function request(path, options = {}) {
     credentials: 'include',
   });
 
-  // Automatically handle token refresh rotation (NFR-13) if unauthorized
+  // Fallback: If proactive refresh missed it and we got 401, refresh and retry
   if (res.status === 401 && accessToken) {
-    // Attempt token refresh
-    try {
-      const refreshRes = await fetch(`${API_BASE}/auth/refresh`, { method: 'POST', credentials: 'include' });
-      if (refreshRes.ok) {
-        const refreshData = await refreshRes.json();
-        setToken(refreshData.accessToken);
-        // Retry the original request
-        headers['Authorization'] = `Bearer ${refreshData.accessToken}`;
-        return fetch(`${API_BASE}${path}`, { ...options, headers, credentials: 'include' });
-      } else {
-        // Clear token and redirect to login if refresh fails
-        setToken(null);
-        window.dispatchEvent(new Event('auth-expired'));
-      }
-    } catch (e) {
-      setToken(null);
-      window.dispatchEvent(new Event('auth-expired'));
+    const newToken = await executeRefresh();
+    if (newToken) {
+      headers['Authorization'] = `Bearer ${newToken}`;
+      return fetch(`${API_BASE}${path}`, { ...options, headers, credentials: 'include' });
     }
   }
 
