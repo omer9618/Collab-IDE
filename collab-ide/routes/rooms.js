@@ -383,4 +383,82 @@ router.post('/:uuid/roles/revoke-all', protect, async (req, res) => {
   }
 });
 
+// @route   POST /api/rooms/:uuid/close
+// @desc    Close room (read-only) (Owner only)
+// @access  Private
+router.post('/:uuid/close', protect, async (req, res) => {
+  try {
+    const room = await Room.findOne({ uuid: req.params.uuid });
+    if (!room) return res.status(404).json({ message: 'Room not found' });
+    
+    if (room.owner.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Unauthorized. Only the Owner can close the room.' });
+    }
+
+    room.isClosed = true;
+    await room.save();
+
+    if (global.broadcastToRoom) {
+      global.broadcastToRoom(room.uuid, JSON.stringify({ type: 'room_closed' }));
+    }
+
+    res.json({ message: 'Room closed successfully', room });
+  } catch (error) {
+    console.error('Close room error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   POST /api/rooms/:uuid/open
+// @desc    Re-open room (Owner only)
+// @access  Private
+router.post('/:uuid/open', protect, async (req, res) => {
+  try {
+    const room = await Room.findOne({ uuid: req.params.uuid });
+    if (!room) return res.status(404).json({ message: 'Room not found' });
+    
+    if (room.owner.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Unauthorized. Only the Owner can re-open the room.' });
+    }
+
+    room.isClosed = false;
+    await room.save();
+
+    if (global.broadcastToRoom) {
+      global.broadcastToRoom(room.uuid, JSON.stringify({ type: 'room_opened' }));
+    }
+
+    res.json({ message: 'Room opened successfully', room });
+  } catch (error) {
+    console.error('Open room error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   DELETE /api/rooms/:uuid
+// @desc    Permanently delete room (Owner only)
+// @access  Private
+router.delete('/:uuid', protect, async (req, res) => {
+  try {
+    const room = await Room.findOne({ uuid: req.params.uuid });
+    if (!room) return res.status(404).json({ message: 'Room not found' });
+    
+    if (room.owner.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Unauthorized. Only the Owner can delete the room.' });
+    }
+
+    // Broadcast deletion before actually removing it
+    if (global.broadcastToRoom) {
+      global.broadcastToRoom(room.uuid, JSON.stringify({ type: 'room_deleted' }));
+    }
+
+    await room.deleteOne();
+
+    res.json({ message: 'Room deleted successfully' });
+  } catch (error) {
+    console.error('Delete room error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

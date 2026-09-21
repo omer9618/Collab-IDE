@@ -279,6 +279,27 @@ export async function promoteMember(uuid, targetUserId, role) {
   return data;
 }
 
+export async function closeRoom(uuid) {
+  const res = await request(`/rooms/${uuid}/close`, { method: 'POST' });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to close room');
+  return data;
+}
+
+export async function openRoom(uuid) {
+  const res = await request(`/rooms/${uuid}/open`, { method: 'POST' });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to open room');
+  return data;
+}
+
+export async function deleteRoom(uuid) {
+  const res = await request(`/rooms/${uuid}`, { method: 'DELETE' });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to delete room');
+  return data;
+}
+
 // ─── EXECUTION ENDPOINTS ──────────────────────────────────────────────────────
 
 export async function runCode(uuid, { code, language, stdin }) {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { createRoom, joinRoom, logoutUser, logoutAllDevices, getRooms, getRoomsPresence } from '../services/api';
+import { createRoom, joinRoom, logoutUser, logoutAllDevices, getRooms, getRoomsPresence, closeRoom, openRoom, deleteRoom } from '../services/api';
 import ProfileDrawer from './ProfileDrawer';
 
 // FR-14: how often the dashboard refreshes online counts / last active time
@@ -54,6 +54,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showSignoutConfirm, setShowSignoutConfirm] = useState(false);
   const [showSignoutAllConfirm, setShowSignoutAllConfirm] = useState(false);
+  const [activeMenuRoom, setActiveMenuRoom] = useState(null);
   const [showSettingsDrawer, setShowSettingsDrawer] = useState(false);
   const [activeTab, setActiveTab] = useState('my-rooms'); // my-rooms, joined-rooms
 
@@ -150,6 +151,33 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
       setError(err.message);
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const handleToggleRoomStatus = async (e, room) => {
+    e.stopPropagation();
+    setActiveMenuRoom(null);
+    try {
+      if (room.isClosed) {
+        await openRoom(room.uuid);
+      } else {
+        await closeRoom(room.uuid);
+      }
+      handleRefresh();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteRoom = async (e, roomUuid) => {
+    e.stopPropagation();
+    setActiveMenuRoom(null);
+    if (!window.confirm('Are you sure you want to permanently delete this room? This action cannot be undone.')) return;
+    try {
+      await deleteRoom(roomUuid);
+      handleRefresh();
+    } catch (err) {
+      alert(err.message);
     }
   };
 
@@ -427,6 +455,14 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                                 }`}>
                                   {room.myRole}
                                 </span>
+                                {room.isClosed && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="px-1.5 py-0.5 rounded-sm text-[10px] font-semibold uppercase bg-red-900/30 text-red-500">
+                                      Closed
+                                    </span>
+                                  </>
+                                )}
                                 <span>•</span>
                                 <span title={new Date(room.lastActiveAt || room.updatedAt).toLocaleString()}>
                                   Active {timeStr}
@@ -485,6 +521,41 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                             <button className="px-4 py-1.5 bg-[#292a2a] text-on-surface rounded-md text-text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
                               Open →
                             </button>
+                            {room.myRole === 'Owner' && (
+                              <div className="relative">
+                                <button
+                                  className="p-1 text-text-muted hover:text-on-surface hover:bg-surface-elevated rounded ml-2"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveMenuRoom(activeMenuRoom === room.uuid ? null : room.uuid);
+                                  }}
+                                >
+                                  <span className="material-symbols-outlined text-[18px]">more_vert</span>
+                                </button>
+                                {activeMenuRoom === room.uuid && (
+                                  <>
+                                    <div 
+                                      className="fixed inset-0 z-40" 
+                                      onClick={(e) => { e.stopPropagation(); setActiveMenuRoom(null); }}
+                                    />
+                                    <div className="absolute top-8 right-0 bg-[#1f2020] border border-[#404751] rounded-md shadow-lg z-50 py-1 min-w-[120px]">
+                                      <button
+                                        className="w-full text-left px-3 py-1.5 text-text-sm text-on-surface hover:bg-surface-elevated transition-colors"
+                                        onClick={(e) => handleToggleRoomStatus(e, room)}
+                                      >
+                                        {room.isClosed ? 'Re-open Room' : 'Close Room'}
+                                      </button>
+                                      <button
+                                        className="w-full text-left px-3 py-1.5 text-text-sm text-red-500 hover:bg-red-950/30 transition-colors"
+                                        onClick={(e) => handleDeleteRoom(e, room.uuid)}
+                                      >
+                                        Delete Room
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       );

@@ -13,6 +13,9 @@ import {
   promoteMember,
   getProfile,
   getRooms,
+  closeRoom,
+  openRoom,
+  deleteRoom,
 } from '../services/api';
 import {
   Folder,
@@ -160,6 +163,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
   const [consoleHeight, setConsoleHeight] = useState(200);
   const [leftPanelWidth, setLeftPanelWidth] = useState(200);
   const [rightPanelWidth, setRightPanelWidth] = useState(200);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [consoleTab, setConsoleTab] = useState('output'); // output, terminal, problems
 
   // Code run/output
@@ -282,6 +286,17 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
               if (data.type === 'role_update') {
                 console.log('[WS] Received role_update:', data.role);
                 setRole(data.role);
+              } else if (data.type === 'room_closed') {
+                console.log('[WS] Room closed by owner');
+                setRoom((prev) => prev ? { ...prev, isClosed: true } : prev);
+                leaveVoice(); // kick out of voice
+              } else if (data.type === 'room_opened') {
+                console.log('[WS] Room opened by owner');
+                setRoom((prev) => prev ? { ...prev, isClosed: false } : prev);
+              } else if (data.type === 'room_deleted') {
+                console.log('[WS] Room deleted by owner');
+                alert('This room has been permanently deleted by the owner.');
+                onBack();
               }
             }
           } catch (e) {
@@ -405,7 +420,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
     if (!model) return;
     model.setEOL(0); // Enforce LF line endings (0) to prevent cursor offset misalignment between CRLF and LF clients
 
-    const isReadOnly = role === 'Viewer' || (editorOnlyMode && role === 'Editor' && !inVoice);
+    const isReadOnly = room?.isClosed || role === 'Viewer' || (editorOnlyMode && role === 'Editor' && !inVoice);
 
     if (monacoBindingRef.current) {
       if (typeof monacoBindingRef.current.destroy === 'function') {
@@ -1215,9 +1230,15 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
           </div>
 
           <div className="mt-auto flex flex-col gap-2 w-full items-center">
-            <button className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] transition-colors" title="Settings">
-              <Settings size={18} />
-            </button>
+            {role === 'Owner' && (
+              <button 
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] transition-colors" 
+                title="Settings"
+                onClick={() => setShowSettingsModal(true)}
+              >
+                <Settings size={18} />
+              </button>
+            )}
             <button
               className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-accent-red hover:bg-red-950/30 transition-colors"
               onClick={() => { leaveVoice(); onBack(); }}
@@ -1551,9 +1572,9 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
                   cursorBlinking: 'smooth',
                   cursorSmoothCaretAnimation: 'on',
                   padding: { top: 12 },
-                  readOnly: role === 'Viewer' || (editorOnlyMode && role === 'Editor' && !inVoice),
+                  readOnly: room?.isClosed || role === 'Viewer' || (editorOnlyMode && role === 'Editor' && !inVoice),
                   contextmenu: (() => {
-                    const isReadOnly = role === 'Viewer' || (editorOnlyMode && role === 'Editor' && !inVoice);
+                    const isReadOnly = room?.isClosed || role === 'Viewer' || (editorOnlyMode && role === 'Editor' && !inVoice);
                     window._collabIdeReadOnly = isReadOnly;
                     return !isReadOnly; // Disable context menu if read only to prevent pasting
                   })(),
@@ -2106,6 +2127,74 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
             >
               <span className="material-symbols-outlined text-[12px]">close</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Room Settings Modal */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-surface-panel border border-outline-subtle w-full max-w-sm rounded-xl overflow-hidden shadow-2xl flex flex-col">
+            <div className="px-5 py-4 border-b border-outline-subtle flex items-center justify-between">
+              <h2 className="text-text-lg font-bold text-on-surface">Room Settings</h2>
+              <button 
+                className="p-1 rounded-md text-on-surface-muted hover:bg-surface-elevated hover:text-on-surface transition-colors"
+                onClick={() => setShowSettingsModal(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="p-5 flex flex-col gap-4">
+              <div className="flex flex-col gap-1">
+                <h3 className="text-text-sm font-semibold text-on-surface">{room?.isClosed ? 'Re-open Room' : 'Close Room'}</h3>
+                <p className="text-[11px] text-on-surface-muted">
+                  {room?.isClosed 
+                    ? 'Re-opening the room will restore write access to editors and allow voice collaboration.' 
+                    : 'Closing the room will lock the editor for all participants and disconnect active voice sessions.'}
+                </p>
+                <button
+                  className="mt-2 px-4 py-2 bg-surface-elevated border border-outline hover:border-accent-blue rounded-md text-text-sm font-medium text-on-surface transition-colors"
+                  onClick={async () => {
+                    try {
+                      if (room?.isClosed) {
+                        await openRoom(roomUuid);
+                      } else {
+                        await closeRoom(roomUuid);
+                      }
+                      setShowSettingsModal(false);
+                    } catch (err) {
+                      alert(err.message);
+                    }
+                  }}
+                >
+                  {room?.isClosed ? 'Re-open Room' : 'Close Room'}
+                </button>
+              </div>
+
+              <div className="h-px w-full bg-outline-subtle my-2" />
+
+              <div className="flex flex-col gap-1">
+                <h3 className="text-text-sm font-semibold text-red-500">Danger Zone</h3>
+                <p className="text-[11px] text-on-surface-muted">
+                  Permanently delete this room, its code, and execution history.
+                </p>
+                <button
+                  className="mt-2 px-4 py-2 bg-red-950/30 border border-red-900/50 hover:bg-red-900/40 rounded-md text-text-sm font-medium text-red-400 transition-colors flex items-center justify-center gap-2"
+                  onClick={async () => {
+                    if (!window.confirm('Are you sure you want to permanently delete this room? This cannot be undone.')) return;
+                    try {
+                      await deleteRoom(roomUuid);
+                      setShowSettingsModal(false);
+                    } catch (err) {
+                      alert(err.message);
+                    }
+                  }}
+                >
+                  <Trash2 size={16} /> Delete Room
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
