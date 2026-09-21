@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { createRoom, joinRoom, logoutUser, getRooms, getRoomsPresence } from '../services/api';
+import { createRoom, joinRoom, logoutUser, logoutAllDevices, getRooms, getRoomsPresence } from '../services/api';
 import ProfileDrawer from './ProfileDrawer';
 
 // FR-14: how often the dashboard refreshes online counts / last active time
@@ -200,6 +200,19 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
       onLogout();
     } catch (err) {
       onLogout();
+    }
+  };
+
+  const handleLogoutAllClick = async () => {
+    // We can just confirm with the standard browser confirm for simplicity, 
+    // or use the same modal with different text. Let's use standard confirm here since it's a destructive action.
+    if (window.confirm('Are you sure you want to sign out of ALL devices? This will invalidate all your active sessions.')) {
+      try {
+        await logoutAllDevices();
+        onLogout();
+      } catch (err) {
+        onLogout();
+      }
     }
   };
 
@@ -628,6 +641,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
         onUserUpdate={onUserUpdate}
         onRoomSelect={onRoomSelect}
         onLogoutClick={handleLogoutClick}
+        onLogoutAllClick={handleLogoutAllClick}
       />
     </div>
   );

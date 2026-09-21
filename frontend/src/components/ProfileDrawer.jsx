@@ -37,6 +37,7 @@ export default function ProfileDrawer({
   onUserUpdate,
   onRoomSelect,
   onLogoutClick,
+  onLogoutAllClick,
 }) {
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [isEditingName, setIsEditingName] = useState(false);
@@ -678,9 +679,20 @@ export default function ProfileDrawer({
             type="button"
             onClick={() => {
               onClose();
-              onLogoutClick?.();
+              onLogoutAllClick?.();
             }}
             className="w-full py-2 bg-red-950/20 border border-accent-red/30 hover:bg-red-950/40 text-accent-red rounded text-sm font-medium transition-colors flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined text-sm">phonelink_erase</span>
+            Sign Out of All Devices
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onLogoutClick?.();
+            }}
+            className="w-full py-2 bg-transparent border border-accent-red/20 hover:border-accent-red/50 text-accent-red/80 hover:text-accent-red rounded text-sm font-medium transition-colors flex items-center justify-center gap-2"
           >
             <span className="material-symbols-outlined text-sm">logout</span>
             Sign Out

@@ -171,6 +171,11 @@ export async function logoutUser() {
   setToken(null);
 }
 
+export async function logoutAllDevices() {
+  await request('/auth/logout-all', { method: 'POST' });
+  setToken(null);
+}
+
 export async function getProfile() {
   const res = await request('/auth/me');
   const data = await res.json();
