@@ -1111,13 +1111,13 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
           <button
             onClick={handleRunCode}
             disabled={isRunning || role === 'Viewer' || !activeFile || activeFile.endsWith('.md')}
-            className={`flex items-center gap-1.5 px-2 py-1 text-white text-[9.5px] font-medium rounded-md transition-all shadow ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-white text-[10px] font-medium rounded-md transition-all shadow-sm ${
               (isRunning || role === 'Viewer' || !activeFile || activeFile.endsWith('.md'))
-                ? 'bg-gray-700 opacity-50 cursor-not-allowed'
-                : 'bg-accent-blue hover:opacity-90'
+                ? 'bg-[#2b2d30] text-on-surface-muted cursor-not-allowed'
+                : 'bg-accent-blue hover:bg-accent-blue/90 shadow-accent-blue/20'
             }`}
           >
-            <span className="material-symbols-outlined text-[12px]">play_arrow</span>
+            <Play size={12} fill="currentColor" />
             <span>Run</span>
           </button>
 
@@ -1251,7 +1251,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                           <div key={node.path}>
                             {/* Folder Row */}
                             <div
-                              className="flex items-center gap-1 py-1.5 mx-1.5 rounded-md cursor-pointer text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] group/folder transition-all"
+                              className="flex items-center gap-1 py-1.5 mx-1.5 my-[2px] rounded-md cursor-pointer text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] group/folder transition-all"
                               style={{ paddingLeft: `${indent - 6}px`, paddingRight: '8px' }}
                               onClick={() => setExpandedFolders(prev => {
                                 const s = new Set(prev);
@@ -1346,7 +1346,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                       return (
                         <div
                           key={node.path}
-                          className={`flex items-center gap-1.5 py-1.5 mx-1.5 rounded-md cursor-pointer transition-colors group/file ${
+                          className={`flex items-center gap-1.5 py-1.5 mx-1.5 my-[2px] rounded-md cursor-pointer transition-colors group/file ${
                             activeFile === node.path
                               ? 'bg-[#1c2b41]/60 text-[#9fcaff]'
                               : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
@@ -1434,7 +1434,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
 
             <div className="p-4 border-t border-outline-subtle mt-auto">
               <button
-                className="w-full text-left text-[9.5px] text-accent-blue hover:underline flex items-center gap-1"
+                className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-md border border-accent-blue/30 text-[10px] font-medium text-accent-blue hover:bg-accent-blue/10 transition-colors"
                 onClick={() => {
                   navigator.clipboard.writeText(window.location.href);
                   showToast('Share link copied!', 'success');
@@ -1679,9 +1679,9 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                     <span>Online ({onlineCount})</span>
                   </button>
                   {isUserLeader && (
-                    <div className="flex gap-1 text-[9.5px]">
-                      <button onClick={handleMuteAll} className="text-accent-red hover:underline">Mute all</button>
-                      <button onClick={toggleEditorOnlyVoice} className="text-accent-blue hover:underline">
+                    <div className="flex gap-2 text-[9px] font-medium">
+                      <button onClick={handleMuteAll} className="px-2 py-1 rounded border border-accent-red/30 text-accent-red hover:bg-accent-red/10 transition-colors">Mute all</button>
+                      <button onClick={toggleEditorOnlyVoice} className="px-2 py-1 rounded border border-accent-blue/30 text-accent-blue hover:bg-accent-blue/10 transition-colors">
                         {editorOnlyMode ? 'Unlock Voice' : 'Lock Voice'}
                       </button>
                     </div>
