@@ -1185,7 +1185,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
 
             <div className="flex-1 overflow-y-auto py-2">
               {/* Workspace Root Row */}
-              <div className="px-2 py-1 mx-1 my-0.5 rounded-md flex items-center justify-between group/root cursor-pointer hover:bg-surface-elevated/50 text-[9px] font-semibold text-on-surface">
+              <div className="px-2 py-1 mx-1 my-0.5 rounded-md flex items-center justify-between group/root cursor-pointer hover:bg-[#2b2d30] text-[9.5px] font-semibold text-on-surface">
                 <div
                   className="flex items-center gap-1.5 min-w-0 flex-1"
                   onClick={() => setIsFilesTreeOpen(!isFilesTreeOpen)}
@@ -1252,7 +1252,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                           <div key={node.path}>
                             {/* Folder Row */}
                             <div
-                              className="flex items-center gap-1 py-1.5 mx-1.5 my-[2px] rounded-md cursor-pointer text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] group/folder transition-all"
+                              className="flex items-center gap-1 py-0.5 mx-1.5 my-0.5 rounded-md cursor-pointer text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] group/folder transition-all"
                               style={{ paddingLeft: `${indent - 6}px`, paddingRight: '8px' }}
                               onClick={() => setExpandedFolders(prev => {
                                 const s = new Set(prev);
@@ -1347,7 +1347,7 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                       return (
                         <div
                           key={node.path}
-                          className={`flex items-center gap-1.5 py-1.5 mx-1.5 my-[2px] rounded-md cursor-pointer transition-colors group/file ${
+                          className={`flex items-center gap-1.5 py-0.5 mx-1.5 my-0.5 rounded-md cursor-pointer transition-colors group/file ${
                             activeFile === node.path
                               ? 'bg-[#1c2b41]/60 text-[#9fcaff]'
                               : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
