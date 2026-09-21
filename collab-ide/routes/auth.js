@@ -234,8 +234,8 @@ router.post('/login', authLimiter, ipBruteForceLimiter, async (req, res) => {
     // Set HttpOnly cookie (FR-02)
     res.cookie('refreshToken', plaintext, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'none',
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -301,8 +301,8 @@ router.post('/refresh', async (req, res) => {
     // Update cookie
     res.cookie('refreshToken', plaintext, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'none',
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 

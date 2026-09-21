@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createRoom, joinRoom, logoutUser, logoutAllDevices, getRooms, getRoomsPresence, closeRoom, openRoom, deleteRoom } from '../services/api';
 import ProfileDrawer from './ProfileDrawer';
+import { MoreVertical } from 'lucide-react';
 
 // FR-14: how often the dashboard refreshes online counts / last active time
 const PRESENCE_POLL_MS = 15000;
@@ -344,7 +345,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                 onClick={() => setActiveTab('my-rooms')}
               >
                 <span className="material-symbols-outlined text-[18px]">folder_open</span>
-                <span>My Rooms</span>
+                <span className="text-text-sm font-medium">My Rooms</span>
               </button>
               <button
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left text-[13px] font-medium transition-colors ${
@@ -524,13 +525,14 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                             {room.myRole === 'Owner' && (
                               <div className="relative">
                                 <button
-                                  className="p-1 text-text-muted hover:text-on-surface hover:bg-surface-elevated rounded ml-2"
+                                  className="p-1 text-text-muted hover:text-on-surface hover:bg-surface-elevated rounded ml-2 flex items-center justify-center transition-colors"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setActiveMenuRoom(activeMenuRoom === room.uuid ? null : room.uuid);
                                   }}
+                                  title="Room Options"
                                 >
-                                  <span className="material-symbols-outlined text-[18px]">more_vert</span>
+                                  <MoreVertical size={18} />
                                 </button>
                                 {activeMenuRoom === room.uuid && (
                                   <>
