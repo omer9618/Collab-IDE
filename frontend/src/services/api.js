@@ -99,7 +99,7 @@ async function request(path, options = {}) {
 
   // Fallback: If proactive refresh missed it and we got 401, refresh and retry
   if (res.status === 401 && accessToken) {
-    const newToken = await executeRefresh();
+    const newToken = await refreshSession();
     if (newToken) {
       headers['Authorization'] = `Bearer ${newToken}`;
       return fetch(`${API_BASE}${path}`, { ...options, headers, credentials: 'include' });
