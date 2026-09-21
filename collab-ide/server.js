@@ -36,6 +36,7 @@ const executionRoutes = require('./routes/execution');
 const voiceRoutes     = require('./routes/voice');
 
 const app = express();
+app.set('trust proxy', 1);
 const server = http.createServer(app);
 
 // Initialize Socket.IO Server for Voice Signalling

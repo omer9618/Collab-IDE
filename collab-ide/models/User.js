@@ -52,6 +52,14 @@ const userSchema = new mongoose.Schema(
     pendingEmailExpires: {
       type: Date,
     },
+    loginAttempts: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+    lockUntil: {
+      type: Date,
+    },
   },
   {
     timestamps: true,

@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const User = require('../models/User');
 const RefreshToken = require('../models/RefreshToken');
+const IpBlock = require('../models/IpBlock');
 const { privateKey } = require('../utils/keys');
 const { protect } = require('../middleware/auth'); // We will export it from middleware/auth.js
 
@@ -130,10 +131,57 @@ router.get('/verify', async (req, res) => {
   }
 });
 
+// IP Brute Force Limiter Middleware
+const ipBruteForceLimiter = async (req, res, next) => {
+  try {
+    const ip = req.ip;
+    const ipBlock = await IpBlock.findOne({ ip });
+    
+    if (ipBlock && ipBlock.blockUntil && ipBlock.blockUntil > new Date()) {
+      return res.status(429).json({
+        message: 'Too many failed login attempts from this IP. Please try again in 1 hour.',
+      });
+    }
+    next();
+  } catch (error) {
+    console.error('IP block check error:', error);
+    next();
+  }
+};
+
+const handleFailedLogin = async (req, user, ipBlockDoc) => {
+  const ip = req.ip;
+
+  // Increment IP block counter
+  if (ipBlockDoc) {
+    ipBlockDoc.failedAttempts += 1;
+    if (ipBlockDoc.failedAttempts >= 20) {
+      ipBlockDoc.blockUntil = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    }
+    await ipBlockDoc.save();
+  } else {
+    await IpBlock.create({ ip, failedAttempts: 1 });
+  }
+
+  // Increment User lock counter
+  if (user) {
+    user.loginAttempts += 1;
+    if (user.loginAttempts >= 5) {
+      user.lockUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+      
+      // Send mock email
+      console.log('\n🚨  [MOCK EMAIL] Account Temporarily Locked:');
+      console.log(`    To: ${user.email}`);
+      console.log(`    Message: Your account has been locked for 15 minutes due to 5 consecutive failed login attempts.\n`);
+    }
+    await user.save();
+  }
+};
+
 // @route   POST /api/auth/login
 // @desc    Authenticate user & get tokens
 // @access  Public
-router.post('/login', authLimiter, async (req, res) => {
+router.post('/login', authLimiter, ipBruteForceLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -141,18 +189,36 @@ router.post('/login', authLimiter, async (req, res) => {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
+    // Pre-fetch IP block doc to track failed attempts
+    const ipBlockDoc = await IpBlock.findOne({ ip: req.ip });
+
     const user = await User.findOne({ email });
     if (!user) {
+      await handleFailedLogin(req, null, ipBlockDoc);
       return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Check if account is locked
+    if (user.lockUntil && user.lockUntil > new Date()) {
+      const lockMins = Math.ceil((user.lockUntil - new Date()) / 60000);
+      return res.status(403).json({ message: `Account is temporarily locked due to multiple failed attempts. Please try again in ${lockMins} minutes.` });
     }
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
+      await handleFailedLogin(req, user, ipBlockDoc);
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
     if (!user.isVerified) {
       return res.status(403).json({ message: 'Please verify your email address first' });
+    }
+
+    // Reset login attempts on successful login
+    if (user.loginAttempts > 0 || user.lockUntil) {
+      user.loginAttempts = 0;
+      user.lockUntil = undefined;
+      await user.save();
     }
 
     // Generate tokens
