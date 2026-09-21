@@ -234,8 +234,8 @@ router.post('/login', authLimiter, ipBruteForceLimiter, async (req, res) => {
     // Set HttpOnly cookie (FR-02)
     res.cookie('refreshToken', plaintext, {
       httpOnly: true,
-      secure: true, // MUST be true for sameSite: 'none'
-      sameSite: 'none', // Required for cross-origin Vercel -> Render requests
+      secure: true,
+      sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -302,7 +302,7 @@ router.post('/refresh', async (req, res) => {
     res.cookie('refreshToken', plaintext, {
       httpOnly: true,
       secure: true,
-      sameSite: 'none',
+      sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 

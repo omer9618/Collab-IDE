@@ -9,7 +9,7 @@ const API_BASE = window.location.origin.includes('localhost') || window.location
   ? '/api' 
   : 'https://collabide-backend-avau.onrender.com/api';
 
-let accessToken = localStorage.getItem('token') || null;
+let accessToken = null;
 let refreshTimeoutId = null;
 let refreshPromise = null;
 
@@ -26,7 +26,7 @@ function parseJwt(token) {
   }
 }
 
-async function executeRefresh() {
+export async function refreshSession() {
   if (refreshPromise) return refreshPromise;
   
   refreshPromise = (async () => {
@@ -61,24 +61,15 @@ export function setToken(token) {
   }
 
   if (token) {
-    localStorage.setItem('token', token);
     const payload = parseJwt(token);
     if (payload && payload.exp) {
       const timeUntilExpiry = (payload.exp * 1000) - Date.now();
       const delay = Math.max(0, timeUntilExpiry - 60000); // Trigger 1 min before expiry
       refreshTimeoutId = setTimeout(() => {
-        executeRefresh();
+        refreshSession();
       }, delay);
     }
-  } else {
-    localStorage.removeItem('token');
   }
-}
-
-// Initialize timer on boot if token exists
-if (accessToken) {
-  // Slight timeout ensures DOM events can be bound first
-  setTimeout(() => setToken(accessToken), 0);
 }
 
 export function getToken() {

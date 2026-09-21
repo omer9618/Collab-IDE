@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import AuthView from './components/AuthView';
 import DashboardView from './components/DashboardView';
 import WorkspaceView from './components/WorkspaceView';
-import { getProfile, getToken, setToken } from './services/api';
+import { getProfile, getToken, setToken, refreshSession } from './services/api';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -18,17 +18,23 @@ export default function App() {
     }
 
     async function checkAuth() {
-      const token = getToken();
-      if (token) {
-        try {
+      try {
+        let token = getToken();
+        if (!token) {
+          // Attempt to bootstrap from HttpOnly cookie
+          token = await refreshSession();
+        }
+
+        if (token) {
           const profile = await getProfile();
           setUser(profile);
-        } catch (e) {
-          // Token expired or invalid
-          setToken(null);
         }
+      } catch (e) {
+        // Token expired or invalid
+        setToken(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     checkAuth();
 
