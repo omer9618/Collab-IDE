@@ -280,46 +280,7 @@ router.post('/logout-all', protect, async (req, res) => {
   }
 });
 
-// @route   GET /api/auth/sessions
-// @desc    View all active sessions for the user
-// @access  Private
-router.get('/sessions', protect, async (req, res) => {
-  try {
-    const sessions = await RefreshToken.find({
-      user: req.user._id,
-      expiresAt: { $gt: new Date() },
-      isRotated: false,
-    }).select('createdAt deviceInfo');
 
-    res.json(sessions);
-  } catch (error) {
-    console.error('Get sessions error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// @route   DELETE /api/auth/sessions/:id
-// @desc    Revoke specific session by token ID
-// @access  Private
-router.delete('/sessions/:id', protect, async (req, res) => {
-  try {
-    const tokenDoc = await RefreshToken.findOne({
-      _id: req.params.id,
-      user: req.user._id,
-    });
-
-    if (!tokenDoc) {
-      return res.status(404).json({ message: 'Session not found or unauthorized' });
-    }
-
-    // Invalidate the session
-    await tokenDoc.deleteOne();
-    res.json({ message: 'Session successfully revoked' });
-  } catch (error) {
-    console.error('Revoke session error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
 
 // @route   POST /api/auth/reset-password-request
 // @desc    Request a password reset link
@@ -821,6 +782,78 @@ router.post('/google-login', authLimiter, async (req, res) => {
     });
   } catch (error) {
     console.error('Google login error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/auth/sessions
+// @desc    Get all active sessions for current user (FR-07)
+// @access  Private
+router.get('/sessions', protect, async (req, res) => {
+  try {
+    const tokens = await RefreshToken.find({ user: req.user._id, isRotated: false })
+      .select('_id deviceInfo updatedAt token')
+      .sort({ updatedAt: -1 });
+
+    const { refreshToken } = req.cookies;
+    let hashedToken = null;
+    if (refreshToken) {
+      hashedToken = crypto.createHash('sha256').update(refreshToken).digest('hex');
+    }
+
+    const sessions = tokens.map(t => ({
+      _id: t._id,
+      deviceInfo: t.deviceInfo || 'Unknown Device',
+      lastActive: t.updatedAt,
+      isCurrent: hashedToken === t.token
+    }));
+
+    res.json({ sessions });
+  } catch (error) {
+    console.error('Get sessions error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   DELETE /api/auth/sessions/:id
+// @desc    Revoke a specific session (FR-07)
+// @access  Private
+router.delete('/sessions/:id', protect, async (req, res) => {
+  try {
+    const tokenDoc = await RefreshToken.findOne({ _id: req.params.id, user: req.user._id });
+    if (!tokenDoc) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+    
+    await RefreshToken.deleteOne({ _id: req.params.id });
+    res.json({ message: 'Session revoked' });
+  } catch (error) {
+    console.error('Revoke session error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   DELETE /api/auth/sessions
+// @desc    Revoke all OTHER sessions (FR-07)
+// @access  Private
+router.delete('/sessions', protect, async (req, res) => {
+  try {
+    const { refreshToken } = req.cookies;
+    if (!refreshToken) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+    
+    const hashedToken = crypto.createHash('sha256').update(refreshToken).digest('hex');
+    
+    // Delete all tokens for this user that are NOT the current one
+    await RefreshToken.deleteMany({ 
+      user: req.user._id, 
+      token: { $ne: hashedToken } 
+    });
+    
+    res.json({ message: 'All other sessions revoked' });
+  } catch (error) {
+    console.error('Revoke all sessions error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

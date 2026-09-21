@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { updateProfile, requestEmailChange, cancelEmailChange } from '../services/api';
+import {
+  updateProfile, requestEmailChange, cancelEmailChange,
+  getSessions, revokeSession, revokeAllOtherSessions
+} from '../services/api';
 
 const CURATED_COLORS = [
   { hex: '#1a73e8', name: 'Collab Blue' },
@@ -54,6 +57,12 @@ export default function ProfileDrawer({
   // Rooms tab: 'owned' | 'joined'
   const [roomsTab, setRoomsTab] = useState('owned');
 
+  // Active Sessions
+  const [sessions, setSessions] = useState([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
+  const [revokingId, setRevokingId] = useState(null);
+  const [viewAllSessions, setViewAllSessions] = useState(false);
+
   useEffect(() => {
     if (user) {
       setDisplayName(user.displayName || '');
@@ -70,6 +79,48 @@ export default function ProfileDrawer({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadSessions();
+    }
+  }, [isOpen]);
+
+  const loadSessions = async () => {
+    try {
+      setLoadingSessions(true);
+      const data = await getSessions();
+      setSessions(data || []);
+    } catch (error) {
+      console.error('Failed to load sessions', error);
+    } finally {
+      setLoadingSessions(false);
+    }
+  };
+
+  const handleRevoke = async (id) => {
+    try {
+      setRevokingId(id);
+      await revokeSession(id);
+      setSessions(prev => prev.filter(s => s._id !== id));
+    } catch (err) {
+      console.error('Failed to revoke session:', err);
+    } finally {
+      setRevokingId(null);
+    }
+  };
+
+  const handleRevokeAllOther = async () => {
+    try {
+      setRevokingId('ALL_OTHER');
+      await revokeAllOtherSessions();
+      setSessions(prev => prev.filter(s => s.isCurrent));
+    } catch (err) {
+      console.error('Failed to revoke all other sessions:', err);
+    } finally {
+      setRevokingId(null);
+    }
+  };
 
   if (!isOpen || !user) return null;
 
@@ -322,11 +373,10 @@ export default function ProfileDrawer({
                     title={color.name}
                     disabled={colorSaving}
                     onClick={() => handleSelectColor(color.hex)}
-                    className={`group flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-all ${
-                      isSelected
+                    className={`group flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-all ${isSelected
                         ? 'bg-[#252626] border-accent-blue shadow-md'
                         : 'bg-[#121414] border-[#2b2b2b] hover:border-[#404751] hover:bg-[#1f2020]'
-                    }`}
+                      }`}
                   >
                     <div
                       className="w-6 h-6 rounded-full flex items-center justify-center transition-transform group-hover:scale-110 shadow-sm"
@@ -464,22 +514,20 @@ export default function ProfileDrawer({
               <button
                 type="button"
                 onClick={() => setRoomsTab('owned')}
-                className={`flex-1 py-1 text-xs font-medium rounded-md transition-colors ${
-                  roomsTab === 'owned'
+                className={`flex-1 py-1 text-xs font-medium rounded-md transition-colors ${roomsTab === 'owned'
                     ? 'bg-[#252626] text-text-primary shadow-sm'
                     : 'text-text-muted hover:text-text-primary'
-                }`}
+                  }`}
               >
                 Owned ({ownedRooms.length})
               </button>
               <button
                 type="button"
                 onClick={() => setRoomsTab('joined')}
-                className={`flex-1 py-1 text-xs font-medium rounded-md transition-colors ${
-                  roomsTab === 'joined'
+                className={`flex-1 py-1 text-xs font-medium rounded-md transition-colors ${roomsTab === 'joined'
                     ? 'bg-[#252626] text-text-primary shadow-sm'
                     : 'text-text-muted hover:text-text-primary'
-                }`}
+                  }`}
               >
                 Joined ({joinedRooms.length})
               </button>
@@ -505,15 +553,14 @@ export default function ProfileDrawer({
                             {room.name}
                           </span>
                           <span
-                            className={`text-[10px] px-1.5 py-0.2 rounded font-medium shrink-0 border ${
-                              role === 'Owner'
+                            className={`text-[10px] px-1.5 py-0.2 rounded font-medium shrink-0 border ${role === 'Owner'
                                 ? 'bg-purple-950/40 text-purple-300 border-purple-800/40'
                                 : role === 'Room Leader'
-                                ? 'bg-amber-950/40 text-amber-300 border-amber-800/40'
-                                : role === 'Editor'
-                                ? 'bg-blue-950/40 text-blue-300 border-blue-800/40'
-                                : 'bg-zinc-800/60 text-zinc-400 border-zinc-700/40'
-                            }`}
+                                  ? 'bg-amber-950/40 text-amber-300 border-amber-800/40'
+                                  : role === 'Editor'
+                                    ? 'bg-blue-950/40 text-blue-300 border-blue-800/40'
+                                    : 'bg-zinc-800/60 text-zinc-400 border-zinc-700/40'
+                              }`}
                           >
                             {role}
                           </span>
@@ -544,6 +591,84 @@ export default function ProfileDrawer({
                 })
               )}
             </div>
+          </div>
+
+          {/* Section 6: Active Sessions (FR-07) */}
+          <div className="space-y-3 pt-2 border-t border-[#2b2b2b]">
+            <div className="flex justify-between items-end mb-2">
+              <div>
+                <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider">Active Sessions</h3>
+                <p className="text-[10px] text-text-muted mt-0.5">Manage the devices logged into your account.</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleRevokeAllOther}
+                disabled={revokingId === 'ALL_OTHER' || sessions.length <= 1}
+                className="px-2 py-1 bg-red-950/20 border border-accent-red/30 hover:bg-red-950/40 text-accent-red rounded text-[10px] font-medium transition-colors disabled:opacity-50"
+              >
+                {revokingId === 'ALL_OTHER' ? 'Revoking...' : 'Revoke All Other'}
+              </button>
+            </div>
+
+            <div className={`space-y-2 ${viewAllSessions ? 'max-h-[160px] overflow-y-auto custom-scrollbar pr-1' : ''}`}>
+              {loadingSessions ? (
+                <div className="py-4 text-center text-xs text-text-muted">Loading sessions...</div>
+              ) : (
+                (viewAllSessions ? sessions : sessions.slice(0, 3)).map(session => (
+                  <div key={session._id} className="p-2.5 rounded-lg bg-[#121414] border border-[#2b2b2b] flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-xs text-text-primary truncate">
+                          {session.deviceInfo}
+                        </span>
+                        {session.isCurrent && (
+                          <span className="text-[9px] px-1.5 py-0.5 bg-emerald-950/40 text-accent-green border border-emerald-800/40 rounded uppercase font-bold tracking-wide">
+                            Current
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px] text-text-muted mt-1">
+                        <span>{getRelativeTime(session.lastActive)}</span>
+                      </div>
+                    </div>
+                    {!session.isCurrent && (
+                      <button
+                        type="button"
+                        onClick={() => handleRevoke(session._id)}
+                        disabled={revokingId === session._id}
+                        className="p-1.5 text-text-muted hover:text-accent-red rounded transition-colors disabled:opacity-50"
+                        title="Revoke Session"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">
+                          {revokingId === session._id ? 'hourglass_empty' : 'close'}
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+            
+            {!loadingSessions && !viewAllSessions && sessions.length > 3 && (
+              <button
+                type="button"
+                onClick={() => setViewAllSessions(true)}
+                className="w-full py-2 mt-2 text-xs font-medium text-accent-blue hover:text-white bg-[#1b1c1c] hover:bg-accent-blue border border-[#2b2b2b] hover:border-accent-blue rounded-lg transition-colors flex items-center justify-center gap-1"
+              >
+                <span>View All ({sessions.length})</span>
+                <span className="material-symbols-outlined text-sm">expand_more</span>
+              </button>
+            )}
+            {!loadingSessions && viewAllSessions && sessions.length > 3 && (
+              <button
+                type="button"
+                onClick={() => setViewAllSessions(false)}
+                className="w-full py-1.5 mt-2 text-xs font-medium text-text-muted hover:text-text-primary bg-transparent rounded-lg transition-colors flex items-center justify-center gap-1"
+              >
+                <span>Show Less</span>
+                <span className="material-symbols-outlined text-sm">expand_less</span>
+              </button>
+            )}
           </div>
         </div>
 

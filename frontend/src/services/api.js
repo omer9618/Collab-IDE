@@ -37,19 +37,20 @@ async function request(path, options = {}) {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers,
+    credentials: 'include',
   });
 
   // Automatically handle token refresh rotation (NFR-13) if unauthorized
   if (res.status === 401 && accessToken) {
     // Attempt token refresh
     try {
-      const refreshRes = await fetch(`${API_BASE}/auth/refresh`, { method: 'POST' });
+      const refreshRes = await fetch(`${API_BASE}/auth/refresh`, { method: 'POST', credentials: 'include' });
       if (refreshRes.ok) {
         const refreshData = await refreshRes.json();
         setToken(refreshData.accessToken);
         // Retry the original request
         headers['Authorization'] = `Bearer ${refreshData.accessToken}`;
-        return fetch(`${API_BASE}${path}`, { ...options, headers });
+        return fetch(`${API_BASE}${path}`, { ...options, headers, credentials: 'include' });
       } else {
         // Clear token and redirect to login if refresh fails
         setToken(null);
@@ -151,6 +152,27 @@ export async function cancelEmailChange() {
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || 'Failed to cancel email change');
   return data.user;
+}
+
+export async function getSessions() {
+  const res = await request('/auth/sessions');
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to get sessions');
+  return data.sessions;
+}
+
+export async function revokeSession(id) {
+  const res = await request(`/auth/sessions/${id}`, { method: 'DELETE' });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to revoke session');
+  return data;
+}
+
+export async function revokeAllOtherSessions() {
+  const res = await request('/auth/sessions', { method: 'DELETE' });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to revoke other sessions');
+  return data;
 }
 
 // ─── ROOMS ENDPOINTS ──────────────────────────────────────────────────────────
