@@ -33,6 +33,9 @@ import {
   Share2,
   Copy,
   Trash2,
+  X,
+  PanelRightClose,
+  PanelRightOpen,
 } from 'lucide-react';
 
 // WhatsApp strategy color palette for distinguishable user colors in group chat (contrasty in dark mode)
@@ -1068,14 +1071,14 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
               navigator.clipboard.writeText(window.location.href);
               showToast('Invite link copied!', 'success');
             }}
-            className="text-sm text-on-surface-variant hover:text-on-surface transition-colors flex items-center gap-1 group"
+            className="text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors flex items-center gap-1.5 group"
           >
             {room?.name || 'Loading room...'}
-            <span className="material-symbols-outlined text-[12px] opacity-0 group-hover:opacity-100 transition-opacity">content_copy</span>
+            <Copy size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
           </button>
           
           {/* File tabs inside Top Bar */}
-          <div className="flex items-center gap-px ml-2 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-1.5 ml-3 overflow-x-auto no-scrollbar">
             {openedFiles.map((fileName) => (
               <div
                 key={fileName}
@@ -1093,14 +1096,14 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
                   <span title={fileName}>{fileName.split('/').pop()}</span>
                 </button>
                 <button
-                  className="text-on-surface-variant hover:text-on-surface rounded p-0.5 ml-1 flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity"
+                  className="text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] rounded p-0.5 ml-1 flex items-center justify-center opacity-40 hover:opacity-100 transition-all"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleCloseFile(fileName);
                   }}
                   title="Close Tab"
                 >
-                  <span className="material-symbols-outlined text-[12px]">close</span>
+                  <X size={12} />
                 </button>
               </div>
             ))}
@@ -1124,14 +1127,12 @@ export default function WorkspaceView({ roomUuid, user, onBack }) {
 
           <button
             onClick={() => setRightPanelOpen(!rightPanelOpen)}
-            className={`p-1.5 rounded transition-colors flex items-center justify-center ${
-              rightPanelOpen ? 'bg-surface-elevated text-accent-blue' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-elevated'
+            className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${
+              rightPanelOpen ? 'bg-[#1c2b41]/60 text-[#9fcaff]' : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
             }`}
             title={rightPanelOpen ? 'Collapse Panel' : 'Expand Panel'}
           >
-            <span className="material-symbols-outlined text-[12px]">
-              {rightPanelOpen ? 'dock_to_left' : 'view_sidebar'}
-            </span>
+            {rightPanelOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
           </button>
 
           <button
