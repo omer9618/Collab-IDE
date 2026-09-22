@@ -174,6 +174,33 @@ export async function getProfile() {
   return data.user;
 }
 
+export async function requestPasswordReset(email) {
+  const res = await request('/auth/reset-password-request', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to request password reset');
+  return data;
+}
+
+export async function validateResetToken(token) {
+  const res = await request(`/auth/reset-password/validate?token=${encodeURIComponent(token)}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Invalid or expired reset token');
+  return data;
+}
+
+export async function resetPassword({ token, newPassword }) {
+  const res = await request('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ token, newPassword }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to reset password');
+  return data;
+}
+
 export async function updateProfile({ displayName, avatarColor }) {
   const res = await request('/auth/profile', {
     method: 'PUT',

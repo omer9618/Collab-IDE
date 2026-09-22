@@ -349,32 +349,43 @@ router.post('/logout-all', protect, async (req, res) => {
 
 
 // @route   POST /api/auth/reset-password-request
-// @desc    Request a password reset link
+// @desc    Request a password reset link (FR-09)
 // @access  Public
 router.post('/reset-password-request', authLimiter, async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email) {
+    if (!email || typeof email !== 'string') {
       return res.status(400).json({ message: 'Email is required' });
     }
 
-    const user = await User.findOne({ email });
-    // Generic response to prevent enumeration
-    const successMsg = { message: 'If the email matches a registered account, a password reset link has been logged to the console.' };
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
+
+    // Generic response to prevent user enumeration
+    const successMsg = {
+      message: 'If the email matches a registered account, a password reset link has been dispatched.',
+    };
 
     if (!user) {
       return res.json(successMsg);
     }
 
-    const resetToken = require('crypto').randomBytes(32).toString('hex');
-    user.resetPasswordToken = resetToken;
-    user.resetPasswordExpires = Date.now() + 30 * 60 * 1000; // 30 minutes
+    // Generate 32-byte cryptographically secure token and SHA-256 hash for storage at rest
+    const rawResetToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawResetToken).digest('hex');
+
+    user.resetPasswordToken = tokenHash;
+    user.resetPasswordExpires = Date.now() + 30 * 60 * 1000; // 30 minutes per FR-09
     await user.save();
 
-    const resetLink = `${req.protocol}://${req.get('host')}/api/auth/reset-password?token=${resetToken}`;
+    // Determine frontend URL (defaults to port 5173 in local dev or request origin)
+    const frontendBase = process.env.FRONTEND_URL || (req.get('origin') ? req.get('origin') : 'http://localhost:5173');
+    const resetLink = `${frontendBase}/?resetToken=${rawResetToken}`;
+
     console.log('\n🔑  [MOCK EMAIL] Password Reset Link:');
-    console.log(`    To: ${email}`);
-    console.log(`    Link: ${resetLink}\n`);
+    console.log(`    To: ${normalizedEmail}`);
+    console.log(`    Link: ${resetLink}`);
+    console.log(`    Expires: 30 minutes (Single-use)\n`);
 
     res.json(successMsg);
   } catch (error) {
@@ -383,39 +394,78 @@ router.post('/reset-password-request', authLimiter, async (req, res) => {
   }
 });
 
-// @route   POST /api/auth/reset-password
-// @desc    Execute password reset
+// @route   GET /api/auth/reset-password/validate
+// @desc    Validate a password reset token before displaying the form (FR-09)
 // @access  Public
-router.post('/reset-password', async (req, res) => {
+router.get('/reset-password/validate', authLimiter, async (req, res) => {
+  try {
+    const { token } = req.query;
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ valid: false, message: 'Reset token is required' });
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const user = await User.findOne({
+      resetPasswordToken: tokenHash,
+      resetPasswordExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ valid: false, message: 'Invalid, already used, or expired reset link. Reset links expire after 30 minutes.' });
+    }
+
+    res.json({ valid: true, email: user.email });
+  } catch (error) {
+    console.error('Validate reset token error:', error);
+    res.status(500).json({ valid: false, message: 'Server error' });
+  }
+});
+
+// @route   POST /api/auth/reset-password
+// @desc    Execute password reset (FR-09)
+// @access  Public
+router.post('/reset-password', authLimiter, async (req, res) => {
   try {
     const { token, newPassword } = req.body;
     if (!token || !newPassword) {
       return res.status(400).json({ message: 'Token and new password are required' });
     }
 
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const user = await User.findOne({
-      resetPasswordToken: token,
+      resetPasswordToken: tokenHash,
       resetPasswordExpires: { $gt: Date.now() },
     });
 
     if (!user) {
-      return res.status(400).json({ message: 'Invalid or expired reset token' });
+      return res.status(400).json({ message: 'Invalid, already used, or expired reset token. Reset links are single-use and expire after 30 minutes.' });
     }
 
-    // Validate password complexity
+    // Validate password complexity (FR-01 / FR-09)
     if (!PASSWORD_REGEX.test(newPassword)) {
       return res.status(400).json({
         message: 'Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character.',
       });
     }
 
+    // Update password (triggers pre-save bcrypt hash with cost factor 12)
     user.password = newPassword;
+
+    // Single-use guarantee: clear reset token and expiration
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
+
+    // Reset account lockout state (FR-05 synergy)
+    user.loginAttempts = 0;
+    user.lockUntil = undefined;
+
     await user.save();
 
     // Revoke all active sessions upon password reset (FR-09)
     await RefreshToken.deleteMany({ user: user._id });
+    res.clearCookie('refreshToken');
+
+    console.log(`\n🔒 [PASSWORD RESET] Password successfully reset for user ${user.email}. All refresh tokens revoked.\n`);
 
     res.json({ message: 'Password has been reset successfully. All active sessions have been revoked.' });
   } catch (error) {
