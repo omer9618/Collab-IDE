@@ -41,6 +41,11 @@ export async function refreshSession() {
         if (refreshRes.status === 401 || refreshRes.status === 403) {
           setToken(null);
           window.dispatchEvent(new Event('auth-expired'));
+        } else if (refreshRes.status === 429) {
+          try {
+            const data = await refreshRes.json();
+            window.dispatchEvent(new CustomEvent('api-error', { detail: data.message || 'API rate limit exceeded.' }));
+          } catch(e) {}
         }
         return null;
       }
@@ -98,6 +103,16 @@ async function request(path, options = {}) {
     headers,
     credentials: 'include',
   });
+
+  if (res.status === 429) {
+    try {
+      const clone = res.clone();
+      const data = await clone.json();
+      window.dispatchEvent(new CustomEvent('api-error', { detail: data.message || 'API rate limit exceeded.' }));
+    } catch(e) {
+      window.dispatchEvent(new CustomEvent('api-error', { detail: 'API rate limit exceeded.' }));
+    }
+  }
 
   // Fallback: If proactive refresh missed it and we got 401, refresh and retry
   if (res.status === 401 && accessToken) {

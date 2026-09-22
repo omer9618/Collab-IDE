@@ -8,6 +8,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [roomUuid, setRoomUuid] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [globalError, setGlobalError] = useState(null);
 
   // Check URL parameters to automatically drop user into room workspace if joined via link
   useEffect(() => {
@@ -44,7 +45,17 @@ export default function App() {
       setRoomUuid(null);
     };
     window.addEventListener('auth-expired', handleAuthExpired);
-    return () => window.removeEventListener('auth-expired', handleAuthExpired);
+
+    const handleApiError = (e) => {
+      setGlobalError(e.detail);
+      setTimeout(() => setGlobalError(null), 5000);
+    };
+    window.addEventListener('api-error', handleApiError);
+
+    return () => {
+      window.removeEventListener('auth-expired', handleAuthExpired);
+      window.removeEventListener('api-error', handleApiError);
+    };
   }, []);
 
   const handleAuthSuccess = (authenticatedUser) => {
@@ -75,48 +86,57 @@ export default function App() {
     handleBackToDashboard();
   };
 
-  if (loading) {
-    return (
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '100vh',
-          background: 'var(--bg)',
-          color: 'var(--text)',
-        }}
-      >
-        <div style={{ fontSize: '18px', fontWeight: '500' }}>Loading CollabIDE Workspace...</div>
-      </div>
-    );
-  }
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '100vh',
+            background: 'var(--bg)',
+            color: 'var(--text)',
+          }}
+        >
+          <div style={{ fontSize: '18px', fontWeight: '500' }}>Loading CollabIDE Workspace...</div>
+        </div>
+      );
+    }
 
-  // Not authenticated
-  if (!user) {
-    return <AuthView onAuthSuccess={handleAuthSuccess} />;
-  }
+    if (!user) {
+      return <AuthView onAuthSuccess={handleAuthSuccess} />;
+    }
 
-  // Inside Room Workspace
-  if (roomUuid) {
+    if (roomUuid) {
+      return (
+        <WorkspaceView
+          user={user}
+          roomUuid={roomUuid}
+          onBack={handleBackToDashboard}
+        />
+      );
+    }
+
     return (
-      <WorkspaceView
-        key={roomUuid}
-        roomUuid={roomUuid}
+      <DashboardView
         user={user}
-        onBack={handleBackToDashboard}
         onRoomSelect={handleRoomSelect}
+        onLogout={handleLogout}
+        onUserUpdate={handleUserUpdate}
       />
     );
-  }
+  };
 
-  // Dashboard
   return (
-    <DashboardView
-      user={user}
-      onRoomSelect={handleRoomSelect}
-      onLogout={handleLogout}
-      onUserUpdate={handleUserUpdate}
-    />
+    <>
+      {globalError && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] px-4 py-2 bg-red-950/90 border border-accent-red text-accent-red text-sm font-medium rounded-md shadow-lg flex items-center gap-2 animate-in slide-in-from-top-4">
+          <span className="material-symbols-outlined text-[18px]">error</span>
+          {globalError}
+        </div>
+      )}
+      {renderContent()}
+    </>
   );
 }
