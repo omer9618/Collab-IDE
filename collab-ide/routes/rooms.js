@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const Room = require('../models/Room');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
+const { apiLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
 
@@ -18,7 +19,7 @@ function getMemberRole(room, userId) {
 // @route   POST /api/rooms
 // @desc    Create a new room
 // @access  Private
-router.post('/', protect, async (req, res) => {
+router.post('/', protect, apiLimiter, async (req, res) => {
   try {
     const { name } = req.body;
     if (!name) {
@@ -67,7 +68,7 @@ function getOnlineUserIds(roomUuid, presenceMap) {
 // @route   GET /api/rooms
 // @desc    List all rooms the user has joined or created (FR-14)
 // @access  Private
-router.get('/', protect, async (req, res) => {
+router.get('/', protect, apiLimiter, async (req, res) => {
   try {
     // Find rooms where participants array contains the user
     const rooms = await Room.find({
@@ -125,7 +126,7 @@ router.get('/', protect, async (req, res) => {
 // @access  Private
 // NOTE: must stay declared above GET /:uuid, otherwise Express matches
 //       "presence" as a room UUID.
-router.get('/presence', protect, async (req, res) => {
+router.get('/presence', protect, apiLimiter, async (req, res) => {
   try {
     const rooms = await Room.find({ 'participants.user': req.user._id })
       .select('uuid lastActiveAt updatedAt')
@@ -151,7 +152,7 @@ router.get('/presence', protect, async (req, res) => {
 // @route   GET /api/rooms/:uuid
 // @desc    Get details of a specific room (must be a member)
 // @access  Private
-router.get('/:uuid', protect, async (req, res) => {
+router.get('/:uuid', protect, apiLimiter, async (req, res) => {
   try {
     const room = await Room.findOne({ uuid: req.params.uuid })
       .populate('owner', 'displayName email')
@@ -180,7 +181,7 @@ router.get('/:uuid', protect, async (req, res) => {
 // @route   POST /api/rooms/:uuid/join
 // @desc    Join a room via share link
 // @access  Private
-router.post('/:uuid/join', protect, async (req, res) => {
+router.post('/:uuid/join', protect, apiLimiter, async (req, res) => {
   try {
     const room = await Room.findOne({ uuid: req.params.uuid });
 
@@ -221,7 +222,7 @@ router.post('/:uuid/join', protect, async (req, res) => {
 // @route   PUT /api/rooms/:uuid/roles
 // @desc    Update a participant's role (Owner or Room Leader only)
 // @access  Private
-router.put('/:uuid/roles', protect, async (req, res) => {
+router.put('/:uuid/roles', protect, apiLimiter, async (req, res) => {
   try {
     const { targetUserId, newRole } = req.body;
 
@@ -300,7 +301,7 @@ router.put('/:uuid/roles', protect, async (req, res) => {
 // @route   POST /api/rooms/:uuid/roles/grant-all
 // @desc    Grant editor access to all current viewers (Room Leader/Owner only)
 // @access  Private
-router.post('/:uuid/roles/grant-all', protect, async (req, res) => {
+router.post('/:uuid/roles/grant-all', protect, apiLimiter, async (req, res) => {
   try {
     const room = await Room.findOne({ uuid: req.params.uuid });
     if (!room) {
@@ -343,7 +344,7 @@ router.post('/:uuid/roles/grant-all', protect, async (req, res) => {
 // @route   POST /api/rooms/:uuid/roles/revoke-all
 // @desc    Revoke editor access from all editors (Room Leader/Owner only)
 // @access  Private
-router.post('/:uuid/roles/revoke-all', protect, async (req, res) => {
+router.post('/:uuid/roles/revoke-all', protect, apiLimiter, async (req, res) => {
   try {
     const room = await Room.findOne({ uuid: req.params.uuid });
     if (!room) {
@@ -386,7 +387,7 @@ router.post('/:uuid/roles/revoke-all', protect, async (req, res) => {
 // @route   POST /api/rooms/:uuid/close
 // @desc    Close room (read-only) (Owner only)
 // @access  Private
-router.post('/:uuid/close', protect, async (req, res) => {
+router.post('/:uuid/close', protect, apiLimiter, async (req, res) => {
   try {
     const room = await Room.findOne({ uuid: req.params.uuid });
     if (!room) return res.status(404).json({ message: 'Room not found' });
@@ -412,7 +413,7 @@ router.post('/:uuid/close', protect, async (req, res) => {
 // @route   POST /api/rooms/:uuid/open
 // @desc    Re-open room (Owner only)
 // @access  Private
-router.post('/:uuid/open', protect, async (req, res) => {
+router.post('/:uuid/open', protect, apiLimiter, async (req, res) => {
   try {
     const room = await Room.findOne({ uuid: req.params.uuid });
     if (!room) return res.status(404).json({ message: 'Room not found' });
@@ -438,7 +439,7 @@ router.post('/:uuid/open', protect, async (req, res) => {
 // @route   DELETE /api/rooms/:uuid
 // @desc    Permanently delete room (Owner only)
 // @access  Private
-router.delete('/:uuid', protect, async (req, res) => {
+router.delete('/:uuid', protect, apiLimiter, async (req, res) => {
   try {
     const room = await Room.findOne({ uuid: req.params.uuid });
     if (!room) return res.status(404).json({ message: 'Room not found' });

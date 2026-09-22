@@ -16,6 +16,7 @@
 const express = require('express');
 const crypto  = require('crypto');
 const { protect } = require('../middleware/auth');
+const { apiLimiter } = require('../middleware/rateLimiter');
 const Room = require('../models/Room');
 const { voiceRooms } = require('../socket/voice');
 
@@ -29,7 +30,7 @@ const router = express.Router({ mergeParams: true });
  *         Returns an RTCConfiguration-compatible iceServers array.
  * @access Private — room members only
  */
-router.get('/:uuid/credentials', protect, async (req, res) => {
+router.get('/:uuid/credentials', protect, apiLimiter, async (req, res) => {
   try {
     const { uuid } = req.params;
 
@@ -105,7 +106,7 @@ router.get('/:uuid/credentials', protect, async (req, res) => {
  *         Allows newly-joining clients to hydrate the voice panel immediately.
  * @access Private — room members only
  */
-router.get('/:uuid/participants', protect, async (req, res) => {
+router.get('/:uuid/participants', protect, apiLimiter, async (req, res) => {
   try {
     const { uuid } = req.params;
 
