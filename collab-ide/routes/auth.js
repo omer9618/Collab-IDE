@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
+const bcrypt = require('bcrypt');
 const User = require('../models/User');
 const RefreshToken = require('../models/RefreshToken');
 const IpBlock = require('../models/IpBlock');
@@ -228,14 +229,14 @@ router.post('/login', authLimiter, ipBruteForceLimiter, async (req, res) => {
     const deviceInfo = `${req.ip} - ${req.headers['user-agent'] || 'Unknown Device'}`;
     
     // Generate refresh token (returns plaintext + tokenDoc instance)
-    const { plaintext, tokenDoc } = RefreshToken.generate(user._id, null, deviceInfo);
+    const { plaintext, tokenDoc } = await RefreshToken.generate(user._id, null, deviceInfo);
     await tokenDoc.save();
 
-    // Set HttpOnly cookie (FR-02)
+    // Set HttpOnly cookie (FR-02 & NFR-12)
     res.cookie('refreshToken', plaintext, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -264,11 +265,20 @@ router.post('/refresh', async (req, res) => {
       return res.status(401).json({ message: 'No refresh token provided' });
     }
 
-    const hashedToken = RefreshToken.hashToken(tokenCookie);
-    const storedToken = await RefreshToken.findOne({ token: hashedToken });
+    const [tokenId, tokenSecret] = tokenCookie.split('.');
+    if (!tokenId || !tokenSecret) {
+      return res.status(401).json({ message: 'Invalid refresh token format' });
+    }
+
+    const storedToken = await RefreshToken.findById(tokenId);
 
     if (!storedToken) {
       return res.status(401).json({ message: 'Invalid refresh token' });
+    }
+
+    const isMatch = await bcrypt.compare(tokenSecret, storedToken.token);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid refresh token signature' });
     }
 
     // Replay attack check: If token is already marked as rotated, reject and invalidate family
@@ -292,7 +302,7 @@ router.post('/refresh', async (req, res) => {
 
     // Generate new refresh token in same family
     const deviceInfo = `${req.ip} - ${req.headers['user-agent'] || 'Unknown Device'}`;
-    const { plaintext, tokenDoc } = RefreshToken.generate(storedToken.user, storedToken.familyId, deviceInfo);
+    const { plaintext, tokenDoc } = await RefreshToken.generate(storedToken.user, storedToken.familyId, deviceInfo);
     await tokenDoc.save();
 
     // Generate new access token
@@ -302,7 +312,7 @@ router.post('/refresh', async (req, res) => {
     res.cookie('refreshToken', plaintext, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -320,8 +330,10 @@ router.post('/logout', async (req, res) => {
   try {
     const tokenCookie = req.cookies.refreshToken;
     if (tokenCookie) {
-      const hashedToken = RefreshToken.hashToken(tokenCookie);
-      await RefreshToken.deleteOne({ token: hashedToken });
+      const [tokenId] = tokenCookie.split('.');
+      if (tokenId) {
+        await RefreshToken.findByIdAndDelete(tokenId);
+      }
     }
     
     res.clearCookie('refreshToken');

@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 
 const refreshTokenSchema = new mongoose.Schema(
   {
@@ -36,15 +37,16 @@ const refreshTokenSchema = new mongoose.Schema(
   }
 );
 
-// Hash function helper
+// Hash function helper (deprecated for generation, only kept if needed, but not used anymore)
 refreshTokenSchema.statics.hashToken = function (tokenStr) {
+  // Not used anymore with bcrypt since we use compare, but kept to not break existing signature
   return crypto.createHash('sha256').update(tokenStr).digest('hex');
 };
 
 // Generate a random token and return both the plaintext and hashed schema details
-refreshTokenSchema.statics.generate = function (userId, familyId = null, deviceInfo = null) {
+refreshTokenSchema.statics.generate = async function (userId, familyId = null, deviceInfo = null) {
   const plaintext = crypto.randomBytes(40).toString('hex');
-  const hashed = crypto.createHash('sha256').update(plaintext).digest('hex');
+  const hashed = await bcrypt.hash(plaintext, 10);
   const tokenFamily = familyId || crypto.randomUUID();
   
   // Set expiry to 7 days from now (per FR-02)
@@ -59,7 +61,7 @@ refreshTokenSchema.statics.generate = function (userId, familyId = null, deviceI
     deviceInfo,
   });
 
-  return { plaintext, tokenDoc };
+  return { plaintext: `${tokenDoc._id}.${plaintext}`, tokenDoc };
 };
 
 const RefreshToken = mongoose.model('RefreshToken', refreshTokenSchema);
