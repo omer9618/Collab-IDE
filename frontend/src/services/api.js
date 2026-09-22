@@ -37,13 +37,15 @@ export async function refreshSession() {
         setToken(refreshData.accessToken);
         return refreshData.accessToken;
       } else {
-        setToken(null);
-        window.dispatchEvent(new Event('auth-expired'));
+        // Only log out if it's explicitly an auth failure, NOT a rate limit (429) or server error (500)
+        if (refreshRes.status === 401 || refreshRes.status === 403) {
+          setToken(null);
+          window.dispatchEvent(new Event('auth-expired'));
+        }
         return null;
       }
     } catch (e) {
-      setToken(null);
-      window.dispatchEvent(new Event('auth-expired'));
+      // Network errors should not wipe the session
       return null;
     } finally {
       refreshPromise = null;
