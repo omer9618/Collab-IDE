@@ -1,0 +1,53 @@
+# ==============================================================================
+# CollabIDE - Docker Compose Production Infrastructure Orchestration (NFR-33)
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # Backend: Express API, WebSocket, Socket.IO & MongoDB Cluster Connection
+  # ----------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./collab-ide
+      dockerfile: Dockerfile
+    container_name: collabide-backend
+    restart: unless-stopped
+    expose:
+      - "3000"
+    env_file:
+      - ./collab-ide/.env
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    networks:
+      - collabide-net
+
+  # ----------------------------------------------------------------------------
+  # Reverse Proxy: Nginx TLS Termination, Rate Limiting & Static Asset Server
+  # ----------------------------------------------------------------------------
+  nginx:
+    build:
+      context: .
+      dockerfile: ./nginx/Dockerfile
+    container_name: collabide-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - BACKEND_HOST=backend
+      - BACKEND_PORT=3000
+    volumes:
+      # STRICT SECURITY / CERTBOT RENEWAL:
+      # Certificates are mounted from the host as read-only.
+      # When Certbot renews certs on the host, run:
+      #   docker compose exec nginx nginx -s reload
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+    networks:
+      - collabide-net
+
+networks:
+  collabide-net:
+    driver: bridge
