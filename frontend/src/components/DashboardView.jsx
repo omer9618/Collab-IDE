@@ -320,6 +320,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
         </aside>
 
         {/* Sidebar (240px) */}
+        {sidebarOpen && (
         <aside className="w-[240px] bg-surface-panel border-r border-outline-subtle flex flex-col shrink-0">
           {/* Profile Panel */}
           <div
