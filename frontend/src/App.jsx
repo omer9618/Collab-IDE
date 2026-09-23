@@ -7,15 +7,21 @@ import { getProfile, getToken, setToken, refreshSession } from './services/api';
 export default function App() {
   const [user, setUser] = useState(null);
   const [roomUuid, setRoomUuid] = useState(null);
+  const [resetToken, setResetToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [globalError, setGlobalError] = useState(null);
 
-  // Check URL parameters to automatically drop user into room workspace if joined via link
+  // Check URL parameters to automatically drop user into room workspace or reset password
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const roomParam = params.get('room');
     if (roomParam) {
       setRoomUuid(roomParam);
+    }
+
+    const resetParam = params.get('resetToken') || params.get('token');
+    if (resetParam) {
+      setResetToken(resetParam);
     }
 
     async function checkAuth() {
@@ -105,7 +111,17 @@ export default function App() {
     }
 
     if (!user) {
-      return <AuthView onAuthSuccess={handleAuthSuccess} />;
+      return (
+        <AuthView
+          onAuthSuccess={handleAuthSuccess}
+          initialResetToken={resetToken}
+          onClearResetToken={() => {
+            setResetToken(null);
+            const cleanUrl = `${window.location.origin}${window.location.pathname}`;
+            window.history.replaceState({}, '', cleanUrl);
+          }}
+        />
+      );
     }
 
     if (roomUuid) {
