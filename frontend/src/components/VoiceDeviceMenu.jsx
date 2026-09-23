@@ -58,7 +58,7 @@ export default function VoiceDeviceMenu({ isOpen, onClose, selectedMicId, select
   return (
     <>
       <div className="fixed inset-0 z-[60]" onClick={onClose} />
-      <div className="absolute bottom-[60px] left-0 w-[280px] bg-[#202124] border border-outline/50 shadow-2xl rounded-xl p-2 z-[70] animate-in slide-in-from-bottom-2 fade-in">
+      <div className="absolute bottom-[60px] left-0 w-[280px] bg-surface-elevated border border-outline/50 shadow-2xl rounded-xl p-2 z-[70] animate-in slide-in-from-bottom-2 fade-in">
         
         {error ? (
           <div className="p-3 text-accent-red text-xs">{error}</div>
@@ -74,7 +74,7 @@ export default function VoiceDeviceMenu({ isOpen, onClose, selectedMicId, select
               <button
                 key={d.deviceId}
                 onClick={() => handleSelectMic(d.deviceId)}
-                className="flex items-center gap-3 w-full px-3 py-2 text-left text-xs text-on-surface hover:bg-[#303134] rounded-lg transition-colors group"
+                className="flex items-center gap-3 w-full px-3 py-2 text-left text-xs text-on-surface hover:bg-surface-variant rounded-lg transition-colors group"
               >
                 <Mic size={14} className={micId === d.deviceId ? 'text-accent-blue' : 'text-on-surface-muted'} />
                 <span className="truncate flex-1">{d.label || 'Microphone'}</span>
@@ -93,7 +93,7 @@ export default function VoiceDeviceMenu({ isOpen, onClose, selectedMicId, select
               <button
                 key={d.deviceId}
                 onClick={() => handleSelectSpeaker(d.deviceId)}
-                className="flex items-center gap-3 w-full px-3 py-2 text-left text-xs text-on-surface hover:bg-[#303134] rounded-lg transition-colors group"
+                className="flex items-center gap-3 w-full px-3 py-2 text-left text-xs text-on-surface hover:bg-surface-variant rounded-lg transition-colors group"
               >
                 <Volume2 size={14} className={speakerId === d.deviceId ? 'text-accent-blue' : 'text-on-surface-muted'} />
                 <span className="truncate flex-1">{d.label || 'Speaker'}</span>

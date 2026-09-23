@@ -1761,7 +1761,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
       </footer>
 
             {/* Floating Voice Dock (Google Meet Style) */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center bg-[#202124] h-[52px] rounded-full border border-outline/20 shadow-2xl z-50 px-3">
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center glass-panel bg-surface/90 h-[52px] rounded-full border border-outline/20 shadow-2xl z-50 px-3">
         
         {inVoice ? (
           <>
@@ -1770,8 +1770,8 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
                 onClick={toggleMuteSelf}
                 className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors border ${
                   isMuted 
-                    ? 'bg-[#ea4335] text-white border-transparent hover:bg-[#d93025]' 
-                    : 'bg-[#3c4043] text-white border-transparent hover:bg-[#434649]'
+                    ? 'bg-accent-red text-white border-transparent hover:opacity-90' 
+                    : 'bg-surface-variant text-on-surface hover:bg-outline-subtle'
                 }`}
                 title={isMuted ? 'Unmute microphone' : 'Mute microphone'}
               >
@@ -1793,19 +1793,19 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
               />
             </div>
 
-            <div className="w-px h-6 bg-[#3c4043] mx-2" />
+            <div className="w-px h-6 bg-outline mx-2" />
 
             {isUserLeader && (
               <div className="flex items-center gap-1 mr-1">
                 <button 
                   onClick={handleMuteAll} 
-                  className="px-3 h-9 text-xs font-medium text-[#ea4335] hover:bg-[#ea4335]/10 rounded-md transition-colors"
+                  className="px-3 h-9 text-xs font-medium text-accent-red hover:bg-accent-red/10 rounded-md transition-colors"
                 >
                   Mute all
                 </button>
                 <button 
                   onClick={toggleEditorOnlyVoice} 
-                  className="px-3 h-9 text-xs font-medium text-[#8ab4f8] hover:bg-[#8ab4f8]/10 rounded-md transition-colors"
+                  className="px-3 h-9 text-xs font-medium text-accent-blue hover:bg-accent-blue/10 rounded-md transition-colors"
                 >
                   {editorOnlyMode ? 'Unlock voice' : 'Lock voice'}
                 </button>
@@ -1814,7 +1814,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
 
             <button
               onClick={leaveVoice}
-              className="px-5 h-10 flex items-center justify-center rounded-full bg-[#ea4335] text-white text-sm font-medium hover:bg-[#d93025] transition-colors gap-2 ml-1"
+              className="px-5 h-10 flex items-center justify-center rounded-full bg-accent-red text-white text-sm font-medium hover:opacity-90 transition-colors gap-2 ml-1"
             >
               <span className="material-symbols-outlined text-[18px]">call_end</span>
               Leave
@@ -1824,7 +1824,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
           <div className="relative flex items-center h-10">
             <button
               onClick={joinVoice}
-              className="px-5 h-10 flex items-center justify-center rounded-full bg-[#8ab4f8] text-[#202124] text-sm font-medium hover:bg-[#92bcfc] transition-colors gap-2"
+              className="px-5 h-10 flex items-center justify-center rounded-full bg-accent-blue text-white text-sm font-medium hover:bg-blue-600 transition-colors gap-2"
               title="Connect Voice"
             >
               <span className="material-symbols-outlined text-[18px]">call</span>
