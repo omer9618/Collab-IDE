@@ -264,13 +264,13 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
   return (
     <div className="h-screen flex flex-col bg-bg-base text-text-primary font-ui overflow-hidden">
       {/* Top Bar (56px) */}
-      <header className="h-[36px] shrink-0 bg-surface border-b border-outline-subtle flex items-center justify-between px-4 z-50">
+      <header className="h-[56px] shrink-0 bg-surface border-b border-outline-subtle flex items-center justify-between px-4 z-50">
         <div className="flex items-center cursor-pointer" onClick={() => window.location.href = '/'}>
           <img src="/logo.png" className="h-10 object-contain" alt="CollabIDE Logo" />
         </div>
         <div className="flex items-center gap-4">
           <div
-            className="w-8 h-8 rounded-full bg-accent-blue-dim flex items-center justify-center text-accent-blue font-semibold text-text-sm cursor-pointer"
+            className="w-8 h-8 rounded-full bg-accent-blue-dim flex items-center justify-center text-accent-blue font-semibold text-[11px] cursor-pointer"
             onClick={() => setShowSettingsDrawer(true)}
             style={{ backgroundColor: user.avatarColor + '30', color: user.avatarColor }}
           >
@@ -330,7 +330,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
               </div>
               <div className="overflow-hidden">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-text-sm font-medium text-on-surface truncate">{user.displayName}</span>
+                  <span className="text-[11px] font-medium text-on-surface truncate">{user.displayName}</span>
                   <span className="px-1.5 py-0.5 bg-[#3d3000] text-[#f9ab00] rounded-sm text-[10px] font-semibold uppercase">Owner</span>
                 </div>
                 <div className="text-text-xs text-on-surface-variant truncate">{user.email}</div>
@@ -344,22 +344,22 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
               <div className="bg-[#1f2020] border border-outline-subtle w-full max-w-sm rounded-xl overflow-hidden shadow-2xl flex flex-col">
                 <div className="px-5 py-4 border-b border-outline-subtle flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-red-950/30 flex items-center justify-center text-red-500">
-                    <span className="material-symbols-outlined text-[18px]">warning</span>
+                    <span className="material-symbols-outlined text-[16px]">warning</span>
                   </div>
                   <h2 className="text-text-lg font-bold text-on-surface">Delete Room</h2>
                 </div>
-                <div className="p-5 text-text-sm text-text-muted leading-relaxed">
+                <div className="p-5 text-[11px] text-text-muted leading-relaxed">
                   Are you sure you want to permanently delete this room? This action cannot be undone and all code history will be lost.
                 </div>
                 <div className="px-5 py-4 bg-[#1a1b1b] border-t border-outline-subtle flex justify-end gap-3">
                   <button
-                    className="px-4 py-2 rounded-md text-text-sm font-medium text-text-muted hover:text-on-surface hover:bg-[#2b2d30] transition-colors"
+                    className="px-4 py-2 rounded-md text-[11px] font-medium text-text-muted hover:text-on-surface hover:bg-[#2b2d30] transition-colors"
                     onClick={() => setDeleteConfirmRoom(null)}
                   >
                     Cancel
                   </button>
                   <button
-                    className="px-4 py-2 rounded-md text-text-sm font-medium bg-red-600 hover:bg-red-500 text-white transition-colors"
+                    className="px-4 py-2 rounded-md text-[11px] font-medium bg-red-600 hover:bg-red-500 text-white transition-colors"
                     onClick={executeDeleteRoom}
                   >
                     Delete Forever
@@ -371,28 +371,28 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
 
           {/* Rooms navigation */}
           <div className="flex-1 py-2">
-            <div className="px-4 py-2 text-text-xs font-semibold text-outline tracking-wider uppercase">Rooms</div>
+            <div className="px-2 py-1 flex items-center justify-between border-b border-outline-subtle mb-1"><span className="text-[9.5px] font-semibold text-on-surface uppercase tracking-wider">Rooms</span></div>
             <nav className="space-y-1 px-2">
               <button
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left text-[13px] font-medium transition-colors ${
+                className={`w-full flex items-center gap-2 px-2 py-1.5 mx-1 my-0.5 rounded-md text-left text-[11px] font-medium transition-colors ${
                   activeTab === 'my-rooms'
                     ? 'bg-accent-blue/10 text-accent-blue'
                     : 'text-on-surface-variant hover:bg-surface-elevated hover:text-on-surface'
                 }`}
                 onClick={() => setActiveTab('my-rooms')}
               >
-                <span className="material-symbols-outlined text-[18px]">folder_open</span>
-                <span className="text-text-sm font-medium">My Rooms</span>
+                <span className="material-symbols-outlined text-[16px]">folder_open</span>
+                <span className="text-[11px] font-medium">My Rooms</span>
               </button>
               <button
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left text-[13px] font-medium transition-colors ${
+                className={`w-full flex items-center gap-2 px-2 py-1.5 mx-1 my-0.5 rounded-md text-left text-[11px] font-medium transition-colors ${
                   activeTab === 'joined-rooms'
                     ? 'bg-accent-blue/10 text-accent-blue'
                     : 'text-on-surface-variant hover:bg-surface-elevated hover:text-on-surface'
                 }`}
                 onClick={() => setActiveTab('joined-rooms')}
               >
-                <span className="material-symbols-outlined text-[18px]">group</span>
+                <span className="material-symbols-outlined text-[16px]">group</span>
                 <span>Joined Rooms</span>
               </button>
             </nav>
@@ -401,13 +401,13 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
           {/* Create new room button */}
           <div className="p-4 mt-auto">
             <button
-              className="w-full py-2 bg-accent-blue text-white rounded-md text-text-sm font-medium flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+              className="w-full py-2 bg-accent-blue text-white rounded-md text-[11px] font-medium flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
               onClick={() => {
                 generateRandomName();
                 setShowCreateModal(true);
               }}
             >
-              <span className="material-symbols-outlined text-[18px]">add</span>
+              <span className="material-symbols-outlined text-[16px]">add</span>
               <span>Create new room</span>
             </button>
           </div>
@@ -556,7 +556,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                                 </div>
                               )}
                             </div>
-                            <button className="px-4 py-1.5 bg-[#292a2a] text-on-surface rounded-md text-text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button className="px-4 py-1.5 bg-[#292a2a] text-on-surface rounded-md text-[11px] font-medium opacity-0 group-hover:opacity-100 transition-opacity">
                               Open →
                             </button>
                             {room.myRole === 'Owner' && (
@@ -579,13 +579,13 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                                     />
                                     <div className="absolute top-8 right-0 bg-[#1f2020] border border-outline-subtle rounded-md shadow-lg z-50 py-1 min-w-[120px]">
                                       <button
-                                        className="w-full text-left px-3 py-1.5 text-text-sm text-on-surface hover:bg-surface-elevated transition-colors"
+                                        className="w-full text-left px-3 py-1.5 text-[11px] text-on-surface hover:bg-surface-elevated transition-colors"
                                         onClick={(e) => handleToggleRoomStatus(e, room)}
                                       >
                                         {room.isClosed ? 'Re-open Room' : 'Close Room'}
                                       </button>
                                       <button
-                                        className="w-full text-left px-3 py-1.5 text-text-sm text-red-500 hover:bg-red-950/30 transition-colors"
+                                        className="w-full text-left px-3 py-1.5 text-[11px] text-red-500 hover:bg-red-950/30 transition-colors"
                                         onClick={(e) => handleDeleteRoom(e, room.uuid)}
                                       >
                                         Delete Room
@@ -623,7 +623,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
               </div>
               <form onSubmit={handleJoinSubmit} className="flex items-center gap-2 w-full max-w-sm">
                 <input
-                  className="flex-1 bg-[#1f2020] border border-outline-subtle rounded-md px-3 py-2 text-text-sm text-on-surface focus:border-accent-blue focus:ring-0 outline-none transition-colors"
+                  className="flex-1 bg-[#1f2020] border border-outline-subtle rounded-md px-3 py-2 text-[11px] text-on-surface focus:border-accent-blue focus:ring-0 outline-none transition-colors"
                   placeholder="Enter room code..."
                   type="text"
                   value={joinUuid}
@@ -632,7 +632,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-6 py-2 bg-accent-blue text-white rounded-md text-text-sm font-semibold hover:opacity-90"
+                  className="px-6 py-2 bg-accent-blue text-white rounded-md text-[11px] font-semibold hover:opacity-90"
                 >
                   Join →
                 </button>
@@ -692,14 +692,14 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-1.5 border border-outline-subtle text-on-surface rounded-md text-text-sm hover:bg-[#252626]"
+                  className="px-4 py-1.5 border border-outline-subtle text-on-surface rounded-md text-[11px] hover:bg-[#252626]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-4 py-1.5 bg-accent-blue text-white rounded-md text-text-sm hover:opacity-90"
+                  className="px-4 py-1.5 bg-accent-blue text-white rounded-md text-[11px] hover:opacity-90"
                 >
                   {loading ? 'Creating...' : 'Create room'}
                 </button>
@@ -720,7 +720,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
               </button>
             </div>
 
-            <p className="text-text-secondary text-text-sm leading-relaxed">
+            <p className="text-text-secondary text-[11px] leading-relaxed">
               Are you sure you want to sign out of CollabIDE? You will need to enter your email and password to log in again.
             </p>
 
@@ -728,14 +728,14 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
               <button
                 type="button"
                 onClick={() => setShowSignoutConfirm(false)}
-                className="px-4 py-1.5 border border-outline-subtle text-on-surface rounded-md text-text-sm hover:bg-[#252626]"
+                className="px-4 py-1.5 border border-outline-subtle text-on-surface rounded-md text-[11px] hover:bg-[#252626]"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleConfirmLogout}
-                className="px-4 py-1.5 bg-accent-red text-white rounded-md text-text-sm hover:opacity-90 transition-colors"
+                className="px-4 py-1.5 bg-accent-red text-white rounded-md text-[11px] hover:opacity-90 transition-colors"
               >
                 Sign Out
               </button>
@@ -755,7 +755,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
               </button>
             </div>
 
-            <p className="text-text-secondary text-text-sm leading-relaxed">
+            <p className="text-text-secondary text-[11px] leading-relaxed">
               Are you sure you want to sign out of <strong className="text-accent-red">ALL</strong> devices? This is a destructive action that will immediately drop any active voice calls and file syncs on your other devices.
             </p>
 
@@ -763,14 +763,14 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
               <button
                 type="button"
                 onClick={() => setShowSignoutAllConfirm(false)}
-                className="px-4 py-1.5 border border-outline-subtle text-on-surface rounded-md text-text-sm hover:bg-[#252626]"
+                className="px-4 py-1.5 border border-outline-subtle text-on-surface rounded-md text-[11px] hover:bg-[#252626]"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleConfirmLogoutAll}
-                className="px-4 py-1.5 bg-red-950/40 border border-accent-red text-accent-red hover:bg-accent-red hover:text-white rounded-md text-text-sm transition-colors"
+                className="px-4 py-1.5 bg-red-950/40 border border-accent-red text-accent-red hover:bg-accent-red hover:text-white rounded-md text-[11px] transition-colors"
               >
                 Sign Out of All Devices
               </button>
