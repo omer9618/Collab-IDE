@@ -1055,58 +1055,68 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
         </aside>
 
         {/* Sidebar explorer panel */}
-        {sidebarOpen && (
-          <nav style={{ width: `${leftPanelWidth}px` }} className="h-full bg-surface-panel border-r border-outline-subtle flex flex-col shrink-0 select-none relative">
-            <div className="absolute top-0 right-0 w-[4px] h-full bg-transparent hover:bg-accent-blue cursor-col-resize transition-colors z-50 translate-x-1/2" onMouseDown={handleLeftPanelResize} />
-            {/* Explorer Top Header */}
-            <div className="px-2 py-1 flex items-center justify-between border-b border-outline-subtle">
-              <span className="text-[9.5px] font-semibold text-on-surface uppercase tracking-wider">Explorer</span>
-            </div>
-
-            <div className="flex-1 overflow-y-auto py-2">
-              {/* Workspace Root Row */}
-              <div className="px-2 py-1 mx-1 my-0.5 rounded-md flex items-center justify-between group/root cursor-pointer hover:bg-[#2b2d30] text-[9.5px] font-semibold text-on-surface">
-                <div
-                  className="flex items-center gap-1.5 min-w-0 flex-1"
-                  onClick={() => setIsFilesTreeOpen(!isFilesTreeOpen)}
-                >
-                  <span
-                    className="material-symbols-outlined text-[12px] text-on-surface-muted transition-transform duration-200"
-                    style={{ transform: isFilesTreeOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
-                  >
-                    expand_more
-                  </span>
-                  <span className="material-symbols-outlined text-[12px] text-on-surface-muted">folder_open</span>
-                  <span className="truncate">{room?.name || 'Workspace'}</span>
-                </div>
-
-                {/* Root Action Icons */}
-                <div className="flex items-center gap-0.5 opacity-0 group-hover/root:opacity-100 transition-opacity">
-                  <button
-                    className="p-1 text-on-surface-muted hover:text-on-surface hover:bg-surface-elevated rounded"
-                    onClick={(e) => { e.stopPropagation(); handleCreateFile(''); }}
-                    title="New File"
-                  >
-                    <span className="material-symbols-outlined text-[17px]">note_add</span>
-                  </button>
-                  <button
-                    className="p-1 text-on-surface-muted hover:text-on-surface hover:bg-surface-elevated rounded"
-                    onClick={(e) => { e.stopPropagation(); handleCreateFolder(''); }}
-                    title="New Folder"
-                  >
-                    <span className="material-symbols-outlined text-[17px]">create_new_folder</span>
-                  </button>
-                  <button
-                    className="p-1 text-on-surface-muted hover:text-on-surface hover:bg-surface-elevated rounded"
-                    onClick={(e) => { e.stopPropagation(); showToast('Explorer synced', 'info'); }}
-                    title="Refresh Explorer"
-                  >
-                    <span className="material-symbols-outlined text-[17px]">sync</span>
-                  </button>
-                </div>
+          {sidebarOpen && (
+            <nav style={{ width: `${leftPanelWidth}px` }} className="h-full bg-[#181818] border-r border-outline-subtle flex flex-col shrink-0 select-none relative">
+              <div className="absolute top-0 right-0 w-[4px] h-full bg-transparent hover:bg-accent-blue cursor-col-resize transition-colors z-50 translate-x-1/2" onMouseDown={handleLeftPanelResize} />
+              
+              {/* Explorer Top Header */}
+              <div className="px-5 py-2.5 flex items-center justify-between text-on-surface-muted">
+                <span className="text-[11px] text-on-surface uppercase tracking-wide">Explorer</span>
+                <button className="p-0.5 hover:bg-[#2a2d2e] rounded"><MoreHorizontal size={14} /></button>
               </div>
 
-              {/* File/Folder Tree */}
+              <div className="flex-1 overflow-y-auto outline-none custom-scrollbar pb-4" tabIndex={0}>
+                {/* Workspace Root Row */}
+                <div 
+                  className="px-1 py-1 flex items-center justify-between group/root cursor-pointer hover:bg-[#2a2d2e] transition-colors"
+                  onClick={() => setIsFilesTreeOpen(!isFilesTreeOpen)}
+                >
+                  <div className="flex items-center gap-0.5 min-w-0 flex-1">
+                    <span
+                      className="material-symbols-outlined text-[16px] text-on-surface-muted transition-transform duration-150 shrink-0"
+                      style={{ transform: isFilesTreeOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                    >
+                      chevron_right
+                    </span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-on-surface truncate">{room?.name || 'Workspace'}</span>
+                  </div>
+
+                  {/* Root Action Icons */}
+                  {role !== 'Viewer' && (
+                    <div className="flex items-center gap-1 opacity-0 group-hover/root:opacity-100 transition-opacity mr-2 shrink-0">
+                      <button
+                        className="p-0.5 text-on-surface-muted hover:text-on-surface rounded"
+                        onClick={(e) => { e.stopPropagation(); handleCreateFile(''); }}
+                        title="New File"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">note_add</span>
+                      </button>
+                      <button
+                        className="p-0.5 text-on-surface-muted hover:text-on-surface rounded"
+                        onClick={(e) => { e.stopPropagation(); handleCreateFolder(''); }}
+                        title="New Folder"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">create_new_folder</span>
+                      </button>
+                      <button
+                        className="p-0.5 text-on-surface-muted hover:text-on-surface rounded"
+                        onClick={(e) => { e.stopPropagation(); showToast('Explorer synced', 'info'); }}
+                        title="Refresh Explorer"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">sync</span>
+                      </button>
+                      <button
+                        className="p-0.5 text-on-surface-muted hover:text-on-surface rounded"
+                        onClick={(e) => { e.stopPropagation(); setExpandedFolders(new Set()); }}
+                        title="Collapse All"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">collapse_all</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* File/Folder Tree */}
               {isFilesTreeOpen && (() => {
                 const fileColorDot = (name) => {
                   if (name.endsWith('.js') || name.endsWith('.jsx')) return 'bg-yellow-400';
@@ -1123,191 +1133,191 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
                 };
 
                 const renderTree = (nodes, depth = 0) => (
-                  <div>
-                    {nodes.map((node) => {
-                      const indent = depth * 12 + 12;
-                      if (node.type === 'folder') {
-                        const isOpen = expandedFolders.has(node.path);
-                        return (
-                          <div key={node.path}>
-                            {/* Folder Row */}
-                            <div
-                              className="flex items-center gap-1 py-0.5 mx-1.5 my-0.5 rounded-md cursor-pointer text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] group/folder transition-all"
-                              style={{ paddingLeft: `${indent - 6}px`, paddingRight: '8px' }}
-                              onClick={() => setExpandedFolders(prev => {
-                                const s = new Set(prev);
-                                if (s.has(node.path)) s.delete(node.path); else s.add(node.path);
-                                return s;
-                              })}
-                            >
-                              <span
-                                className="material-symbols-outlined text-[17px] text-on-surface-muted transition-transform duration-150 shrink-0"
-                                style={{ transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+                    <div className="flex flex-col">
+                      {nodes.map((node) => {
+                        const indent = depth * 12 + 16;
+                        if (node.type === 'folder') {
+                          const isOpen = expandedFolders.has(node.path);
+                          return (
+                            <div key={node.path}>
+                              {/* Folder Row */}
+                              <div
+                                className="flex items-center py-[3px] cursor-pointer text-on-surface-variant hover:text-on-surface hover:bg-[#2a2d2e] group/folder transition-colors"
+                                style={{ paddingLeft: `${indent}px`, paddingRight: '8px' }}
+                                onClick={() => setExpandedFolders(prev => {
+                                  const s = new Set(prev);
+                                  if (s.has(node.path)) s.delete(node.path); else s.add(node.path);
+                                  return s;
+                                })}
                               >
-                                expand_more
-                              </span>
-                              <span className="material-symbols-outlined text-[17px] text-yellow-500/80 shrink-0">
-                                {isOpen ? 'folder_open' : 'folder'}
-                              </span>
-                              <span className="text-sm truncate flex-1">{node.name}</span>
+                                <span
+                                  className="material-symbols-outlined text-[16px] text-on-surface-muted transition-transform duration-100 shrink-0 mr-1"
+                                  style={{ transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                                >
+                                  chevron_right
+                                </span>
+                                <span className="material-symbols-outlined text-[15px] text-on-surface-muted shrink-0 mr-1.5">
+                                  {isOpen ? 'folder_open' : 'folder'}
+                                </span>
+                                <span className="text-[12.5px] truncate flex-1">{node.name}</span>
 
-                              {/* Folder hover actions */}
-                              {role !== 'Viewer' && (
-                                <div className="flex items-center gap-0.5 opacity-0 group-hover/folder:opacity-100 transition-opacity ml-auto shrink-0">
-                                  <button
-                                    className="p-0.5 hover:bg-surface-elevated rounded text-on-surface-muted hover:text-on-surface"
-                                    onClick={(e) => { e.stopPropagation(); handleCreateFile(node.path); }}
-                                    title="New File inside folder"
-                                  >
-                                    <span className="material-symbols-outlined text-[12px]">note_add</span>
-                                  </button>
-                                  <button
-                                    className="p-1 hover:bg-surface-elevated rounded text-on-surface-muted hover:text-on-surface"
-                                    onClick={(e) => { e.stopPropagation(); handleCreateFolder(node.path); }}
-                                    title="New Subfolder"
-                                  >
-                                    <span className="material-symbols-outlined text-[12px]">create_new_folder</span>
-                                  </button>
-                                  <button
-                                    className="p-1 hover:bg-red-500/20 rounded text-on-surface-muted hover:text-red-400"
-                                    onClick={(e) => { e.stopPropagation(); handleDeleteFolder(node.path); }}
-                                    title="Delete Folder"
-                                  >
-                                    <span className="material-symbols-outlined text-[12px]">delete</span>
-                                  </button>
+                                {/* Folder hover actions */}
+                                {role !== 'Viewer' && (
+                                  <div className="flex items-center gap-0.5 opacity-0 group-hover/folder:opacity-100 transition-opacity ml-auto shrink-0">
+                                    <button
+                                      className="p-0.5 hover:bg-[#3e3e42] rounded text-on-surface-muted hover:text-on-surface"
+                                      onClick={(e) => { e.stopPropagation(); handleCreateFile(node.path); }}
+                                      title="New File"
+                                    >
+                                      <span className="material-symbols-outlined text-[14px]">note_add</span>
+                                    </button>
+                                    <button
+                                      className="p-0.5 hover:bg-[#3e3e42] rounded text-on-surface-muted hover:text-on-surface"
+                                      onClick={(e) => { e.stopPropagation(); handleCreateFolder(node.path); }}
+                                      title="New Folder"
+                                    >
+                                      <span className="material-symbols-outlined text-[14px]">create_new_folder</span>
+                                    </button>
+                                    <button
+                                      className="p-0.5 hover:bg-red-500/20 rounded text-on-surface-muted hover:text-red-400"
+                                      onClick={(e) => { e.stopPropagation(); handleDeleteFolder(node.path); }}
+                                      title="Delete Folder"
+                                    >
+                                      <span className="material-symbols-outlined text-[14px]">delete</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Inline folder/file creation input shown inside this folder */}
+                              {isOpen && isCreatingFolder && createInsideFolder === node.path && (
+                                <div
+                                  className="flex items-center py-[3px] bg-[#2a2d2e]"
+                                  style={{ paddingLeft: `${indent + 28}px`, paddingRight: '8px' }}
+                                >
+                                  <span className="material-symbols-outlined text-[15px] text-on-surface-muted shrink-0 mr-1.5">folder</span>
+                                  <input
+                                    id="new-folder-input"
+                                    type="text"
+                                    className="bg-[#3c3c3c] border border-[#007acc] text-[12px] px-1 py-0.5 text-on-surface outline-none w-full"
+                                    value={newFolderNameInput}
+                                    onChange={(e) => setNewFolderNameInput(e.target.value)}
+                                    onKeyDown={handleNewFolderKeyDown}
+                                    onBlur={handleCommitNewFolder}
+                                    autoFocus
+                                  />
                                 </div>
                               )}
+                              {isOpen && isCreatingFile && createInsideFolder === node.path && (
+                                <div
+                                  className="flex items-center py-[3px] bg-[#2a2d2e]"
+                                  style={{ paddingLeft: `${indent + 28}px`, paddingRight: '8px' }}
+                                >
+                                  <FileIcon name={newFileNameInput || 'new'} />
+                                  <input
+                                    id="new-file-input"
+                                    type="text"
+                                    className="bg-[#3c3c3c] border border-[#007acc] text-[12px] px-1 py-0.5 text-on-surface outline-none w-full ml-1.5"
+                                    value={newFileNameInput}
+                                    onChange={(e) => setNewFileNameInput(e.target.value)}
+                                    onKeyDown={handleNewFileKeyDown}
+                                    onBlur={handleCommitNewFile}
+                                    autoFocus
+                                  />
+                                </div>
+                              )}
+
+                              {/* Children */}
+                              {isOpen && renderTree(node.children, depth + 1)}
                             </div>
+                          );
+                        }
 
-                            {/* Inline folder/file creation input shown inside this folder */}
-                            {isOpen && isCreatingFolder && createInsideFolder === node.path && (
-                              <div
-                                className="flex items-center gap-1 py-1.5 bg-surface-elevated"
-                                style={{ paddingLeft: `${indent + 24}px`, paddingRight: '8px' }}
-                              >
-                                <span className="material-symbols-outlined text-[13px] text-yellow-500/80 shrink-0">folder</span>
-                                <input
-                                  id="new-folder-input"
-                                  type="text"
-                                  className="bg-[#121414] border border-accent-blue rounded text-[9px] px-1.5 py-0.5 text-on-surface outline-none w-full font-mono"
-                                  value={newFolderNameInput}
-                                  onChange={(e) => setNewFolderNameInput(e.target.value)}
-                                  onKeyDown={handleNewFolderKeyDown}
-                                  onBlur={handleCommitNewFolder}
-                                  autoFocus
-                                />
-                              </div>
+                        // File Row
+                        return (
+                          <div
+                            key={node.path}
+                            className={`flex items-center py-[3px] cursor-pointer transition-colors group/file ${
+                              activeFile === node.path
+                                ? 'bg-[#37373d] text-white'
+                                : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2a2d2e]'
+                            }`}
+                            style={{ paddingLeft: `${indent + 20}px`, paddingRight: '8px' }}
+                            onClick={() => {
+                              setActiveFile(node.path);
+                              if (!openedFiles.includes(node.path)) {
+                                setOpenedFiles([...openedFiles, node.path]);
+                              }
+                            }}
+                            onDoubleClick={(e) => handleFileDoubleClick(e, node.path)}
+                            onContextMenu={(e) => handleFileDoubleClick(e, node.path)}
+                          >
+                            <FileIcon name={node.name} />
+                            {renamingFileName === node.path ? (
+                              <input
+                                id="rename-file-input"
+                                type="text"
+                                className="bg-[#3c3c3c] border border-[#007acc] text-[12px] px-1 py-0.5 text-on-surface outline-none w-full ml-1.5"
+                                value={renameInputVal}
+                                onChange={(e) => setRenameInputVal(e.target.value)}
+                                onKeyDown={(e) => handleRenameKeyDown(e, node.path)}
+                                onBlur={() => handleCommitRename(node.path)}
+                                autoFocus
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            ) : (
+                              <span className="text-[12.5px] truncate flex-1 ml-1.5">{node.name}</span>
                             )}
-                            {isOpen && isCreatingFile && createInsideFolder === node.path && (
-                              <div
-                                className="flex items-center gap-1 py-1.5 bg-surface-elevated"
-                                style={{ paddingLeft: `${indent + 24}px`, paddingRight: '8px' }}
+                            {role !== 'Viewer' && renamingFileName !== node.path && (
+                              <button
+                                className="ml-auto shrink-0 text-on-surface-muted hover:text-on-surface opacity-0 group-hover/file:opacity-100 transition-opacity p-0.5 rounded hover:bg-[#3e3e42]"
+                                onClick={(e) => { e.stopPropagation(); handleFileDoubleClick(e, node.path); }}
+                                title="File options"
                               >
-                                <span className={`w-2 h-2 rounded-full shrink-0 bg-gray-500`} />
-                                <input
-                                  id="new-file-input"
-                                  type="text"
-                                  className="bg-[#121414] border border-accent-blue rounded text-[9px] px-1.5 py-0.5 text-on-surface outline-none w-full font-mono"
-                                  value={newFileNameInput}
-                                  onChange={(e) => setNewFileNameInput(e.target.value)}
-                                  onKeyDown={handleNewFileKeyDown}
-                                  onBlur={handleCommitNewFile}
-                                  autoFocus
-                                />
-                              </div>
+                                <span className="material-symbols-outlined text-[14px]">more_horiz</span>
+                              </button>
                             )}
-
-                            {/* Children */}
-                            {isOpen && renderTree(node.children, depth + 1)}
                           </div>
                         );
-                      }
-
-                      // File Row
-                      return (
-                        <div
-                          key={node.path}
-                          className={`flex items-center gap-1.5 py-0.5 mx-1.5 my-0.5 rounded-md cursor-pointer transition-colors group/file ${
-                            activeFile === node.path
-                              ? 'bg-[#1c2b41]/60 text-[#9fcaff]'
-                              : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
-                          }`}
-                          style={{ paddingLeft: `${indent - 6}px`, paddingRight: '8px' }}
-                          onClick={() => {
-                            setActiveFile(node.path);
-                            if (!openedFiles.includes(node.path)) {
-                              setOpenedFiles([...openedFiles, node.path]);
-                            }
-                          }}
-                          onDoubleClick={(e) => handleFileDoubleClick(e, node.path)}
-                          onContextMenu={(e) => handleFileDoubleClick(e, node.path)}
-                        >
-                          <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${fileColorDot(node.name)}`} />
-                          {renamingFileName === node.path ? (
-                            <input
-                              id="rename-file-input"
-                              type="text"
-                              className="bg-[#121414] border border-accent-blue rounded text-[9px] px-1.5 py-0.5 text-on-surface outline-none w-full font-mono"
-                              value={renameInputVal}
-                              onChange={(e) => setRenameInputVal(e.target.value)}
-                              onKeyDown={(e) => handleRenameKeyDown(e, node.path)}
-                              onBlur={() => handleCommitRename(node.path)}
-                              autoFocus
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          ) : (
-                            <span className="text-sm truncate flex-1">{node.name}</span>
-                          )}
-                          {role !== 'Viewer' && renamingFileName !== node.path && (
-                            <button
-                              className="ml-auto shrink-0 text-on-surface-variant hover:text-on-surface opacity-0 group-hover/file:opacity-100 transition-opacity p-0.5 rounded hover:bg-[#2a2b2b]"
-                              onClick={(e) => { e.stopPropagation(); handleFileDoubleClick(e, node.path); }}
-                              title="File options"
-                            >
-                              <span className="material-symbols-outlined text-[12px]">more_horiz</span>
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-
-                const tree = buildFileTree(files);
+                      })}
+                    </div>
+                  );
+                  
+                  const tree = buildFileTree(files);
                 return (
                   <div className="pt-0.5">
                     {/* Root-level inline creation inputs */}
                     {isCreatingFolder && createInsideFolder === '' && (
-                      <div className="flex items-center gap-1 py-1.5 bg-surface-elevated mx-2 rounded mb-1" style={{ paddingLeft: '16px', paddingRight: '8px' }}>
-                        <span className="material-symbols-outlined text-[13px] text-yellow-500/80 shrink-0">folder</span>
-                        <input
-                          id="new-folder-input"
-                          type="text"
-                          className="bg-[#121414] border border-accent-blue rounded text-[9px] px-1.5 py-0.5 text-on-surface outline-none w-full font-mono"
-                          value={newFolderNameInput}
-                          onChange={(e) => setNewFolderNameInput(e.target.value)}
-                          onKeyDown={handleNewFolderKeyDown}
-                          onBlur={handleCommitNewFolder}
-                          autoFocus
-                        />
-                      </div>
-                    )}
-                    {isCreatingFile && createInsideFolder === '' && (
-                      <div className="flex items-center gap-1 py-1.5 bg-surface-elevated mx-2 rounded mb-1" style={{ paddingLeft: '16px', paddingRight: '8px' }}>
-                        <span className="w-2 h-2 rounded-full bg-gray-500 shrink-0" />
-                        <input
-                          id="new-file-input"
-                          type="text"
-                          className="bg-[#121414] border border-accent-blue rounded text-[9px] px-1.5 py-0.5 text-on-surface outline-none w-full font-mono"
-                          value={newFileNameInput}
-                          onChange={(e) => setNewFileNameInput(e.target.value)}
-                          onKeyDown={handleNewFileKeyDown}
-                          onBlur={handleCommitNewFile}
-                          autoFocus
-                        />
-                      </div>
-                    )}
-                    {renderTree(tree)}
+                        <div className="flex items-center py-[3px] bg-[#2a2d2e]" style={{ paddingLeft: '32px', paddingRight: '8px' }}>
+                          <span className="material-symbols-outlined text-[15px] text-on-surface-muted shrink-0 mr-1.5">folder</span>
+                          <input
+                            id="new-folder-input"
+                            type="text"
+                            className="bg-[#3c3c3c] border border-[#007acc] text-[12px] px-1 py-0.5 text-on-surface outline-none w-full"
+                            value={newFolderNameInput}
+                            onChange={(e) => setNewFolderNameInput(e.target.value)}
+                            onKeyDown={handleNewFolderKeyDown}
+                            onBlur={handleCommitNewFolder}
+                            autoFocus
+                          />
+                        </div>
+                      )}
+                      {isCreatingFile && createInsideFolder === '' && (
+                        <div className="flex items-center py-[3px] bg-[#2a2d2e]" style={{ paddingLeft: '32px', paddingRight: '8px' }}>
+                          <FileIcon name={newFileNameInput || 'new'} />
+                          <input
+                            id="new-file-input"
+                            type="text"
+                            className="bg-[#3c3c3c] border border-[#007acc] text-[12px] px-1 py-0.5 text-on-surface outline-none w-full ml-1.5"
+                            value={newFileNameInput}
+                            onChange={(e) => setNewFileNameInput(e.target.value)}
+                            onKeyDown={handleNewFileKeyDown}
+                            onBlur={handleCommitNewFile}
+                            autoFocus
+                          />
+                        </div>
+                      )}
+                      {renderTree(tree)}
                   </div>
                 );
               })()}
