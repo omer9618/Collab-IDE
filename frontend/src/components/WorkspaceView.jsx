@@ -888,13 +888,6 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
       {/* Top Bar (56px) */}
       <header className="h-[36px] shrink-0 bg-surface border-b border-outline-subtle flex items-center justify-between px-2 z-40">
         <div className="flex items-center gap-1">
-          <button
-            onClick={() => setShowVoiceSettings(true)}
-            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-elevated text-on-surface-variant transition-colors"
-            title="Voice Settings"
-          >
-            <Settings size={18} />
-          </button>
           <div className="flex items-center cursor-pointer" onClick={() => { leaveVoice(); onBack(); }}>
             <img src="/logo.png" className="h-10 object-contain" alt="CollabIDE Logo" />
           
