@@ -870,6 +870,19 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
     setChatInput('');
   };
 
+  const handleRoleChange = async (targetUserId, newRole) => {
+    try {
+      await promoteMember(roomUuid, targetUserId, newRole);
+      const details = await getRoomDetails(roomUuid);
+      setRoom(details.room);
+    } catch (err) {
+      console.error('Failed to change role:', err.message);
+      showToast(`Failed to change role: ${err.message}`, 'error');
+    }
+  };
+
+  const isUserLeader = role === 'Owner' || role === 'Room Leader';
+
   return (
     <div className="bg-surface text-on-surface font-ui overflow-hidden h-screen flex flex-col select-none">
       {/* Top Bar (56px) */}
