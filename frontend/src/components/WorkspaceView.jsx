@@ -899,13 +899,13 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
               className="text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors flex items-center gap-1.5 group"
             >
               {room?.name || 'Loading room...'}
-              <ChevronDown size={14} className={`transition-transform duration-200 ${showRoomDropdown ? 'rotate-180' : ''}`} />
+              <ChevronDown size={12} className={`transition-transform duration-200 ${showRoomDropdown ? 'rotate-180' : ''}`} />
             </button>
 
             {showRoomDropdown && (
               <div className="absolute top-full left-0 mt-2 w-56 bg-surface-panel border border-outline-subtle rounded-md shadow-lg z-50 overflow-hidden">
                 <div className="p-2 border-b border-outline-subtle flex justify-between items-center">
-                  <span className="text-[10px] font-semibold text-on-surface-muted uppercase tracking-wider">Switch Workspace</span>
+                  <span className="text-[9px] font-semibold text-on-surface-muted uppercase tracking-wider">Switch Workspace</span>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -988,7 +988,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
           <button
             onClick={handleRunCode}
             disabled={isRunning || role === 'Viewer' || !activeFile || activeFile.endsWith('.md')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-white text-[10px] font-medium rounded-md transition-all shadow-sm ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-white text-[9px] font-medium rounded-md transition-all shadow-sm ${
               (isRunning || role === 'Viewer' || !activeFile || activeFile.endsWith('.md'))
                 ? 'bg-[#2b2d30] text-on-surface-muted cursor-not-allowed'
                 : 'bg-accent-blue hover:bg-accent-blue/90 shadow-accent-blue/20'
@@ -1062,7 +1062,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
               {/* Explorer Top Header */}
               <div className="px-5 py-2.5 flex items-center justify-between text-on-surface-muted">
                 <span className="text-[11px] text-on-surface uppercase tracking-wide">Explorer</span>
-                <button className="p-0.5 hover:bg-[#2a2d2e] rounded"><MoreHorizontal size={14} /></button>
+                <button className="p-0.5 hover:bg-[#2a2d2e] rounded"><MoreHorizontal size={12} /></button>
               </div>
 
               <div className="flex-1 overflow-y-auto outline-none custom-scrollbar pb-4" tabIndex={0}>
@@ -1119,18 +1119,18 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
                 {/* File/Folder Tree */}
               {isFilesTreeOpen && (() => {
                 const FileIcon = ({ name }) => {
-                    if (!name) return <FileCode size={14} className="text-gray-400 shrink-0" />;
-                    if (name.endsWith('.js') || name.endsWith('.jsx')) return <span className="text-[#eab308] font-bold text-[10px] w-3.5 text-center shrink-0">JS</span>;
-                    if (name.endsWith('.ts') || name.endsWith('.tsx')) return <span className="text-[#3b82f6] font-bold text-[10px] w-3.5 text-center shrink-0">TS</span>;
-                    if (name.endsWith('.py')) return <span className="text-[#3b82f6] font-bold text-[10px] w-3.5 text-center shrink-0">PY</span>;
-                    if (name.endsWith('.java')) return <span className="text-[#ef4444] font-bold text-[10px] w-3.5 text-center shrink-0">J</span>;
-                    if (name.endsWith('.cpp') || name.endsWith('.cc')) return <span className="text-[#a855f7] font-bold text-[10px] w-3.5 text-center shrink-0">C++</span>;
-                    if (name.endsWith('.html')) return <span className="text-[#f97316] font-bold text-[10px] w-3.5 text-center shrink-0"><>&lt;/&gt;</></span>;
-                    if (name.endsWith('.css')) return <span className="text-[#ec4899] font-bold text-[10px] w-3.5 text-center shrink-0">#</span>;
-                    if (name.endsWith('.md')) return <span className="text-[#60a5fa] font-bold text-[10px] w-3.5 text-center shrink-0">M&#8595;</span>;
-                    if (name.endsWith('.json')) return <span className="text-[#fef08a] font-bold text-[10px] w-3.5 text-center shrink-0">&#123;&#125;</span>;
-                    if (name === '.env') return <Settings size={14} className="text-gray-400 shrink-0" />;
-                    return <FileCode size={14} className="text-gray-400 shrink-0" />;
+                    if (!name) return <FileCode size={12} className="text-gray-400 shrink-0" />;
+                    if (name.endsWith('.js') || name.endsWith('.jsx')) return <span className="text-[#eab308] font-bold text-[9px] w-3.5 text-center shrink-0">JS</span>;
+                    if (name.endsWith('.ts') || name.endsWith('.tsx')) return <span className="text-[#3b82f6] font-bold text-[9px] w-3.5 text-center shrink-0">TS</span>;
+                    if (name.endsWith('.py')) return <span className="text-[#3b82f6] font-bold text-[9px] w-3.5 text-center shrink-0">PY</span>;
+                    if (name.endsWith('.java')) return <span className="text-[#ef4444] font-bold text-[9px] w-3.5 text-center shrink-0">J</span>;
+                    if (name.endsWith('.cpp') || name.endsWith('.cc')) return <span className="text-[#a855f7] font-bold text-[9px] w-3.5 text-center shrink-0">C++</span>;
+                    if (name.endsWith('.html')) return <span className="text-[#f97316] font-bold text-[9px] w-3.5 text-center shrink-0"><>&lt;/&gt;</></span>;
+                    if (name.endsWith('.css')) return <span className="text-[#ec4899] font-bold text-[9px] w-3.5 text-center shrink-0">#</span>;
+                    if (name.endsWith('.md')) return <span className="text-[#60a5fa] font-bold text-[9px] w-3.5 text-center shrink-0">M&#8595;</span>;
+                    if (name.endsWith('.json')) return <span className="text-[#fef08a] font-bold text-[9px] w-3.5 text-center shrink-0">&#123;&#125;</span>;
+                    if (name === '.env') return <Settings size={12} className="text-gray-400 shrink-0" />;
+                    return <FileCode size={12} className="text-gray-400 shrink-0" />;
                   };
 
                 const renderTree = (nodes, depth = 0) => (
@@ -1143,7 +1143,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
                             <div key={node.path}>
                               {/* Folder Row */}
                               <div
-                                className="flex items-center py-[3px] cursor-pointer text-on-surface-variant hover:text-on-surface hover:bg-[#2a2d2e] group/folder transition-colors"
+                                className="flex items-center py-[1px] cursor-pointer text-on-surface-variant hover:text-on-surface hover:bg-[#2a2d2e] group/folder transition-colors"
                                 style={{ paddingLeft: `${indent}px`, paddingRight: '8px' }}
                                 onClick={() => setExpandedFolders(prev => {
                                   const s = new Set(prev);
@@ -1152,15 +1152,15 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
                                 })}
                               >
                                 <span
-                                  className="material-symbols-outlined text-[16px] text-on-surface-muted transition-transform duration-100 shrink-0 mr-1"
+                                  className="material-symbols-outlined text-[13px] text-on-surface-muted transition-transform duration-100 shrink-0 mr-1"
                                   style={{ transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}
                                 >
                                   chevron_right
                                 </span>
-                                <span className="material-symbols-outlined text-[15px] text-on-surface-muted shrink-0 mr-1.5">
+                                <span className="material-symbols-outlined text-[13px] text-on-surface-muted shrink-0 mr-1.5">
                                   {isOpen ? 'folder_open' : 'folder'}
                                 </span>
-                                <span className="text-[12.5px] truncate flex-1">{node.name}</span>
+                                <span className="text-[11.5px] truncate flex-1">{node.name}</span>
 
                                 {/* Folder hover actions */}
                                 {role !== 'Viewer' && (
@@ -1170,21 +1170,21 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
                                       onClick={(e) => { e.stopPropagation(); handleCreateFile(node.path); }}
                                       title="New File"
                                     >
-                                      <span className="material-symbols-outlined text-[14px]">note_add</span>
+                                      <span className="material-symbols-outlined text-[13px]">note_add</span>
                                     </button>
                                     <button
                                       className="p-0.5 hover:bg-[#3e3e42] rounded text-on-surface-muted hover:text-on-surface"
                                       onClick={(e) => { e.stopPropagation(); handleCreateFolder(node.path); }}
                                       title="New Folder"
                                     >
-                                      <span className="material-symbols-outlined text-[14px]">create_new_folder</span>
+                                      <span className="material-symbols-outlined text-[13px]">create_new_folder</span>
                                     </button>
                                     <button
                                       className="p-0.5 hover:bg-red-500/20 rounded text-on-surface-muted hover:text-red-400"
                                       onClick={(e) => { e.stopPropagation(); handleDeleteFolder(node.path); }}
                                       title="Delete Folder"
                                     >
-                                      <span className="material-symbols-outlined text-[14px]">delete</span>
+                                      <span className="material-symbols-outlined text-[13px]">delete</span>
                                     </button>
                                   </div>
                                 )}
@@ -1193,10 +1193,10 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
                               {/* Inline folder/file creation input shown inside this folder */}
                               {isOpen && isCreatingFolder && createInsideFolder === node.path && (
                                 <div
-                                  className="flex items-center py-[3px] bg-[#2a2d2e]"
+                                  className="flex items-center py-[1px] bg-[#2a2d2e]"
                                   style={{ paddingLeft: `${indent + 28}px`, paddingRight: '8px' }}
                                 >
-                                  <span className="material-symbols-outlined text-[15px] text-on-surface-muted shrink-0 mr-1.5">folder</span>
+                                  <span className="material-symbols-outlined text-[13px] text-on-surface-muted shrink-0 mr-1.5">folder</span>
                                   <input
                                     id="new-folder-input"
                                     type="text"
@@ -1211,7 +1211,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
                               )}
                               {isOpen && isCreatingFile && createInsideFolder === node.path && (
                                 <div
-                                  className="flex items-center py-[3px] bg-[#2a2d2e]"
+                                  className="flex items-center py-[1px] bg-[#2a2d2e]"
                                   style={{ paddingLeft: `${indent + 28}px`, paddingRight: '8px' }}
                                 >
                                   <FileIcon name={newFileNameInput || 'new'} />
@@ -1238,7 +1238,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
                         return (
                           <div
                             key={node.path}
-                            className={`flex items-center py-[3px] cursor-pointer transition-colors group/file ${
+                            className={`flex items-center py-[1px] cursor-pointer transition-colors group/file ${
                               activeFile === node.path
                                 ? 'bg-[#37373d] text-white'
                                 : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2a2d2e]'
@@ -1267,7 +1267,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
                                 onClick={(e) => e.stopPropagation()}
                               />
                             ) : (
-                              <span className="text-[12.5px] truncate flex-1 ml-1.5">{node.name}</span>
+                              <span className="text-[11.5px] truncate flex-1 ml-1.5">{node.name}</span>
                             )}
                             {role !== 'Viewer' && renamingFileName !== node.path && (
                               <button
@@ -1275,7 +1275,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
                                 onClick={(e) => { e.stopPropagation(); handleFileDoubleClick(e, node.path); }}
                                 title="File options"
                               >
-                                <span className="material-symbols-outlined text-[14px]">more_horiz</span>
+                                <span className="material-symbols-outlined text-[13px]">more_horiz</span>
                               </button>
                             )}
                           </div>
@@ -1289,8 +1289,8 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
                   <div className="pt-0.5">
                     {/* Root-level inline creation inputs */}
                     {isCreatingFolder && createInsideFolder === '' && (
-                        <div className="flex items-center py-[3px] bg-[#2a2d2e]" style={{ paddingLeft: '32px', paddingRight: '8px' }}>
-                          <span className="material-symbols-outlined text-[15px] text-on-surface-muted shrink-0 mr-1.5">folder</span>
+                        <div className="flex items-center py-[1px] bg-[#2a2d2e]" style={{ paddingLeft: '32px', paddingRight: '8px' }}>
+                          <span className="material-symbols-outlined text-[14px] text-on-surface-muted shrink-0 mr-1.5">folder</span>
                           <input
                             id="new-folder-input"
                             type="text"
@@ -1304,7 +1304,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
                         </div>
                       )}
                       {isCreatingFile && createInsideFolder === '' && (
-                        <div className="flex items-center py-[3px] bg-[#2a2d2e]" style={{ paddingLeft: '32px', paddingRight: '8px' }}>
+                        <div className="flex items-center py-[1px] bg-[#2a2d2e]" style={{ paddingLeft: '32px', paddingRight: '8px' }}>
                           <FileIcon name={newFileNameInput || 'new'} />
                           <input
                             id="new-file-input"
@@ -1326,7 +1326,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
 
             <div className="p-4 border-t border-outline-subtle mt-auto">
               <button
-                className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-md border border-accent-blue/30 text-[10px] font-medium text-accent-blue hover:bg-accent-blue/10 transition-colors"
+                className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-md border border-accent-blue/30 text-[9px] font-medium text-accent-blue hover:bg-accent-blue/10 transition-colors"
                 onClick={() => {
                   navigator.clipboard.writeText(window.location.href);
                   showToast('Share link copied!', 'success');
@@ -1458,14 +1458,14 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
                     onClick={handleCopyOutput}
                     title="Copy Output"
                   >
-                    <Copy size={14} />
+                    <Copy size={12} />
                   </button>
                   <button
                     className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-accent-red hover:bg-red-950/30 rounded transition-colors"
                     onClick={handleClearOutput}
                     title="Clear Output"
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={12} />
                   </button>
                   <button
                     className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] rounded transition-colors"
