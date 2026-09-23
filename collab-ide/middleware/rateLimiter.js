@@ -13,6 +13,7 @@ const apiLimiter = rateLimit({
   message: { message: 'API rate limit exceeded. Maximum 100 requests per minute.' },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { keyGeneratorIpFallback: false },
   skip: (req) => {
     const ip = req.ip || '';
     return ip === '127.0.0.1' || ip === '::1' || ip.endsWith('127.0.0.1') || process.env.NODE_ENV === 'test';
