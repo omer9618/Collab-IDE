@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import * as Y from 'yjs';
+import { useVoiceRoom } from '../hooks/useVoiceRoom';
+import VoiceSettingsModal from './VoiceSettingsModal';
 import { WebsocketProvider } from 'y-websocket';
 import { io } from 'socket.io-client';
 import {
@@ -175,17 +177,6 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
 
-  // Voice channel states
-  const [inVoice, setInVoice] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [voiceParticipants, setVoiceParticipants] = useState([]);
-  const [editorOnlyMode, setEditorOnlyMode] = useState(false);
-  const [localStream, setLocalStream] = useState(null);
-  const [mutedByLeaderMsg, setMutedByLeaderMsg] = useState('');
-  const [activeSpeakerSocketId, setActiveSpeakerSocketId] = useState(null);
-  const [isAuthReady, setIsAuthReady] = useState(false);
-  const [activeWorkspaceUsers, setActiveWorkspaceUsers] = useState([]);
-
   // Refs for Yjs and peer connections
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
@@ -197,6 +188,27 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
   const roomRef = useRef(null);
   const isCommittingFileRef = useRef(false);
   const audioElementsRef = useRef(new Map()); // socketId -> HTMLAudioElement
+
+  const [showVoiceSettings, setShowVoiceSettings] = useState(false);
+  const voice = useVoiceRoom({ roomUuid, showToast });
+  const {
+    inVoice,
+    localStream,
+    voiceParticipants,
+    isMuted,
+    mutedByLeaderMsg,
+    editorOnlyMode,
+    activeSpeakerSocketId,
+    joinVoice,
+    leaveVoice,
+    toggleMuteSelf,
+    toggleEditorOnlyVoice,
+    handleMuteAll,
+    handleHardMuteParticipant,
+    selectedMicId,
+    selectedSpeakerId,
+    updateDevices
+  } = voice;
 
   // REST details refresh
   useEffect(() => {
@@ -855,248 +867,29 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
     setChatInput('');
   };
 
-  // ─── WebRTC VOICE SIGNALLING ────────────────────────────────────────────────
-
-  const joinVoice = async () => {
-    if (inVoice) return;
-    setMutedByLeaderMsg('');
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      setLocalStream(stream);
-
-      // This REST call auto-refreshes the JWT if expired (via request() in api.js)
-      const credsData = await getVoiceCredentials(roomUuid);
-
-      // Read the (possibly refreshed) token AFTER the API call
-      const freshToken = getToken();
-      console.log('[Voice] Token available:', !!freshToken, 'length:', freshToken?.length);
-
-      // Connect to Voice (support direct Vite dev on 5173, Nginx reverse proxy on 80/443, and cloud deployment)
-      const isViteDev = window.location.port === '5173';
-      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      const backendUrl = isViteDev 
-        ? 'http://localhost:3000' 
-        : (isLocal ? window.location.origin : 'https://collabide-backend-avau.onrender.com');
-
-      const socket = io(backendUrl + '/voice', {
-        auth: { token: freshToken },
-        transports: ['websocket'],
-        forceNew: true,
-        timeout: 10000,
-        reconnection: false,
-      });
-      voiceSocketRef.current = socket;
-
-      socket.on('connect', () => {
-        console.log('[Voice] Connected successfully, socket id:', socket.id);
-        socket.emit('voice:join', { roomUuid });
-        setInVoice(true);
-      });
-
-      socket.on('connect_error', (err) => {
-        console.error('[Voice] Connection error:', err.message, err);
-        leaveVoice();
-      });
-
-      socket.on('voice:participant-joined', async ({ joined, participants }) => {
-        setVoiceParticipants(participants);
-        if (joined.socketId !== socket.id) {
-          const pc = createPeerConnection(joined.socketId, stream, credsData.iceServers);
-          const offer = await pc.createOffer();
-          await pc.setLocalDescription(offer);
-          socket.emit('voice:offer', { to: joined.socketId, sdp: offer });
-        }
-      });
-
-      socket.on('voice:participant-left', ({ socketId, participants }) => {
-        setVoiceParticipants(participants);
-        closePeerConnection(socketId);
-      });
-
-      socket.on('voice:offer', async ({ from, sdp }) => {
-        const pc = createPeerConnection(from, stream, credsData.iceServers);
-        await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        socket.emit('voice:answer', { to: from, sdp: answer });
-      });
-
-      socket.on('voice:answer', async ({ from, sdp }) => {
-        const pc = peerConnectionsRef.current.get(from);
-        if (pc) {
-          await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-        }
-      });
-
-      socket.on('voice:ice-candidate', async ({ from, candidate }) => {
-        const pc = peerConnectionsRef.current.get(from);
-        if (pc) {
-          await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        }
-      });
-
-      socket.on('voice:mute-changed', ({ socketId, isMuted: muted, isHardMuted }) => {
-        setVoiceParticipants((prev) =>
-          prev.map((p) => (p.socketId === socketId ? { ...p, isMuted: muted, isHardMuted } : p))
-        );
-        // If this mute change targets our own socket, sync actual mic track
-        if (socketId === socket.id && muted) {
-          setIsMuted(true);
-          stream.getAudioTracks().forEach((track) => (track.enabled = false));
-        }
-      });
-
-      socket.on('voice:muted-by-leader', ({ by, hard, message }) => {
-        setMutedByLeaderMsg(message);
-        setIsMuted(true);
-        stream.getAudioTracks().forEach((track) => (track.enabled = false));
-      });
-
-      socket.on('voice:participants-update', ({ participants }) => {
-        setVoiceParticipants(participants);
-        // Sync actual mic track state when remote mute-all is received
-        const myEntry = participants.find(p => p.socketId === socket.id);
-        if (myEntry && myEntry.isMuted) {
-          setIsMuted(true);
-          stream.getAudioTracks().forEach((track) => (track.enabled = false));
-        }
-      });
-
-      socket.on('voice:room-settings', ({ editorOnlyMode }) => {
-        setEditorOnlyMode(editorOnlyMode);
-      });
-
-      // Simple mock indicator for active speaker
-      socket.on('voice:speaker-active', ({ socketId }) => {
-        setActiveSpeakerSocketId(socketId);
-      });
-
-      socket.on('voice:error', ({ message }) => {
-        showToast(message, 'error');
-      });
-
-    } catch (err) {
-      showToast(`Could not access microphone: ${err.message}`, 'error');
-    }
-  };
-
-  const leaveVoice = () => {
-    if (localStream) {
-      localStream.getTracks().forEach((track) => track.stop());
-      setLocalStream(null);
-    }
-    if (voiceSocketRef.current) {
-      voiceSocketRef.current.disconnect();
-      voiceSocketRef.current = null;
-    }
-    peerConnectionsRef.current.forEach((pc) => pc.close());
-    peerConnectionsRef.current.clear();
-    audioElementsRef.current.forEach((audio) => audio.remove());
-    audioElementsRef.current.clear();
-    setInVoice(false);
-    setVoiceParticipants([]);
-    setActiveSpeakerSocketId(null);
-  };
-
-  const createPeerConnection = (peerSocketId, stream, iceServers) => {
-    const pc = new RTCPeerConnection({ iceServers });
-    peerConnectionsRef.current.set(peerSocketId, pc);
-
-    stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-
-    pc.onicecandidate = (event) => {
-      if (event.candidate && voiceSocketRef.current) {
-        voiceSocketRef.current.emit('voice:ice-candidate', {
-          to: peerSocketId,
-          candidate: event.candidate,
-        });
-      }
-    };
-
-    pc.ontrack = (event) => {
-      const peerStream = event.streams[0];
-      let audio = audioElementsRef.current.get(peerSocketId);
-      if (!audio) {
-        audio = document.createElement('audio');
-        audio.autoplay = true;
-        audio.style.display = 'none';
-        document.body.appendChild(audio);
-        audioElementsRef.current.set(peerSocketId, audio);
-      }
-      audio.srcObject = peerStream;
-    };
-
-    return pc;
-  };
-
-  const closePeerConnection = (peerSocketId) => {
-    const pc = peerConnectionsRef.current.get(peerSocketId);
-    if (pc) {
-      pc.close();
-      peerConnectionsRef.current.delete(peerSocketId);
-    }
-    const audio = audioElementsRef.current.get(peerSocketId);
-    if (audio) {
-      audio.remove();
-      audioElementsRef.current.delete(peerSocketId);
-    }
-  };
-
-  const toggleMuteSelf = () => {
-    if (!localStream || !voiceSocketRef.current) return;
-    const nextMute = !isMuted;
-    setIsMuted(nextMute);
-
-    localStream.getAudioTracks().forEach((track) => {
-      track.enabled = !nextMute;
-    });
-
-    voiceSocketRef.current.emit('voice:mute-self', { isMuted: nextMute });
-  };
-
-  // ─── LEADER CONTROLS ────────────────────────────────────────────────────────
-
-  const toggleEditorOnlyVoice = () => {
-    if (!voiceSocketRef.current) return;
-    voiceSocketRef.current.emit('voice:set-editor-only', { enabled: !editorOnlyMode });
-  };
-
-  const handleMuteAll = () => {
-    if (!voiceSocketRef.current) return;
-    voiceSocketRef.current.emit('voice:mute-all');
-  };
-
-  const handleHardMuteParticipant = (targetSocketId, currentlyHard) => {
-    if (!voiceSocketRef.current) return;
-    if (currentlyHard) {
-      voiceSocketRef.current.emit('voice:unmute-participant', { targetSocketId });
-    } else {
-      voiceSocketRef.current.emit('voice:mute-participant', { targetSocketId, hard: true });
-    }
-  };
-
-  const handleRoleChange = async (targetUserId, newRole) => {
-    try {
-      await promoteMember(roomUuid, targetUserId, newRole);
-      const details = await getRoomDetails(roomUuid);
-      setRoom(details.room);
-    } catch (err) {
-      console.error('Failed to change role:', err.message);
-      showToast(`Failed to change role: ${err.message}`, 'error');
-    }
-  };
-
-  const isUserLeader = role === 'Owner' || role === 'Room Leader';
-
   return (
     <div className="bg-surface text-on-surface font-ui overflow-hidden h-screen flex flex-col select-none">
       {/* Top Bar (56px) */}
       <header className="h-[36px] shrink-0 bg-surface border-b border-outline-subtle flex items-center justify-between px-2 z-40">
         <div className="flex items-center gap-1">
+          <button
+            onClick={() => setShowVoiceSettings(true)}
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-elevated text-on-surface-variant transition-colors"
+            title="Voice Settings"
+          >
+            <Settings size={18} />
+          </button>
           <div className="flex items-center cursor-pointer" onClick={() => { leaveVoice(); onBack(); }}>
             <img src="/logo.png" className="h-10 object-contain" alt="CollabIDE Logo" />
-          </div>
+          
+      <VoiceSettingsModal
+        isOpen={showVoiceSettings}
+        onClose={() => setShowVoiceSettings(false)}
+        selectedMicId={selectedMicId}
+        selectedSpeakerId={selectedSpeakerId}
+        onUpdateDevices={updateDevices}
+      />
+    </div>
           <div className="h-4 w-px bg-outline mx-1" />
           <div className="relative">
             <button
