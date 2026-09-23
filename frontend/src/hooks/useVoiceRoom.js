@@ -60,7 +60,9 @@ export function useVoiceRoom({ roomUuid, showToast }) {
         const attempts = reconnectAttemptsRef.current.get(peerSocketId) || 0;
         if (attempts < 3) {
           reconnectAttemptsRef.current.set(peerSocketId, attempts + 1);
+          const attemptMsg = `Connection unstable. Attempting to reconnect (${attempts + 1}/3)...`;
           console.warn(`[Voice] Peer ${peerSocketId} failed. Attempting reconnect ${attempts + 1}/3...`);
+          showToast(attemptMsg, 'warning');
           
           try {
             // Trigger ICE Restart
@@ -73,7 +75,8 @@ export function useVoiceRoom({ roomUuid, showToast }) {
             console.error('[Voice] Reconnect ICE restart failed', e);
           }
         } else {
-          showToast(`Lost voice connection to a peer after 3 attempts. You may need to rejoin.`, 'error');
+          showToast(`Voice connection failed after 3 attempts. Please rejoin the call.`, 'error');
+          leaveVoice();
         }
       } else if (pc.connectionState === 'connected') {
         // Reset attempts on successful connection
