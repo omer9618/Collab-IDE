@@ -10,21 +10,7 @@ const Y = require('yjs');
 const syncProtocol = require('y-protocols/sync');
 const encoding = require('lib0/encoding');
 const decoding = require('lib0/decoding');
-
-const connectDB = async () => {
-  const connUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/collabide';
-  const mongoose = require('mongoose');
-  try {
-    const conn = await mongoose.connect(connUri, {
-      maxPoolSize: parseInt(process.env.MONGO_MAX_POOL_SIZE || '20', 10),
-      minPoolSize: parseInt(process.env.MONGO_MIN_POOL_SIZE || '5', 10),
-    });
-    console.log(`🔌 MongoDB Connected: ${conn.connection.host}`);
-  } catch (error) {
-    console.error(`❌ MongoDB connection error: ${error.message}`);
-    process.exit(1);
-  }
-};
+const { connectDB } = require('./config/db');
 
 const User = require('./models/User');
 const Room = require('./models/Room');
@@ -90,16 +76,24 @@ app.use('/api/voice',     voiceRoutes);
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-// Health Check Endpoint (NFR-39 / NFR-38)
+// Health Check Endpoint (NFR-39 / NFR-38 / NFR-40)
 app.get('/health', (req, res) => {
   if (isShuttingDown) {
     return res.status(503).json({ status: 'shutting_down' });
   }
+  const mongoose = require('mongoose');
+  const client = mongoose.connection.getClient ? mongoose.connection.getClient() : null;
   res.json({
     status: 'healthy',
     uptime: process.uptime(),
     memoryUsage: process.memoryUsage(),
     activeRooms: activeDocs.size,
+    database: {
+      connected: mongoose.connection.readyState === 1,
+      minPoolSize: client?.options?.minPoolSize ?? 5,
+      maxPoolSize: client?.options?.maxPoolSize ?? 20,
+      maxIdleTimeMS: client?.options?.maxIdleTimeMS ?? 30000,
+    },
   });
 });
 
