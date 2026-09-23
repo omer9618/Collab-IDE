@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import * as Y from 'yjs';
 import { useVoiceRoom } from '../hooks/useVoiceRoom';
-import VoiceSettingsModal from './VoiceSettingsModal';
+import VoiceDeviceMenu from './VoiceDeviceMenu';
 import { WebsocketProvider } from 'y-websocket';
 import { io } from 'socket.io-client';
 import {
@@ -898,14 +898,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
           <div className="flex items-center cursor-pointer" onClick={() => { leaveVoice(); onBack(); }}>
             <img src="/logo.png" className="h-10 object-contain" alt="CollabIDE Logo" />
           
-      <VoiceSettingsModal
-        isOpen={showVoiceSettings}
-        onClose={() => setShowVoiceSettings(false)}
-        selectedMicId={selectedMicId}
-        selectedSpeakerId={selectedSpeakerId}
-        onUpdateDevices={updateDevices}
-      />
-    </div>
+      </div>
           <div className="h-4 w-px bg-outline mx-1" />
           <div className="relative">
             <button
@@ -1767,151 +1760,95 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
         </div>
       </footer>
 
-      {/* Floating Voice Dock */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-6 h-[36px] glass-panel rounded-full border border-outline/50 shadow-2xl z-50 transition-all hover:scale-[1.01]">
-        <div className="flex items-center gap-1">
-          {inVoice ? (
+            {/* Floating Voice Dock (Google Meet Style) */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center bg-[#202124] h-[52px] rounded-full border border-outline/20 shadow-2xl z-50 px-3">
+        
+        {inVoice ? (
+          <>
+            <div className="relative flex items-center">
+              <button
+                onClick={toggleMuteSelf}
+                className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors border ${
+                  isMuted 
+                    ? 'bg-[#ea4335] text-white border-transparent hover:bg-[#d93025]' 
+                    : 'bg-[#3c4043] text-white border-transparent hover:bg-[#434649]'
+                }`}
+                title={isMuted ? 'Unmute microphone' : 'Mute microphone'}
+              >
+                <span className="material-symbols-outlined text-[20px]">{isMuted ? 'mic_off' : 'mic'}</span>
+              </button>
+              <button
+                onClick={() => setShowVoiceSettings(!showVoiceSettings)}
+                className="w-6 h-10 flex items-center justify-center text-white/70 hover:text-white transition-colors"
+              >
+                <span className="material-symbols-outlined text-[20px]">expand_less</span>
+              </button>
+
+              <VoiceDeviceMenu
+                isOpen={showVoiceSettings}
+                onClose={() => setShowVoiceSettings(false)}
+                selectedMicId={selectedMicId}
+                selectedSpeakerId={selectedSpeakerId}
+                onUpdateDevices={updateDevices}
+              />
+            </div>
+
+            <div className="w-px h-6 bg-[#3c4043] mx-2" />
+
+            {isUserLeader && (
+              <div className="flex items-center gap-1 mr-1">
+                <button 
+                  onClick={handleMuteAll} 
+                  className="px-3 h-9 text-xs font-medium text-[#ea4335] hover:bg-[#ea4335]/10 rounded-md transition-colors"
+                >
+                  Mute all
+                </button>
+                <button 
+                  onClick={toggleEditorOnlyVoice} 
+                  className="px-3 h-9 text-xs font-medium text-[#8ab4f8] hover:bg-[#8ab4f8]/10 rounded-md transition-colors"
+                >
+                  {editorOnlyMode ? 'Unlock voice' : 'Lock voice'}
+                </button>
+              </div>
+            )}
+
             <button
-              onClick={toggleMuteSelf}
-              className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors ${
-                isMuted ? 'bg-red-950/40 text-accent-red hover:bg-red-900/40' : 'hover:bg-surface-elevated text-on-surface-variant'
-              }`}
-              title={isMuted ? 'Unmute microphone' : 'Mute microphone'}
+              onClick={leaveVoice}
+              className="px-5 h-10 flex items-center justify-center rounded-full bg-[#ea4335] text-white text-sm font-medium hover:bg-[#d93025] transition-colors gap-2 ml-1"
             >
-              <span className="material-symbols-outlined">{isMuted ? 'mic_off' : 'mic'}</span>
+              <span className="material-symbols-outlined text-[18px]">call_end</span>
+              Leave
             </button>
-          ) : (
+          </>
+        ) : (
+          <div className="relative flex items-center h-10">
             <button
               onClick={joinVoice}
-              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-elevated text-on-surface-variant transition-colors"
+              className="px-5 h-10 flex items-center justify-center rounded-full bg-[#8ab4f8] text-[#202124] text-sm font-medium hover:bg-[#92bcfc] transition-colors gap-2"
               title="Connect Voice"
             >
-              <Volume2 size={18} />
+              <span className="material-symbols-outlined text-[18px]">call</span>
+              Join Voice
             </button>
-          )}
-
-        </div>
-
-        {inVoice && (
-          <>
-            <div className="w-px h-6 bg-outline mx-1" />
-            <div className="flex items-center gap-1">
-              {isUserLeader && (
-                <>
-                  <button onClick={handleMuteAll} className="px-2 py-1 text-[9px] font-medium text-accent-red hover:bg-accent-red/10 rounded-md transition-colors">
-                    Mute all
-                  </button>
-                  <button onClick={toggleEditorOnlyVoice} className="px-2 py-1 text-[9px] font-medium text-accent-blue hover:bg-accent-blue/10 rounded-md transition-colors">
-                    {editorOnlyMode ? 'Unlock voice' : 'Lock voice'}
-                  </button>
-                </>
-              )}
-              <button
-                onClick={leaveVoice}
-                className="ml-2 px-2 h-9 flex items-center justify-center rounded-full bg-accent-red text-white text-[9.5px] font-medium hover:opacity-90 transition-all gap-1"
-              >
-                <PhoneOff size={14} />
-                <span>Leave</span>
-              </button>
-            </div>
-          </>
+            <button
+              onClick={() => setShowVoiceSettings(!showVoiceSettings)}
+              className="w-8 h-10 ml-1 flex items-center justify-center text-white/70 hover:text-white transition-colors"
+            >
+              <span className="material-symbols-outlined text-[20px]">expand_less</span>
+            </button>
+            
+            <VoiceDeviceMenu
+              isOpen={showVoiceSettings}
+              onClose={() => setShowVoiceSettings(false)}
+              selectedMicId={selectedMicId}
+              selectedSpeakerId={selectedSpeakerId}
+              onUpdateDevices={updateDevices}
+            />
+          </div>
         )}
       </div>
 
-      {/* Floating File Context Menu (VS Code style) */}
-      {activeFileMenu && (
-        <>
-          <div 
-            className="fixed inset-0 z-50 cursor-default" 
-            onClick={() => setActiveFileMenu(null)}
-            onContextMenu={(e) => { e.preventDefault(); setActiveFileMenu(null); }}
-          />
-          <div 
-            className="fixed bg-[#1b1c1c] border border-[#2b2b2b] rounded-md shadow-2xl py-1 z-[60] w-36 text-[9px] text-on-surface-variant font-sans select-none"
-            style={{ 
-              left: `${Math.min(window.innerWidth - 150, activeFileMenu.x)}px`, 
-              top: `${Math.min(window.innerHeight - 100, activeFileMenu.y)}px` 
-            }}
-          >
-            <button 
-              className="w-full text-left px-2 py-1 hover:bg-[#2a2b2b] hover:text-on-surface flex items-center gap-1 transition-colors"
-              onClick={() => {
-                const target = activeFileMenu.fileName;
-                setActiveFileMenu(null);
-                handleRenameFile(target);
-              }}
-            >
-              <span className="material-symbols-outlined text-[13px]">edit</span>
-              <span>Rename...</span>
-            </button>
-            <button 
-              className="w-full text-left px-2 py-1 hover:bg-accent-red/20 hover:text-accent-red text-accent-red flex items-center gap-1 transition-colors border-t border-[#2b2b2b]"
-              onClick={() => {
-                const target = activeFileMenu.fileName;
-                setActiveFileMenu(null);
-                handleDeleteFile(target);
-              }}
-            >
-              <span className="material-symbols-outlined text-[13px]">delete</span>
-              <span>Delete</span>
-            </button>
-          </div>
-        </>
-      )}
-
-      {/* Delete File Confirmation Modal */}
-      {deleteConfirmFile && (
-        <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center backdrop-blur-sm">
-          <div className="w-full max-w-[400px] bg-[#1b1c1c] border border-border-default rounded-radius-lg p-6 shadow-2xl space-y-4">
-            <div className="flex justify-between items-center border-b border-[#2b2b2b] pb-3">
-              <h3 className="text-text-base font-semibold text-on-surface">
-                {isLastFileWarning ? 'Cannot Delete' : 'Confirm Delete'}
-              </h3>
-              <button onClick={() => { setDeleteConfirmFile(null); setIsLastFileWarning(false); }} className="text-text-muted hover:text-text-primary">
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-
-            <p className="text-text-secondary text-text-sm leading-relaxed">
-              {isLastFileWarning
-                ? 'Workspace must contain at least one file. You cannot delete the last remaining file.'
-                : <>Are you sure you want to delete <span className="font-semibold text-on-surface">{deleteConfirmFile}</span>? This action cannot be undone.</>
-              }
-            </p>
-
-            <div className="flex justify-end gap-1.5 pt-3 border-t border-[#2b2b2b]">
-              {isLastFileWarning ? (
-                <button
-                  type="button"
-                  onClick={() => { setDeleteConfirmFile(null); setIsLastFileWarning(false); }}
-                  className="px-2 py-1.5 bg-accent-blue text-white rounded-md text-text-sm hover:opacity-90 transition-colors"
-                >
-                  Got it
-                </button>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => { setDeleteConfirmFile(null); setIsLastFileWarning(false); }}
-                    className="px-2 py-1.5 border border-[#404751] text-on-surface rounded-md text-text-sm hover:bg-[#252626]"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleConfirmDelete}
-                    className="px-2 py-1.5 bg-accent-red text-white rounded-md text-text-sm hover:opacity-90 transition-colors"
-                  >
-                    Delete
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Admin lock overlay notifications */}
+{/* Admin lock overlay notifications */}
       {mutedByLeaderMsg && (
         <div className="fixed bottom-24 left-6 z-50 bg-[#1b1c1c] border-l-4 border-accent-red px-2 py-1.5 rounded-lg shadow-2xl max-w-sm">
           <div className="flex items-center gap-1 text-accent-red font-semibold text-sm">
