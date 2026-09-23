@@ -886,7 +886,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
   return (
     <div className="bg-surface text-on-surface font-ui overflow-hidden h-screen flex flex-col select-none">
       {/* Top Bar (56px) */}
-      <header className="h-[56px] shrink-0 bg-surface border-b border-outline-subtle flex items-center justify-between px-4 z-40">
+      <header className="h-top-bar-height shrink-0 bg-surface border-b border-outline-subtle flex items-center justify-between px-4 z-40">
         <div className="flex items-center gap-1">
           <div className="flex items-center cursor-pointer" onClick={() => { leaveVoice(); onBack(); }}>
             <img src="/logo.png" className="h-10 object-contain" alt="CollabIDE Logo" />
@@ -1021,7 +1021,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
       {/* Main container */}
       <div className="flex flex-1 overflow-hidden">
         {/* Activity Bar (48px) */}
-        <aside className="w-[40px] h-full flex flex-col items-center py-2 bg-surface-base border-r border-outline-subtle shrink-0">
+        <aside className="w-activity-bar-width h-full flex flex-col items-center py-2 bg-surface-base border-r border-outline-subtle shrink-0">
           <div className="flex flex-col gap-2 w-full items-center">
             <button
               className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${

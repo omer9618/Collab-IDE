@@ -265,7 +265,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
   return (
     <div className="h-screen flex flex-col bg-bg-base text-text-primary font-ui overflow-hidden">
       {/* Top Bar (56px) */}
-      <header className="h-[56px] shrink-0 bg-surface border-b border-outline-subtle flex items-center justify-between px-4 z-50">
+      <header className="h-top-bar-height shrink-0 bg-surface border-b border-outline-subtle flex items-center justify-between px-4 z-50">
         <div className="flex items-center cursor-pointer" onClick={() => window.location.href = '/'}>
           <img src="/logo.png" className="h-10 object-contain" alt="CollabIDE Logo" />
         </div>
@@ -283,7 +283,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
       {/* Main container */}
       <div className="flex flex-1 overflow-hidden">
         {/* Activity Bar (56px) */}
-        <aside className="w-[56px] bg-surface-base border-r border-outline-subtle flex flex-col items-center py-4 shrink-0">
+        <aside className="w-activity-bar-width bg-surface-base border-r border-outline-subtle flex flex-col items-center py-4 shrink-0">
           <div className="flex flex-col gap-4 w-full items-center flex-1">
             <button
               className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${
@@ -321,7 +321,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
 
         {/* Sidebar (240px) */}
         {sidebarOpen && (
-        <aside className="w-[240px] bg-surface-panel border-r border-outline-subtle flex flex-col shrink-0">
+        <aside className="w-sidebar-width bg-surface-panel border-r border-outline-subtle flex flex-col shrink-0">
           {/* Profile Panel */}
           <div
             className="p-4 border-b border-outline-subtle cursor-pointer hover:bg-surface-elevated transition-colors group"
