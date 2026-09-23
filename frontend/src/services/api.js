@@ -218,10 +218,10 @@ export async function resetPassword({ token, newPassword }) {
   return data;
 }
 
-export async function updateProfile({ displayName, avatarColor }) {
+export async function updateProfile({ displayName, avatarColor, preferences }) {
   const res = await request('/auth/profile', {
     method: 'PUT',
-    body: JSON.stringify({ displayName, avatarColor }),
+    body: JSON.stringify({ displayName, avatarColor, preferences }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || 'Failed to update profile');

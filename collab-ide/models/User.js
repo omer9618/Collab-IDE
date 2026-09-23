@@ -23,6 +23,14 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: '#89b4fa',
     },
+    preferences: {
+      fontSize: {
+        type: Number,
+        default: 14,
+        min: 10,
+        max: 32,
+      },
+    },
     googleId: {
       type: String,
       unique: true,

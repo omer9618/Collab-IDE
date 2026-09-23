@@ -16,6 +16,7 @@ import {
   closeRoom,
   openRoom,
   deleteRoom,
+  updateProfile,
 } from '../services/api';
 import {
   Folder,
@@ -40,6 +41,10 @@ import {
   X,
   PanelRightClose,
   PanelRightOpen,
+  Minus,
+  Plus,
+  Type,
+  RotateCcw,
 } from 'lucide-react';
 
 // WhatsApp strategy color palette for distinguishable user colors in group chat (contrasty in dark mode)
@@ -115,7 +120,7 @@ function buildFileTree(files) {
   return root;
 }
 
-export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) {
+export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, onUserUpdate }) {
   const [room, setRoom] = useState(null);
   const [joinedRooms, setJoinedRooms] = useState([]);
   const [showRoomDropdown, setShowRoomDropdown] = useState(false);
@@ -164,10 +169,55 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
   const [leftPanelWidth, setLeftPanelWidth] = useState(200);
   const [rightPanelWidth, setRightPanelWidth] = useState(200);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [settingsTab, setSettingsTab] = useState('editor'); // 'editor' | 'room'
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showRoomDeletedModal, setShowRoomDeletedModal] = useState(false);
   const [settingsError, setSettingsError] = useState('');
   const [consoleTab, setConsoleTab] = useState('output'); // output, terminal, problems
+
+  // Editor font size state and persistence (FR-26)
+  const [editorFontSize, setEditorFontSize] = useState(() => {
+    const saved = localStorage.getItem('collabide_editor_font_size');
+    if (saved && !isNaN(Number(saved))) {
+      return Number(saved);
+    }
+    return user?.preferences?.fontSize || 14;
+  });
+  const [fontSizeSaving, setFontSizeSaving] = useState(false);
+  const [fontSizeSuccess, setFontSizeSuccess] = useState(false);
+
+  // Sync if user.preferences.fontSize changes externally
+  useEffect(() => {
+    if (user?.preferences?.fontSize && user.preferences.fontSize !== editorFontSize) {
+      const dbSize = user.preferences.fontSize;
+      setEditorFontSize(dbSize);
+      localStorage.setItem('collabide_editor_font_size', dbSize.toString());
+      editorRef.current?.updateOptions({ fontSize: dbSize });
+    }
+  }, [user?.preferences?.fontSize]);
+
+  const handleFontSizeChange = async (newSize) => {
+    const clampedSize = Math.max(10, Math.min(32, Math.round(newSize)));
+    setEditorFontSize(clampedSize);
+    localStorage.setItem('collabide_editor_font_size', clampedSize.toString());
+    editorRef.current?.updateOptions({ fontSize: clampedSize });
+
+    try {
+      setFontSizeSaving(true);
+      const updatedUser = await updateProfile({
+        preferences: { fontSize: clampedSize }
+      });
+      if (onUserUpdate) {
+        onUserUpdate(updatedUser);
+      }
+      setFontSizeSuccess(true);
+      setTimeout(() => setFontSizeSuccess(false), 2000);
+    } catch (err) {
+      console.error('Failed to persist editor font size:', err);
+    } finally {
+      setFontSizeSaving(false);
+    }
+  };
 
   // Code run/output
   const [outputLines, setOutputLines] = useState([]);
@@ -1240,15 +1290,16 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
           </div>
 
           <div className="mt-auto flex flex-col gap-2 w-full items-center">
-            {role === 'Owner' && (
-              <button 
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] transition-colors" 
-                title="Settings"
-                onClick={() => setShowSettingsModal(true)}
-              >
-                <Settings size={18} />
-              </button>
-            )}
+            <button 
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] transition-colors" 
+              title="Settings"
+              onClick={() => {
+                setSettingsTab('editor');
+                setShowSettingsModal(true);
+              }}
+            >
+              <Settings size={18} />
+            </button>
             <button
               className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-accent-red hover:bg-red-950/30 transition-colors"
               onClick={() => { leaveVoice(); onBack(); }}
@@ -1573,7 +1624,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
                 loading="Loading Editor Workspace..."
                 onMount={handleEditorDidMount}
                 options={{
-                  fontSize: 14,
+                  fontSize: editorFontSize,
                   fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
                   minimap: { enabled: false },
                   smoothScrolling: true,
@@ -2141,56 +2192,171 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
         </div>
       )}
 
-      {/* Room Settings Modal */}
+      {/* Settings Modal (FR-26 & Room Management) */}
       {showSettingsModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-surface-panel border border-outline-subtle w-full max-w-sm rounded-xl overflow-hidden shadow-2xl flex flex-col">
-            <div className="px-5 py-4 border-b border-outline-subtle flex items-center justify-between">
-              <h2 className="text-text-lg font-bold text-on-surface">Room Settings</h2>
+          <div className="bg-surface-panel border border-outline-subtle w-full max-w-md rounded-xl overflow-hidden shadow-2xl flex flex-col">
+            <div className="px-5 py-3.5 border-b border-outline-subtle flex items-center justify-between bg-[#121414]/60">
+              <div className="flex items-center gap-2">
+                <Settings size={18} className="text-accent-blue" />
+                <h2 className="text-text-base font-bold text-on-surface">Settings</h2>
+              </div>
               <button 
                 className="p-1 rounded-md text-on-surface-muted hover:bg-surface-elevated hover:text-on-surface transition-colors"
                 onClick={() => setShowSettingsModal(false)}
+                title="Close (Esc)"
               >
                 <X size={18} />
               </button>
             </div>
-            
-            <div className="p-5 flex flex-col gap-4">
-              <div className="flex flex-col gap-1">
-                <h3 className="text-text-sm font-semibold text-on-surface">{room?.isClosed ? 'Re-open Room' : 'Close Room'}</h3>
-                <p className="text-[11px] text-on-surface-muted">
-                  {room?.isClosed 
-                    ? 'Re-opening the room will restore write access to editors and allow voice collaboration.' 
-                    : 'Closing the room will lock the editor for all participants and disconnect active voice sessions.'}
-                </p>
+
+            {/* Tabs for Room Owner */}
+            {role === 'Owner' && (
+              <div className="flex border-b border-outline-subtle bg-[#151617] px-5 pt-2">
                 <button
-                  className="mt-2 px-4 py-2 bg-surface-elevated border border-outline hover:border-accent-blue rounded-md text-text-sm font-medium text-on-surface transition-colors"
-                  onClick={async () => {
-                    try {
-                      if (room?.isClosed) {
-                        await openRoom(roomUuid);
-                      } else {
-                        await closeRoom(roomUuid);
-                      }
-                      setShowSettingsModal(false);
-                    } catch (err) {
-                      setSettingsError(err.message);
-                    }
-                  }}
+                  type="button"
+                  onClick={() => setSettingsTab('editor')}
+                  className={`pb-2 px-3 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+                    settingsTab === 'editor'
+                      ? 'border-accent-blue text-accent-blue'
+                      : 'border-transparent text-on-surface-muted hover:text-on-surface'
+                  }`}
                 >
-                  {room?.isClosed ? 'Re-open Room' : 'Close Room'}
+                  <Type size={14} /> Editor Preferences
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSettingsTab('room')}
+                  className={`pb-2 px-3 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+                    settingsTab === 'room'
+                      ? 'border-accent-blue text-accent-blue'
+                      : 'border-transparent text-on-surface-muted hover:text-on-surface'
+                  }`}
+                >
+                  <Lock size={14} /> Room Management
                 </button>
               </div>
+            )}
+            
+            <div className="p-5 flex flex-col gap-4">
+              {/* Tab 1: Editor Preferences (FR-26) */}
+              {(settingsTab === 'editor' || role !== 'Owner') && (
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-semibold text-on-surface uppercase tracking-wider flex items-center gap-1.5">
+                        <Type size={14} className="text-accent-blue" />
+                        Editor Font Size
+                      </label>
+                      <div className="flex items-center gap-2">
+                        {fontSizeSuccess && (
+                          <span className="text-[11px] text-accent-green font-medium animate-fade-in">
+                            Saved!
+                          </span>
+                        )}
+                        <span className="px-2 py-0.5 rounded bg-accent-blue/15 border border-accent-blue/30 text-accent-blue font-mono font-bold text-xs">
+                          {editorFontSize}px
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-on-surface-muted mb-3">
+                      Adjust your Monaco editor code size. Setting persists automatically to your profile.
+                    </p>
 
-              {settingsError && (
-                <div className="bg-red-900/50 border border-red-500/50 text-red-200 px-3 py-2 rounded-md mb-2 flex items-center justify-between text-[11px]">
-                  <span>{settingsError}</span>
-                  <button onClick={() => setSettingsError('')} className="text-red-300 hover:text-white">✕</button>
+                    {/* Stepper + Slider */}
+                    <div className="flex items-center gap-3 bg-[#121414] p-3 rounded-lg border border-[#2b2b2b]">
+                      <button
+                        type="button"
+                        onClick={() => handleFontSizeChange(editorFontSize - 1)}
+                        disabled={editorFontSize <= 10 || fontSizeSaving}
+                        className="w-8 h-8 rounded-md bg-[#252626] hover:bg-[#2e3032] disabled:opacity-30 disabled:hover:bg-[#252626] text-on-surface flex items-center justify-center transition-colors shadow-sm"
+                        title="Decrease font size (-1px)"
+                      >
+                        <Minus size={14} />
+                      </button>
+
+                      <input
+                        type="range"
+                        min={10}
+                        max={32}
+                        step={1}
+                        value={editorFontSize}
+                        onChange={(e) => handleFontSizeChange(Number(e.target.value))}
+                        className="flex-1 accent-accent-blue cursor-pointer h-1.5 bg-[#2b2b2b] rounded-lg"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => handleFontSizeChange(editorFontSize + 1)}
+                        disabled={editorFontSize >= 32 || fontSizeSaving}
+                        className="w-8 h-8 rounded-md bg-[#252626] hover:bg-[#2e3032] disabled:opacity-30 disabled:hover:bg-[#252626] text-on-surface flex items-center justify-center transition-colors shadow-sm"
+                        title="Increase font size (+1px)"
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
+
+                    {/* Quick Preset Chips */}
+                    <div className="flex items-center gap-1.5 mt-2.5 flex-wrap">
+                      <span className="text-[11px] text-on-surface-muted mr-1">Presets:</span>
+                      {[
+                        { label: '12px', val: 12 },
+                        { label: '14px (Default)', val: 14 },
+                        { label: '16px', val: 16 },
+                        { label: '18px', val: 18 },
+                        { label: '20px', val: 20 },
+                        { label: '24px', val: 24 }
+                      ].map((preset) => (
+                        <button
+                          key={preset.val}
+                          type="button"
+                          onClick={() => handleFontSizeChange(preset.val)}
+                          className={`px-2.5 py-1 rounded text-[11px] font-medium transition-all ${
+                            editorFontSize === preset.val
+                              ? 'bg-accent-blue text-white shadow-sm'
+                              : 'bg-[#1e2022] hover:bg-[#26282b] text-on-surface-muted hover:text-on-surface border border-outline-subtle'
+                          }`}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Live Preview Box */}
+                    <div className="mt-4 p-3 rounded-lg bg-[#121414] border border-[#2b2b2b] overflow-hidden">
+                      <div className="text-[10px] uppercase font-semibold text-on-surface-muted mb-1.5 flex items-center justify-between">
+                        <span>Live Code Preview</span>
+                        <span className="font-mono text-accent-blue">{editorFontSize}px</span>
+                      </div>
+                      <pre
+                        className="font-mono text-on-surface leading-relaxed select-none overflow-x-auto custom-scrollbar p-2 rounded bg-[#0d0e0f]"
+                        style={{ fontSize: `${editorFontSize}px`, fontFamily: "'JetBrains Mono', 'Fira Code', monospace" }}
+                      >
+                        <span className="text-purple-400">function</span> <span className="text-blue-400">calculateMetrics</span>(<span>items</span>) &#123;{'\n'}
+                        {'  '}<span className="text-purple-400">return</span> items.<span className="text-blue-400">map</span>(<span>x</span> =&gt; x * <span className="text-amber-400">2</span>);{'\n'}
+                        &#125;
+                      </pre>
+                    </div>
+
+                    {/* Reset Button */}
+                    {editorFontSize !== 14 && (
+                      <div className="flex justify-end mt-3">
+                        <button
+                          type="button"
+                          onClick={() => handleFontSizeChange(14)}
+                          className="text-xs text-on-surface-muted hover:text-accent-blue flex items-center gap-1 transition-colors"
+                        >
+                          <RotateCcw size={12} /> Reset to Default (14px)
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
-              
-              {!showDeleteConfirm ? (
-                <>
+
+              {/* Tab 2: Room Management (Owner Only) */}
+              {role === 'Owner' && settingsTab === 'room' && (
+                <div className="flex flex-col gap-4">
                   <div className="flex flex-col gap-1">
                     <h3 className="text-text-sm font-semibold text-on-surface">{room?.isClosed ? 'Re-open Room' : 'Close Room'}</h3>
                     <p className="text-[11px] text-on-surface-muted">
@@ -2217,51 +2383,62 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
                     </button>
                   </div>
 
-                  <div className="h-px w-full bg-outline-subtle my-2" />
+                  {settingsError && (
+                    <div className="bg-red-900/50 border border-red-500/50 text-red-200 px-3 py-2 rounded-md mb-2 flex items-center justify-between text-[11px]">
+                      <span>{settingsError}</span>
+                      <button onClick={() => setSettingsError('')} className="text-red-300 hover:text-white">✕</button>
+                    </div>
+                  )}
 
-                  <div className="flex flex-col gap-1">
-                    <h3 className="text-text-sm font-semibold text-red-500">Danger Zone</h3>
-                    <p className="text-[11px] text-on-surface-muted">
-                      Permanently delete this room, its code, and execution history.
-                    </p>
-                    <button
-                      className="mt-2 px-4 py-2 bg-red-950/30 border border-red-900/50 hover:bg-red-900/40 rounded-md text-text-sm font-medium text-red-400 transition-colors flex items-center justify-center gap-2"
-                      onClick={() => setShowDeleteConfirm(true)}
-                    >
-                      <Trash2 size={16} /> Delete Room
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-2 text-red-500 mb-1">
-                    <Trash2 size={20} />
-                    <h3 className="text-text-base font-bold">Are you absolutely sure?</h3>
-                  </div>
-                  <p className="text-[12px] text-on-surface-muted leading-relaxed">
-                    This will permanently delete the room, disconnecting all participants and wiping all code history. This action cannot be undone.
-                  </p>
-                  <div className="flex justify-end gap-2 mt-2">
-                    <button
-                      className="px-4 py-2 rounded-md text-text-sm font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-elevated transition-colors"
-                      onClick={() => { setShowDeleteConfirm(false); setSettingsError(''); }}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-md text-text-sm font-medium transition-colors"
-                      onClick={async () => {
-                        try {
-                          await deleteRoom(roomUuid);
-                          setShowSettingsModal(false);
-                        } catch (err) {
-                          setSettingsError(err.message);
-                        }
-                      }}
-                    >
-                      Yes, delete it
-                    </button>
-                  </div>
+                  {!showDeleteConfirm ? (
+                    <>
+                      <div className="h-px w-full bg-outline-subtle my-1" />
+
+                      <div className="flex flex-col gap-1">
+                        <h3 className="text-text-sm font-semibold text-red-500">Danger Zone</h3>
+                        <p className="text-[11px] text-on-surface-muted">
+                          Permanently delete this room, its code, and execution history.
+                        </p>
+                        <button
+                          className="mt-2 px-4 py-2 bg-red-950/30 border border-red-900/50 hover:bg-red-900/40 rounded-md text-text-sm font-medium text-red-400 transition-colors flex items-center justify-center gap-2"
+                          onClick={() => setShowDeleteConfirm(true)}
+                        >
+                          <Trash2 size={16} /> Delete Room
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center gap-2 text-red-500 mb-1">
+                        <Trash2 size={20} />
+                        <h3 className="text-text-base font-bold">Are you absolutely sure?</h3>
+                      </div>
+                      <p className="text-[12px] text-on-surface-muted leading-relaxed">
+                        This will permanently delete the room, disconnecting all participants and wiping all code history. This action cannot be undone.
+                      </p>
+                      <div className="flex justify-end gap-2 mt-2">
+                        <button
+                          className="px-4 py-2 rounded-md text-text-sm font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-elevated transition-colors"
+                          onClick={() => { setShowDeleteConfirm(false); setSettingsError(''); }}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-md text-text-sm font-medium transition-colors"
+                          onClick={async () => {
+                            try {
+                              await deleteRoom(roomUuid);
+                              setShowSettingsModal(false);
+                            } catch (err) {
+                              setSettingsError(err.message);
+                            }
+                          }}
+                        >
+                          Yes, delete it
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -247,6 +247,7 @@ router.post('/login', authLimiter, ipBruteForceLimiter, async (req, res) => {
         email: user.email,
         displayName: user.displayName,
         avatarColor: user.avatarColor,
+        preferences: user.preferences || { fontSize: 14 },
       },
     });
   } catch (error) {
@@ -504,6 +505,7 @@ router.get('/me', protect, async (req, res) => {
         email: user.email,
         displayName: user.displayName,
         avatarColor: user.avatarColor,
+        preferences: user.preferences || { fontSize: 14 },
         isVerified: user.isVerified,
         pendingEmail: user.pendingEmail || null,
         pendingEmailExpires: user.pendingEmailExpires || null,
@@ -516,11 +518,11 @@ router.get('/me', protect, async (req, res) => {
 });
 
 // @route   PUT /api/auth/profile
-// @desc    Update user display name and/or avatar color (FR-08)
+// @desc    Update user display name, avatar color, and preferences (FR-08 & FR-26)
 // @access  Private
 router.put('/profile', protect, async (req, res) => {
   try {
-    const { displayName, avatarColor } = req.body;
+    const { displayName, avatarColor, preferences } = req.body;
     const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -544,6 +546,23 @@ router.put('/profile', protect, async (req, res) => {
       user.avatarColor = avatarColor;
     }
 
+    if (preferences !== undefined) {
+      if (typeof preferences !== 'object' || preferences === null || Array.isArray(preferences)) {
+        return res.status(400).json({ message: 'Preferences must be an object' });
+      }
+      if (preferences.fontSize !== undefined) {
+        const fontSize = Number(preferences.fontSize);
+        if (!Number.isInteger(fontSize) || fontSize < 10 || fontSize > 32) {
+          return res.status(400).json({ message: 'Font size must be an integer between 10 and 32' });
+        }
+        if (!user.preferences) {
+          user.preferences = {};
+        }
+        user.preferences.fontSize = fontSize;
+        user.markModified('preferences');
+      }
+    }
+
     await user.save();
 
     res.json({
@@ -554,6 +573,7 @@ router.put('/profile', protect, async (req, res) => {
         email: user.email,
         displayName: user.displayName,
         avatarColor: user.avatarColor,
+        preferences: user.preferences || { fontSize: 14 },
         isVerified: user.isVerified,
         pendingEmail: user.pendingEmail || null,
       },

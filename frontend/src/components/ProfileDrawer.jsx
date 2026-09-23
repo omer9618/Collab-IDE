@@ -64,6 +64,29 @@ export default function ProfileDrawer({
   const [revokingId, setRevokingId] = useState(null);
   const [viewAllSessions, setViewAllSessions] = useState(false);
 
+  // Editor Font Size State (FR-26)
+  const [fontSizeSaving, setFontSizeSaving] = useState(false);
+  const [fontSizeSuccess, setFontSizeSuccess] = useState(false);
+  const currentFontSize = user?.preferences?.fontSize || 14;
+
+  const handleFontSizeChange = async (newSize) => {
+    const clampedSize = Math.max(10, Math.min(32, Math.round(newSize)));
+    localStorage.setItem('collabide_editor_font_size', clampedSize.toString());
+    try {
+      setFontSizeSaving(true);
+      const updated = await updateProfile({
+        preferences: { fontSize: clampedSize }
+      });
+      onUserUpdate?.(updated);
+      setFontSizeSuccess(true);
+      setTimeout(() => setFontSizeSuccess(false), 2000);
+    } catch (err) {
+      console.error('Failed to update font size:', err);
+    } finally {
+      setFontSizeSaving(false);
+    }
+  };
+
   useEffect(() => {
     if (user) {
       setDisplayName(user.displayName || '');
@@ -398,7 +421,101 @@ export default function ProfileDrawer({
             </div>
           </div>
 
-          {/* Section 4: Email Address & Re-verification */}
+          {/* Section 4: Editor Preferences (FR-26) */}
+          <div className="space-y-2.5 pt-2 border-t border-[#2b2b2b]">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-sm text-accent-blue">format_size</span>
+                Editor Font Size
+              </label>
+              <div className="flex items-center gap-2">
+                {fontSizeSuccess && (
+                  <span className="text-[11px] text-accent-green font-medium animate-fade-in">
+                    Saved!
+                  </span>
+                )}
+                <span className="px-2 py-0.5 rounded bg-accent-blue/15 border border-accent-blue/30 text-accent-blue font-mono font-bold text-xs">
+                  {currentFontSize}px
+                </span>
+              </div>
+            </div>
+            <p className="text-[11px] text-text-muted">
+              Choose your preferred code editor font size. Changes persist across sessions.
+            </p>
+
+            {/* Stepper + Slider */}
+            <div className="flex items-center gap-3 bg-[#121414] p-3 rounded-lg border border-[#2b2b2b]">
+              <button
+                type="button"
+                onClick={() => handleFontSizeChange(currentFontSize - 1)}
+                disabled={currentFontSize <= 10 || fontSizeSaving}
+                className="w-7 h-7 rounded-md bg-[#252626] hover:bg-[#2e3032] disabled:opacity-30 text-text-primary flex items-center justify-center transition-colors"
+                title="Decrease font size (-1px)"
+              >
+                <span className="material-symbols-outlined text-base">remove</span>
+              </button>
+
+              <input
+                type="range"
+                min={10}
+                max={32}
+                step={1}
+                value={currentFontSize}
+                onChange={(e) => handleFontSizeChange(Number(e.target.value))}
+                className="flex-1 accent-accent-blue cursor-pointer h-1.5 bg-[#2b2b2b] rounded-lg"
+              />
+
+              <button
+                type="button"
+                onClick={() => handleFontSizeChange(currentFontSize + 1)}
+                disabled={currentFontSize >= 32 || fontSizeSaving}
+                className="w-7 h-7 rounded-md bg-[#252626] hover:bg-[#2e3032] disabled:opacity-30 text-text-primary flex items-center justify-center transition-colors"
+                title="Increase font size (+1px)"
+              >
+                <span className="material-symbols-outlined text-base">add</span>
+              </button>
+            </div>
+
+            {/* Preset chips */}
+            <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
+              {[
+                { label: '12px', val: 12 },
+                { label: '14px (Default)', val: 14 },
+                { label: '16px', val: 16 },
+                { label: '18px', val: 18 },
+                { label: '20px', val: 20 },
+              ].map((preset) => (
+                <button
+                  key={preset.val}
+                  type="button"
+                  onClick={() => handleFontSizeChange(preset.val)}
+                  className={`px-2.5 py-0.5 rounded text-[11px] font-medium transition-all ${
+                    currentFontSize === preset.val
+                      ? 'bg-accent-blue text-white shadow-sm'
+                      : 'bg-[#121414] hover:bg-[#1f2020] text-text-muted hover:text-text-primary border border-[#2b2b2b]'
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Live code preview box */}
+            <div className="p-2.5 rounded-lg bg-[#121414] border border-[#2b2b2b] overflow-hidden">
+              <div className="text-[10px] uppercase font-semibold text-text-muted mb-1 flex items-center justify-between">
+                <span>Preview</span>
+                <span className="font-mono text-accent-blue text-[10px]">{currentFontSize}px</span>
+              </div>
+              <pre
+                className="font-mono text-text-primary leading-relaxed select-none overflow-x-auto custom-scrollbar p-1.5 rounded bg-[#0d0e0f]"
+                style={{ fontSize: `${currentFontSize}px`, fontFamily: "'JetBrains Mono', 'Fira Code', monospace" }}
+              >
+                <span className="text-purple-400">const</span> <span className="text-blue-400">welcome</span> = <span className="text-emerald-400">"CollabIDE"</span>;
+              </pre>
+            </div>
+          </div>
+
+          {/* Section 5: Email Address & Re-verification */}
           <div className="space-y-3 pt-2 border-t border-[#2b2b2b]">
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-text-muted uppercase tracking-wider">

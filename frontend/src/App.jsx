@@ -130,6 +130,7 @@ export default function App() {
           user={user}
           roomUuid={roomUuid}
           onBack={handleBackToDashboard}
+          onUserUpdate={handleUserUpdate}
         />
       );
     }
