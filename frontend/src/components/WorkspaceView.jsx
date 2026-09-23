@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import * as Y from 'yjs';
+import { useVoiceRoom } from '../hooks/useVoiceRoom';
+import VoiceDeviceMenu from './VoiceDeviceMenu';
 import { WebsocketProvider } from 'y-websocket';
 import { io } from 'socket.io-client';
 import {
@@ -175,17 +177,6 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
 
-  // Voice channel states
-  const [inVoice, setInVoice] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [voiceParticipants, setVoiceParticipants] = useState([]);
-  const [editorOnlyMode, setEditorOnlyMode] = useState(false);
-  const [localStream, setLocalStream] = useState(null);
-  const [mutedByLeaderMsg, setMutedByLeaderMsg] = useState('');
-  const [activeSpeakerSocketId, setActiveSpeakerSocketId] = useState(null);
-  const [isAuthReady, setIsAuthReady] = useState(false);
-  const [activeWorkspaceUsers, setActiveWorkspaceUsers] = useState([]);
-
   // Refs for Yjs and peer connections
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
@@ -197,6 +188,30 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
   const roomRef = useRef(null);
   const isCommittingFileRef = useRef(false);
   const audioElementsRef = useRef(new Map()); // socketId -> HTMLAudioElement
+
+  const [showVoiceSettings, setShowVoiceSettings] = useState(false);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [activeWorkspaceUsers, setActiveWorkspaceUsers] = useState([]);
+
+  const voice = useVoiceRoom({ roomUuid, showToast });
+  const {
+    inVoice,
+    localStream,
+    voiceParticipants,
+    isMuted,
+    mutedByLeaderMsg,
+    editorOnlyMode,
+    activeSpeakerSocketId,
+    joinVoice,
+    leaveVoice,
+    toggleMuteSelf,
+    toggleEditorOnlyVoice,
+    handleMuteAll,
+    handleHardMuteParticipant,
+    selectedMicId,
+    selectedSpeakerId,
+    updateDevices
+  } = voice;
 
   // REST details refresh
   useEffect(() => {
@@ -855,227 +870,6 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
     setChatInput('');
   };
 
-  // ─── WebRTC VOICE SIGNALLING ────────────────────────────────────────────────
-
-  const joinVoice = async () => {
-    if (inVoice) return;
-    setMutedByLeaderMsg('');
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      setLocalStream(stream);
-
-      // This REST call auto-refreshes the JWT if expired (via request() in api.js)
-      const credsData = await getVoiceCredentials(roomUuid);
-
-      // Read the (possibly refreshed) token AFTER the API call
-      const freshToken = getToken();
-      console.log('[Voice] Token available:', !!freshToken, 'length:', freshToken?.length);
-
-      // Connect to Voice (support direct Vite dev on 5173, Nginx reverse proxy on 80/443, and cloud deployment)
-      const isViteDev = window.location.port === '5173';
-      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      const backendUrl = isViteDev 
-        ? 'http://localhost:3000' 
-        : (isLocal ? window.location.origin : 'https://collabide-backend-avau.onrender.com');
-
-      const socket = io(backendUrl + '/voice', {
-        auth: { token: freshToken },
-        transports: ['websocket'],
-        forceNew: true,
-        timeout: 10000,
-        reconnection: false,
-      });
-      voiceSocketRef.current = socket;
-
-      socket.on('connect', () => {
-        console.log('[Voice] Connected successfully, socket id:', socket.id);
-        socket.emit('voice:join', { roomUuid });
-        setInVoice(true);
-      });
-
-      socket.on('connect_error', (err) => {
-        console.error('[Voice] Connection error:', err.message, err);
-        leaveVoice();
-      });
-
-      socket.on('voice:participant-joined', async ({ joined, participants }) => {
-        setVoiceParticipants(participants);
-        if (joined.socketId !== socket.id) {
-          const pc = createPeerConnection(joined.socketId, stream, credsData.iceServers);
-          const offer = await pc.createOffer();
-          await pc.setLocalDescription(offer);
-          socket.emit('voice:offer', { to: joined.socketId, sdp: offer });
-        }
-      });
-
-      socket.on('voice:participant-left', ({ socketId, participants }) => {
-        setVoiceParticipants(participants);
-        closePeerConnection(socketId);
-      });
-
-      socket.on('voice:offer', async ({ from, sdp }) => {
-        const pc = createPeerConnection(from, stream, credsData.iceServers);
-        await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        socket.emit('voice:answer', { to: from, sdp: answer });
-      });
-
-      socket.on('voice:answer', async ({ from, sdp }) => {
-        const pc = peerConnectionsRef.current.get(from);
-        if (pc) {
-          await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-        }
-      });
-
-      socket.on('voice:ice-candidate', async ({ from, candidate }) => {
-        const pc = peerConnectionsRef.current.get(from);
-        if (pc) {
-          await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        }
-      });
-
-      socket.on('voice:mute-changed', ({ socketId, isMuted: muted, isHardMuted }) => {
-        setVoiceParticipants((prev) =>
-          prev.map((p) => (p.socketId === socketId ? { ...p, isMuted: muted, isHardMuted } : p))
-        );
-        // If this mute change targets our own socket, sync actual mic track
-        if (socketId === socket.id && muted) {
-          setIsMuted(true);
-          stream.getAudioTracks().forEach((track) => (track.enabled = false));
-        }
-      });
-
-      socket.on('voice:muted-by-leader', ({ by, hard, message }) => {
-        setMutedByLeaderMsg(message);
-        setIsMuted(true);
-        stream.getAudioTracks().forEach((track) => (track.enabled = false));
-      });
-
-      socket.on('voice:participants-update', ({ participants }) => {
-        setVoiceParticipants(participants);
-        // Sync actual mic track state when remote mute-all is received
-        const myEntry = participants.find(p => p.socketId === socket.id);
-        if (myEntry && myEntry.isMuted) {
-          setIsMuted(true);
-          stream.getAudioTracks().forEach((track) => (track.enabled = false));
-        }
-      });
-
-      socket.on('voice:room-settings', ({ editorOnlyMode }) => {
-        setEditorOnlyMode(editorOnlyMode);
-      });
-
-      // Simple mock indicator for active speaker
-      socket.on('voice:speaker-active', ({ socketId }) => {
-        setActiveSpeakerSocketId(socketId);
-      });
-
-      socket.on('voice:error', ({ message }) => {
-        showToast(message, 'error');
-      });
-
-    } catch (err) {
-      showToast(`Could not access microphone: ${err.message}`, 'error');
-    }
-  };
-
-  const leaveVoice = () => {
-    if (localStream) {
-      localStream.getTracks().forEach((track) => track.stop());
-      setLocalStream(null);
-    }
-    if (voiceSocketRef.current) {
-      voiceSocketRef.current.disconnect();
-      voiceSocketRef.current = null;
-    }
-    peerConnectionsRef.current.forEach((pc) => pc.close());
-    peerConnectionsRef.current.clear();
-    audioElementsRef.current.forEach((audio) => audio.remove());
-    audioElementsRef.current.clear();
-    setInVoice(false);
-    setVoiceParticipants([]);
-    setActiveSpeakerSocketId(null);
-  };
-
-  const createPeerConnection = (peerSocketId, stream, iceServers) => {
-    const pc = new RTCPeerConnection({ iceServers });
-    peerConnectionsRef.current.set(peerSocketId, pc);
-
-    stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-
-    pc.onicecandidate = (event) => {
-      if (event.candidate && voiceSocketRef.current) {
-        voiceSocketRef.current.emit('voice:ice-candidate', {
-          to: peerSocketId,
-          candidate: event.candidate,
-        });
-      }
-    };
-
-    pc.ontrack = (event) => {
-      const peerStream = event.streams[0];
-      let audio = audioElementsRef.current.get(peerSocketId);
-      if (!audio) {
-        audio = document.createElement('audio');
-        audio.autoplay = true;
-        audio.style.display = 'none';
-        document.body.appendChild(audio);
-        audioElementsRef.current.set(peerSocketId, audio);
-      }
-      audio.srcObject = peerStream;
-    };
-
-    return pc;
-  };
-
-  const closePeerConnection = (peerSocketId) => {
-    const pc = peerConnectionsRef.current.get(peerSocketId);
-    if (pc) {
-      pc.close();
-      peerConnectionsRef.current.delete(peerSocketId);
-    }
-    const audio = audioElementsRef.current.get(peerSocketId);
-    if (audio) {
-      audio.remove();
-      audioElementsRef.current.delete(peerSocketId);
-    }
-  };
-
-  const toggleMuteSelf = () => {
-    if (!localStream || !voiceSocketRef.current) return;
-    const nextMute = !isMuted;
-    setIsMuted(nextMute);
-
-    localStream.getAudioTracks().forEach((track) => {
-      track.enabled = !nextMute;
-    });
-
-    voiceSocketRef.current.emit('voice:mute-self', { isMuted: nextMute });
-  };
-
-  // ─── LEADER CONTROLS ────────────────────────────────────────────────────────
-
-  const toggleEditorOnlyVoice = () => {
-    if (!voiceSocketRef.current) return;
-    voiceSocketRef.current.emit('voice:set-editor-only', { enabled: !editorOnlyMode });
-  };
-
-  const handleMuteAll = () => {
-    if (!voiceSocketRef.current) return;
-    voiceSocketRef.current.emit('voice:mute-all');
-  };
-
-  const handleHardMuteParticipant = (targetSocketId, currentlyHard) => {
-    if (!voiceSocketRef.current) return;
-    if (currentlyHard) {
-      voiceSocketRef.current.emit('voice:unmute-participant', { targetSocketId });
-    } else {
-      voiceSocketRef.current.emit('voice:mute-participant', { targetSocketId, hard: true });
-    }
-  };
-
   const handleRoleChange = async (targetUserId, newRole) => {
     try {
       await promoteMember(roomUuid, targetUserId, newRole);
@@ -1096,7 +890,8 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
         <div className="flex items-center gap-1">
           <div className="flex items-center cursor-pointer" onClick={() => { leaveVoice(); onBack(); }}>
             <img src="/logo.png" className="h-10 object-contain" alt="CollabIDE Logo" />
-          </div>
+          
+      </div>
           <div className="h-4 w-px bg-outline mx-1" />
           <div className="relative">
             <button
@@ -1958,151 +1753,95 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
         </div>
       </footer>
 
-      {/* Floating Voice Dock */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-6 h-[36px] glass-panel rounded-full border border-outline/50 shadow-2xl z-50 transition-all hover:scale-[1.01]">
-        <div className="flex items-center gap-1">
-          {inVoice ? (
+            {/* Floating Voice Dock (Google Meet Style) */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center glass-panel bg-surface/90 h-[52px] rounded-full border border-outline/20 shadow-2xl z-50 px-3">
+        
+        {inVoice ? (
+          <>
+            <div className="relative flex items-center">
+              <button
+                onClick={toggleMuteSelf}
+                className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors border ${
+                  isMuted 
+                    ? 'bg-accent-red text-white border-transparent hover:opacity-90' 
+                    : 'bg-surface-variant text-on-surface hover:bg-outline-subtle'
+                }`}
+                title={isMuted ? 'Unmute microphone' : 'Mute microphone'}
+              >
+                <span className="material-symbols-outlined text-[20px]">{isMuted ? 'mic_off' : 'mic'}</span>
+              </button>
+              <button
+                onClick={() => setShowVoiceSettings(!showVoiceSettings)}
+                className="w-6 h-10 flex items-center justify-center text-white/70 hover:text-white transition-colors"
+              >
+                <span className="material-symbols-outlined text-[20px]">expand_less</span>
+              </button>
+
+              <VoiceDeviceMenu
+                isOpen={showVoiceSettings}
+                onClose={() => setShowVoiceSettings(false)}
+                selectedMicId={selectedMicId}
+                selectedSpeakerId={selectedSpeakerId}
+                onUpdateDevices={updateDevices}
+              />
+            </div>
+
+            <div className="w-px h-6 bg-outline mx-2" />
+
+            {isUserLeader && (
+              <div className="flex items-center gap-1 mr-1">
+                <button 
+                  onClick={handleMuteAll} 
+                  className="px-3 h-9 text-xs font-medium text-accent-red hover:bg-accent-red/10 rounded-md transition-colors"
+                >
+                  Mute all
+                </button>
+                <button 
+                  onClick={toggleEditorOnlyVoice} 
+                  className="px-3 h-9 text-xs font-medium text-accent-blue hover:bg-accent-blue/10 rounded-md transition-colors"
+                >
+                  {editorOnlyMode ? 'Unlock voice' : 'Lock voice'}
+                </button>
+              </div>
+            )}
+
             <button
-              onClick={toggleMuteSelf}
-              className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors ${
-                isMuted ? 'bg-red-950/40 text-accent-red hover:bg-red-900/40' : 'hover:bg-surface-elevated text-on-surface-variant'
-              }`}
-              title={isMuted ? 'Unmute microphone' : 'Mute microphone'}
+              onClick={leaveVoice}
+              className="px-5 h-10 flex items-center justify-center rounded-full bg-accent-red text-white text-sm font-medium hover:opacity-90 transition-colors gap-2 ml-1"
             >
-              <span className="material-symbols-outlined">{isMuted ? 'mic_off' : 'mic'}</span>
+              <span className="material-symbols-outlined text-[18px]">call_end</span>
+              Leave
             </button>
-          ) : (
+          </>
+        ) : (
+          <div className="relative flex items-center h-10">
             <button
               onClick={joinVoice}
-              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-elevated text-on-surface-variant transition-colors"
+              className="px-5 h-10 flex items-center justify-center rounded-full bg-accent-blue text-white text-sm font-medium hover:bg-blue-600 transition-colors gap-2"
               title="Connect Voice"
             >
-              <Volume2 size={18} />
+              <span className="material-symbols-outlined text-[18px]">call</span>
+              Join Voice
             </button>
-          )}
-
-        </div>
-
-        {inVoice && (
-          <>
-            <div className="w-px h-6 bg-outline mx-1" />
-            <div className="flex items-center gap-1">
-              {isUserLeader && (
-                <>
-                  <button onClick={handleMuteAll} className="px-2 py-1 text-[9px] font-medium text-accent-red hover:bg-accent-red/10 rounded-md transition-colors">
-                    Mute all
-                  </button>
-                  <button onClick={toggleEditorOnlyVoice} className="px-2 py-1 text-[9px] font-medium text-accent-blue hover:bg-accent-blue/10 rounded-md transition-colors">
-                    {editorOnlyMode ? 'Unlock voice' : 'Lock voice'}
-                  </button>
-                </>
-              )}
-              <button
-                onClick={leaveVoice}
-                className="ml-2 px-2 h-9 flex items-center justify-center rounded-full bg-accent-red text-white text-[9.5px] font-medium hover:opacity-90 transition-all gap-1"
-              >
-                <PhoneOff size={14} />
-                <span>Leave</span>
-              </button>
-            </div>
-          </>
+            <button
+              onClick={() => setShowVoiceSettings(!showVoiceSettings)}
+              className="w-8 h-10 ml-1 flex items-center justify-center text-white/70 hover:text-white transition-colors"
+            >
+              <span className="material-symbols-outlined text-[20px]">expand_less</span>
+            </button>
+            
+            <VoiceDeviceMenu
+              isOpen={showVoiceSettings}
+              onClose={() => setShowVoiceSettings(false)}
+              selectedMicId={selectedMicId}
+              selectedSpeakerId={selectedSpeakerId}
+              onUpdateDevices={updateDevices}
+            />
+          </div>
         )}
       </div>
 
-      {/* Floating File Context Menu (VS Code style) */}
-      {activeFileMenu && (
-        <>
-          <div 
-            className="fixed inset-0 z-50 cursor-default" 
-            onClick={() => setActiveFileMenu(null)}
-            onContextMenu={(e) => { e.preventDefault(); setActiveFileMenu(null); }}
-          />
-          <div 
-            className="fixed bg-[#1b1c1c] border border-[#2b2b2b] rounded-md shadow-2xl py-1 z-[60] w-36 text-[9px] text-on-surface-variant font-sans select-none"
-            style={{ 
-              left: `${Math.min(window.innerWidth - 150, activeFileMenu.x)}px`, 
-              top: `${Math.min(window.innerHeight - 100, activeFileMenu.y)}px` 
-            }}
-          >
-            <button 
-              className="w-full text-left px-2 py-1 hover:bg-[#2a2b2b] hover:text-on-surface flex items-center gap-1 transition-colors"
-              onClick={() => {
-                const target = activeFileMenu.fileName;
-                setActiveFileMenu(null);
-                handleRenameFile(target);
-              }}
-            >
-              <span className="material-symbols-outlined text-[13px]">edit</span>
-              <span>Rename...</span>
-            </button>
-            <button 
-              className="w-full text-left px-2 py-1 hover:bg-accent-red/20 hover:text-accent-red text-accent-red flex items-center gap-1 transition-colors border-t border-[#2b2b2b]"
-              onClick={() => {
-                const target = activeFileMenu.fileName;
-                setActiveFileMenu(null);
-                handleDeleteFile(target);
-              }}
-            >
-              <span className="material-symbols-outlined text-[13px]">delete</span>
-              <span>Delete</span>
-            </button>
-          </div>
-        </>
-      )}
-
-      {/* Delete File Confirmation Modal */}
-      {deleteConfirmFile && (
-        <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center backdrop-blur-sm">
-          <div className="w-full max-w-[400px] bg-[#1b1c1c] border border-border-default rounded-radius-lg p-6 shadow-2xl space-y-4">
-            <div className="flex justify-between items-center border-b border-[#2b2b2b] pb-3">
-              <h3 className="text-text-base font-semibold text-on-surface">
-                {isLastFileWarning ? 'Cannot Delete' : 'Confirm Delete'}
-              </h3>
-              <button onClick={() => { setDeleteConfirmFile(null); setIsLastFileWarning(false); }} className="text-text-muted hover:text-text-primary">
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-
-            <p className="text-text-secondary text-text-sm leading-relaxed">
-              {isLastFileWarning
-                ? 'Workspace must contain at least one file. You cannot delete the last remaining file.'
-                : <>Are you sure you want to delete <span className="font-semibold text-on-surface">{deleteConfirmFile}</span>? This action cannot be undone.</>
-              }
-            </p>
-
-            <div className="flex justify-end gap-1.5 pt-3 border-t border-[#2b2b2b]">
-              {isLastFileWarning ? (
-                <button
-                  type="button"
-                  onClick={() => { setDeleteConfirmFile(null); setIsLastFileWarning(false); }}
-                  className="px-2 py-1.5 bg-accent-blue text-white rounded-md text-text-sm hover:opacity-90 transition-colors"
-                >
-                  Got it
-                </button>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => { setDeleteConfirmFile(null); setIsLastFileWarning(false); }}
-                    className="px-2 py-1.5 border border-[#404751] text-on-surface rounded-md text-text-sm hover:bg-[#252626]"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleConfirmDelete}
-                    className="px-2 py-1.5 bg-accent-red text-white rounded-md text-text-sm hover:opacity-90 transition-colors"
-                  >
-                    Delete
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Admin lock overlay notifications */}
+{/* Admin lock overlay notifications */}
       {mutedByLeaderMsg && (
         <div className="fixed bottom-24 left-6 z-50 bg-[#1b1c1c] border-l-4 border-accent-red px-2 py-1.5 rounded-lg shadow-2xl max-w-sm">
           <div className="flex items-center gap-1 text-accent-red font-semibold text-sm">
