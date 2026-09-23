@@ -190,6 +190,9 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
   const audioElementsRef = useRef(new Map()); // socketId -> HTMLAudioElement
 
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [activeWorkspaceUsers, setActiveWorkspaceUsers] = useState([]);
+
   const voice = useVoiceRoom({ roomUuid, showToast });
   const {
     inVoice,
