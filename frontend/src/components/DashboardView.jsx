@@ -313,10 +313,10 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
         </aside>
 
         {/* Sidebar (240px) */}
-        <aside className="w-[240px] bg-[#1b1c1c] border-r border-[#2b2b2b] flex flex-col shrink-0">
+        <aside className="w-[240px] bg-surface-panel border-r border-outline-subtle flex flex-col shrink-0">
           {/* Profile Panel */}
           <div
-            className="p-4 border-b border-[#2b2b2b] cursor-pointer hover:bg-[#252626]/60 transition-colors group"
+            className="p-4 border-b border-outline-subtle cursor-pointer hover:bg-surface-elevated transition-colors group"
             onClick={() => setShowSettingsDrawer(true)}
             title="Open Profile & Settings"
           >
@@ -376,8 +376,8 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
               <button
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left text-[13px] font-medium transition-colors ${
                   activeTab === 'my-rooms'
-                    ? 'bg-[#1c2b41]/80 text-[#9fcaff]'
-                    : 'text-on-surface-variant hover:bg-[#2b2d30]/60 hover:text-on-surface'
+                    ? 'bg-accent-blue/10 text-accent-blue'
+                    : 'text-on-surface-variant hover:bg-surface-elevated hover:text-on-surface'
                 }`}
                 onClick={() => setActiveTab('my-rooms')}
               >
@@ -387,8 +387,8 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
               <button
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left text-[13px] font-medium transition-colors ${
                   activeTab === 'joined-rooms'
-                    ? 'bg-[#1c2b41]/80 text-[#9fcaff]'
-                    : 'text-on-surface-variant hover:bg-[#2b2d30]/60 hover:text-on-surface'
+                    ? 'bg-accent-blue/10 text-accent-blue'
+                    : 'text-on-surface-variant hover:bg-surface-elevated hover:text-on-surface'
                 }`}
                 onClick={() => setActiveTab('joined-rooms')}
               >

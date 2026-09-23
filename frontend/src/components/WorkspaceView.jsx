@@ -162,7 +162,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
   const [consoleOpen, setConsoleOpen] = useState(true);
   const [consoleHeight, setConsoleHeight] = useState(200);
   const [leftPanelWidth, setLeftPanelWidth] = useState(200);
-  const [rightPanelWidth, setRightPanelWidth] = useState(200);
+  const [rightPanelWidth, setRightPanelWidth] = useState(280);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showRoomDeletedModal, setShowRoomDeletedModal] = useState(false);
@@ -541,7 +541,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
     const startX = e.clientX;
     const startWidth = rightPanelWidth;
     const doResize = (moveEvent) => {
-      setRightPanelWidth(Math.max(150, Math.min(startWidth - (moveEvent.clientX - startX), 600)));
+      setRightPanelWidth(Math.max(250, Math.min(startWidth - (moveEvent.clientX - startX), 600)));
     };
     const stopResize = () => {
       window.removeEventListener('mousemove', doResize);
