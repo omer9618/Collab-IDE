@@ -264,9 +264,9 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
   return (
     <div className="h-screen flex flex-col bg-bg-base text-text-primary font-ui overflow-hidden">
       {/* Top Bar (56px) */}
-      <header className="h-[56px] shrink-0 bg-[#121414] border-b border-[#2b2b2b] flex items-center justify-between px-4 z-50">
+      <header className="h-[36px] shrink-0 bg-surface border-b border-outline-subtle flex items-center justify-between px-4 z-50">
         <div className="flex items-center cursor-pointer" onClick={() => window.location.href = '/'}>
-          <img src="/logo.png" className="h-12 object-contain" alt="CollabIDE Logo" />
+          <img src="/logo.png" className="h-10 object-contain" alt="CollabIDE Logo" />
         </div>
         <div className="flex items-center gap-4">
           <div
@@ -313,7 +313,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
         </aside>
 
         {/* Sidebar (240px) */}
-        <aside className="w-[240px] bg-surface-base border-r border-outline-subtle flex flex-col shrink-0">
+        <aside className="w-[240px] bg-surface-panel border-r border-outline-subtle flex flex-col shrink-0">
           {/* Profile Panel */}
           <div
             className="p-4 border-b border-outline-subtle cursor-pointer hover:bg-surface-elevated transition-colors group"
@@ -341,8 +341,8 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
           {/* Delete Room Confirmation Modal */}
           {deleteConfirmRoom && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-              <div className="bg-[#1f2020] border border-[#404751] w-full max-w-sm rounded-xl overflow-hidden shadow-2xl flex flex-col">
-                <div className="px-5 py-4 border-b border-[#404751] flex items-center gap-3">
+              <div className="bg-[#1f2020] border border-outline-subtle w-full max-w-sm rounded-xl overflow-hidden shadow-2xl flex flex-col">
+                <div className="px-5 py-4 border-b border-outline-subtle flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-red-950/30 flex items-center justify-center text-red-500">
                     <span className="material-symbols-outlined text-[18px]">warning</span>
                   </div>
@@ -351,7 +351,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                 <div className="p-5 text-text-sm text-text-muted leading-relaxed">
                   Are you sure you want to permanently delete this room? This action cannot be undone and all code history will be lost.
                 </div>
-                <div className="px-5 py-4 bg-[#1a1b1b] border-t border-[#404751] flex justify-end gap-3">
+                <div className="px-5 py-4 bg-[#1a1b1b] border-t border-outline-subtle flex justify-end gap-3">
                   <button
                     className="px-4 py-2 rounded-md text-text-sm font-medium text-text-muted hover:text-on-surface hover:bg-[#2b2d30] transition-colors"
                     onClick={() => setDeleteConfirmRoom(null)}
@@ -414,7 +414,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
         </aside>
 
         {/* Main Content Area */}
-        <main className="flex-1 bg-[#121414] overflow-y-auto">
+        <main className="flex-1 bg-surface overflow-y-auto">
           <div className="p-8 max-w-5xl mx-auto h-full flex flex-col">
             <div className="flex items-center justify-between mb-8">
               <h2 className="text-text-xl font-semibold text-on-surface">
@@ -424,7 +424,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                 onClick={handleRefresh}
                 disabled={refreshing}
                 title="Refresh rooms"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-text-xs text-on-surface-variant border border-[#404751] rounded-md hover:text-on-surface hover:bg-[#252626] transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-text-xs text-on-surface-variant border border-outline-subtle rounded-md hover:text-on-surface hover:bg-[#252626] transition-colors disabled:opacity-50"
               >
                 <span className={`material-symbols-outlined text-[16px] ${refreshing ? 'animate-spin' : ''}`}>
                   refresh
@@ -462,7 +462,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                       return (
                         <div
                           key={room.uuid}
-                          className="bg-[#1f2020] border border-[#404751] rounded-lg p-4 flex items-center justify-between hover:border-accent-blue transition-all group cursor-pointer"
+                          className="bg-[#1f2020] border border-outline-subtle rounded-lg p-4 flex items-center justify-between hover:border-accent-blue transition-all group cursor-pointer"
                           onClick={() => onRoomSelect(room.uuid)}
                         >
                           <div className="flex items-center gap-4">
@@ -577,7 +577,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                                       className="fixed inset-0 z-40" 
                                       onClick={(e) => { e.stopPropagation(); setActiveMenuRoom(null); }}
                                     />
-                                    <div className="absolute top-8 right-0 bg-[#1f2020] border border-[#404751] rounded-md shadow-lg z-50 py-1 min-w-[120px]">
+                                    <div className="absolute top-8 right-0 bg-[#1f2020] border border-outline-subtle rounded-md shadow-lg z-50 py-1 min-w-[120px]">
                                       <button
                                         className="w-full text-left px-3 py-1.5 text-text-sm text-on-surface hover:bg-surface-elevated transition-colors"
                                         onClick={(e) => handleToggleRoomStatus(e, room)}
@@ -601,7 +601,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                     })}
                   
                   {allRooms.filter((r) => activeTab === 'my-rooms' ? r.myRole === 'Owner' : r.myRole !== 'Owner').length === 0 && (
-                    <div className="text-center py-12 border border-dashed border-[#404751] rounded-lg">
+                    <div className="text-center py-12 border border-dashed border-outline-subtle rounded-lg">
                       <span className="material-symbols-outlined text-[48px] text-text-muted mb-2">folder</span>
                       <div className="text-text-base text-on-surface">
                         {activeTab === 'my-rooms' ? 'No rooms created yet' : 'No joined rooms yet'}
@@ -623,7 +623,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
               </div>
               <form onSubmit={handleJoinSubmit} className="flex items-center gap-2 w-full max-w-sm">
                 <input
-                  className="flex-1 bg-[#1f2020] border border-[#404751] rounded-md px-3 py-2 text-text-sm text-on-surface focus:border-accent-blue focus:ring-0 outline-none transition-colors"
+                  className="flex-1 bg-[#1f2020] border border-outline-subtle rounded-md px-3 py-2 text-text-sm text-on-surface focus:border-accent-blue focus:ring-0 outline-none transition-colors"
                   placeholder="Enter room code..."
                   type="text"
                   value={joinUuid}
@@ -660,7 +660,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
       {/* Create Room Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm">
-          <div className="w-full max-w-[440px] bg-[#1b1c1c] border border-border-default rounded-radius-lg p-6 shadow-2xl space-y-4">
+          <div className="w-full max-w-[440px] bg-surface-panel border border-outline-subtle rounded-radius-lg p-6 shadow-2xl space-y-4">
             <div className="flex justify-between items-center border-b border-[#2b2b2b] pb-3">
               <h3 className="text-text-base font-semibold text-on-surface">Create a new room</h3>
               <button onClick={() => setShowCreateModal(false)} className="text-text-muted hover:text-text-primary">
@@ -672,7 +672,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
               <div className="space-y-1.5">
                 <label className="block text-text-secondary text-[13px]">Room Name</label>
                 <input
-                  className="w-full h-[36px] px-3 bg-[#121414] border border-[#404751] rounded-radius-md text-text-primary text-[14px] placeholder-text-muted focus:border-accent-blue outline-none"
+                  className="w-full h-[36px] px-3 bg-surface border border-outline-subtle rounded-radius-md text-text-primary text-[14px] placeholder-text-muted focus:border-accent-blue outline-none"
                   type="text"
                   required
                   placeholder="my-project-room"
@@ -692,7 +692,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-1.5 border border-[#404751] text-on-surface rounded-md text-text-sm hover:bg-[#252626]"
+                  className="px-4 py-1.5 border border-outline-subtle text-on-surface rounded-md text-text-sm hover:bg-[#252626]"
                 >
                   Cancel
                 </button>
@@ -712,7 +712,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
       {/* Sign Out Confirmation Modal */}
       {showSignoutConfirm && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm">
-          <div className="w-full max-w-[400px] bg-[#1b1c1c] border border-border-default rounded-radius-lg p-6 shadow-2xl space-y-4">
+          <div className="w-full max-w-[400px] bg-surface-panel border border-outline-subtle rounded-radius-lg p-6 shadow-2xl space-y-4">
             <div className="flex justify-between items-center border-b border-[#2b2b2b] pb-3">
               <h3 className="text-text-base font-semibold text-on-surface">Confirm Sign Out</h3>
               <button onClick={() => setShowSignoutConfirm(false)} className="text-text-muted hover:text-text-primary">
@@ -728,7 +728,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
               <button
                 type="button"
                 onClick={() => setShowSignoutConfirm(false)}
-                className="px-4 py-1.5 border border-[#404751] text-on-surface rounded-md text-text-sm hover:bg-[#252626]"
+                className="px-4 py-1.5 border border-outline-subtle text-on-surface rounded-md text-text-sm hover:bg-[#252626]"
               >
                 Cancel
               </button>
@@ -747,7 +747,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
       {/* Sign Out All Devices Confirmation Modal */}
       {showSignoutAllConfirm && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm">
-          <div className="w-full max-w-[400px] bg-[#1b1c1c] border border-border-default rounded-radius-lg p-6 shadow-2xl space-y-4">
+          <div className="w-full max-w-[400px] bg-surface-panel border border-outline-subtle rounded-radius-lg p-6 shadow-2xl space-y-4">
             <div className="flex justify-between items-center border-b border-[#2b2b2b] pb-3">
               <h3 className="text-text-base font-semibold text-accent-red">Sign Out of All Devices</h3>
               <button onClick={() => setShowSignoutAllConfirm(false)} className="text-text-muted hover:text-text-primary">
@@ -763,7 +763,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
               <button
                 type="button"
                 onClick={() => setShowSignoutAllConfirm(false)}
-                className="px-4 py-1.5 border border-[#404751] text-on-surface rounded-md text-text-sm hover:bg-[#252626]"
+                className="px-4 py-1.5 border border-outline-subtle text-on-surface rounded-md text-text-sm hover:bg-[#252626]"
               >
                 Cancel
               </button>
