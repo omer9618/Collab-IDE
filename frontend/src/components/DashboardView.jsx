@@ -341,7 +341,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
           {/* Delete Room Confirmation Modal */}
           {deleteConfirmRoom && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-              <div className="bg-[#1f2020] border border-[#404751] w-full max-w-sm rounded-xl overflow-hidden shadow-2xl flex flex-col">
+              <div className="bg-[#1f2020] border border-[#404751] w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-xl shadow-2xl flex flex-col">
                 <div className="px-5 py-4 border-b border-[#404751] flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-red-950/30 flex items-center justify-center text-red-500">
                     <span className="material-symbols-outlined text-[18px]">warning</span>
@@ -659,8 +659,8 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
 
       {/* Create Room Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm">
-          <div className="w-full max-w-[440px] bg-[#1b1c1c] border border-border-default rounded-radius-lg p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-[440px] max-h-[90vh] overflow-y-auto bg-[#1b1c1c] border border-border-default rounded-radius-lg p-6 shadow-2xl space-y-4">
             <div className="flex justify-between items-center border-b border-[#2b2b2b] pb-3">
               <h3 className="text-text-base font-semibold text-on-surface">Create a new room</h3>
               <button onClick={() => setShowCreateModal(false)} className="text-text-muted hover:text-text-primary">
@@ -711,8 +711,8 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
 
       {/* Sign Out Confirmation Modal */}
       {showSignoutConfirm && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm">
-          <div className="w-full max-w-[400px] bg-[#1b1c1c] border border-border-default rounded-radius-lg p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-[400px] max-h-[90vh] overflow-y-auto bg-[#1b1c1c] border border-border-default rounded-radius-lg p-6 shadow-2xl space-y-4">
             <div className="flex justify-between items-center border-b border-[#2b2b2b] pb-3">
               <h3 className="text-text-base font-semibold text-on-surface">Confirm Sign Out</h3>
               <button onClick={() => setShowSignoutConfirm(false)} className="text-text-muted hover:text-text-primary">
@@ -746,8 +746,8 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
 
       {/* Sign Out All Devices Confirmation Modal */}
       {showSignoutAllConfirm && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm">
-          <div className="w-full max-w-[400px] bg-[#1b1c1c] border border-border-default rounded-radius-lg p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-[400px] max-h-[90vh] overflow-y-auto bg-[#1b1c1c] border border-border-default rounded-radius-lg p-6 shadow-2xl space-y-4">
             <div className="flex justify-between items-center border-b border-[#2b2b2b] pb-3">
               <h3 className="text-text-base font-semibold text-accent-red">Sign Out of All Devices</h3>
               <button onClick={() => setShowSignoutAllConfirm(false)} className="text-text-muted hover:text-text-primary">

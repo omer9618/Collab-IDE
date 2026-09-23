@@ -282,8 +282,8 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
       </section>
 
       {/* Right Side: Auth Card Section */}
-      <section className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-[#121314]">
-        <div className="w-full max-w-[440px] bg-[#1b1c1c] border border-[#404751] rounded-lg p-10 shadow-xl overflow-y-auto max-h-screen">
+      <section className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-8 bg-[#121314] overflow-y-auto">
+        <div className="w-full max-w-[440px] bg-[#1b1c1c] border border-[#404751] rounded-lg p-6 sm:p-10 shadow-xl overflow-y-auto max-h-[92vh] my-auto">
           {/* Logo */}
           <div
             className="flex items-center justify-center space-x-2 mb-8 cursor-pointer select-none"

@@ -571,12 +571,18 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
 
   // Resize console height via mouse drag
 
+  // NFR-55: Responsive panel resize clamping ensuring minimum screen resolution (1280x720) compliance
   const handleLeftPanelResize = (e) => {
     e.preventDefault();
     const startX = e.clientX;
     const startWidth = leftPanelWidth;
     const doResize = (moveEvent) => {
-      setLeftPanelWidth(Math.max(150, Math.min(startWidth + (moveEvent.clientX - startX), 600)));
+      const winW = window.innerWidth || 1280;
+      const currentRightW = rightPanelOpen ? rightPanelWidth : 0;
+      // Reserve 40px for activity bar and at least 380px for Monaco editor
+      const maxAllowed = Math.max(160, Math.min(300, winW - currentRightW - 40 - 380));
+      const nextWidth = Math.max(160, Math.min(startWidth + (moveEvent.clientX - startX), maxAllowed));
+      setLeftPanelWidth(nextWidth);
     };
     const stopResize = () => {
       window.removeEventListener('mousemove', doResize);
@@ -591,7 +597,12 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     const startX = e.clientX;
     const startWidth = rightPanelWidth;
     const doResize = (moveEvent) => {
-      setRightPanelWidth(Math.max(150, Math.min(startWidth - (moveEvent.clientX - startX), 600)));
+      const winW = window.innerWidth || 1280;
+      const currentLeftW = sidebarOpen ? leftPanelWidth : 0;
+      // Reserve 40px for activity bar and at least 380px for Monaco editor
+      const maxAllowed = Math.max(180, Math.min(340, winW - currentLeftW - 40 - 380));
+      const nextWidth = Math.max(180, Math.min(startWidth - (moveEvent.clientX - startX), maxAllowed));
+      setRightPanelWidth(nextWidth);
     };
     const stopResize = () => {
       window.removeEventListener('mousemove', doResize);
@@ -608,7 +619,10 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
 
     const doResize = (moveEvent) => {
       const deltaY = startY - moveEvent.clientY;
-      const newHeight = Math.max(100, Math.min(600, startHeight + deltaY));
+      const winH = window.innerHeight || 720;
+      // Ensure console cannot exceed 45% of vertical viewport (max 300px on 720p)
+      const maxAllowedHeight = Math.max(120, Math.min(300, Math.floor(winH * 0.45)));
+      const newHeight = Math.max(100, Math.min(maxAllowedHeight, startHeight + deltaY));
       setConsoleHeight(newHeight);
     };
 
@@ -620,6 +634,32 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     window.addEventListener('mousemove', doResize);
     window.addEventListener('mouseup', stopResize);
   };
+
+  // NFR-55: Responsive clamping when window itself is resized down to 1280x720 or lower
+  useEffect(() => {
+    const handleViewportResize = () => {
+      const winW = window.innerWidth || 1280;
+      const winH = window.innerHeight || 720;
+
+      setLeftPanelWidth((prev) => {
+        const maxLeft = Math.max(160, Math.min(300, Math.floor(winW * 0.25)));
+        return Math.max(160, Math.min(prev, maxLeft));
+      });
+
+      setRightPanelWidth((prev) => {
+        const maxRight = Math.max(180, Math.min(340, Math.floor(winW * 0.30)));
+        return Math.max(180, Math.min(prev, maxRight));
+      });
+
+      setConsoleHeight((prev) => {
+        const maxConsole = Math.max(100, Math.min(300, Math.floor(winH * 0.45)));
+        return Math.max(100, Math.min(prev, maxConsole));
+      });
+    };
+
+    window.addEventListener('resize', handleViewportResize);
+    return () => window.removeEventListener('resize', handleViewportResize);
+  }, []);
 
   // Create new file dynamically (VS Code style inline creation)
   const handleCreateFile = (parentFolderPath = '') => {
@@ -1143,12 +1183,12 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     <div className="bg-surface text-on-surface font-ui overflow-hidden h-screen flex flex-col select-none">
       {/* Top Bar (56px) */}
       <header className="h-[36px] shrink-0 bg-surface border-b border-outline-subtle flex items-center justify-between px-2 z-40">
-        <div className="flex items-center gap-1">
-          <div className="flex items-center cursor-pointer" onClick={() => { leaveVoice(); onBack(); }}>
+        <div className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
+          <div className="flex items-center cursor-pointer shrink-0" onClick={() => { leaveVoice(); onBack(); }}>
             <img src="/logo.png" className="h-10 object-contain" alt="CollabIDE Logo" />
           </div>
-          <div className="h-4 w-px bg-outline mx-1" />
-          <div className="relative">
+          <div className="h-4 w-px bg-outline mx-1 shrink-0" />
+          <div className="relative shrink-0">
             <button
               onClick={() => setShowRoomDropdown(!showRoomDropdown)}
               className="text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors flex items-center gap-1.5 group"
@@ -1207,11 +1247,11 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
           </div>
           
           {/* File tabs inside Top Bar */}
-          <div className="flex items-center gap-1.5 ml-3 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-1.5 ml-3 overflow-x-auto no-scrollbar min-w-0 flex-1">
             {openedFiles.map((fileName) => (
               <div
                 key={fileName}
-                className={`px-3 h-[36px] text-[9.5px] flex items-center gap-1 border-b-[3px] transition-all group/tab ${
+                className={`px-3 h-[36px] text-[9.5px] flex items-center gap-1 border-b-[3px] transition-all group/tab shrink-0 ${
                   activeFile === fileName
                     ? 'text-accent-blue border-accent-blue bg-transparent'
                     : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] border-transparent'
@@ -1239,7 +1279,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0 ml-2">
           <button
             onClick={handleRunCode}
             disabled={isRunning || role === 'Viewer' || !activeFile || activeFile.endsWith('.md')}
@@ -1584,8 +1624,8 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
         )}
 
         {/* Editor center workspace */}
-        <main className="flex-1 flex flex-col min-w-0 bg-surface relative">
-          <div className="flex-1 relative overflow-hidden">
+        <main className="flex-1 flex flex-col min-w-[380px] bg-surface relative overflow-hidden">
+          <div className="flex-1 min-h-[200px] relative overflow-hidden">
             {!activeFile ? (
               <div className="w-full h-full flex flex-col items-center justify-center bg-surface-panel select-none">
                 <img src="/logo.png" className="h-20 object-contain mb-8 opacity-40 filter grayscale" alt="CollabIDE Logo" />
@@ -2103,8 +2143,8 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
 
       {/* Delete File Confirmation Modal */}
       {deleteConfirmFile && (
-        <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center backdrop-blur-sm">
-          <div className="w-full max-w-[400px] bg-[#1b1c1c] border border-border-default rounded-radius-lg p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-[400px] max-h-[85vh] overflow-y-auto bg-[#1b1c1c] border border-border-default rounded-radius-lg p-6 shadow-2xl space-y-4">
             <div className="flex justify-between items-center border-b border-[#2b2b2b] pb-3">
               <h3 className="text-text-base font-semibold text-on-surface">
                 {isLastFileWarning ? 'Cannot Delete' : 'Confirm Delete'}
@@ -2195,7 +2235,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
       {/* Settings Modal (FR-26 & Room Management) */}
       {showSettingsModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-surface-panel border border-outline-subtle w-full max-w-md rounded-xl overflow-hidden shadow-2xl flex flex-col">
+          <div className="bg-surface-panel border border-outline-subtle w-full max-w-md max-h-[85vh] rounded-xl overflow-hidden shadow-2xl flex flex-col">
             <div className="px-5 py-3.5 border-b border-outline-subtle flex items-center justify-between bg-[#121414]/60">
               <div className="flex items-center gap-2">
                 <Settings size={18} className="text-accent-blue" />
@@ -2238,7 +2278,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
               </div>
             )}
             
-            <div className="p-5 flex flex-col gap-4">
+            <div className="p-5 flex flex-col gap-4 overflow-y-auto">
               {/* Tab 1: Editor Preferences (FR-26) */}
               {(settingsTab === 'editor' || role !== 'Owner') && (
                 <div className="flex flex-col gap-4">
@@ -2449,7 +2489,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
       {/* Room Deleted Modal */}
       {showRoomDeletedModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in duration-200">
-          <div className="bg-[#1f2020] border border-[#404751] w-full max-w-sm rounded-xl overflow-hidden shadow-2xl flex flex-col text-center p-6">
+          <div className="bg-[#1f2020] border border-[#404751] w-full max-w-sm max-h-[85vh] overflow-y-auto rounded-xl shadow-2xl flex flex-col text-center p-6">
             <div className="w-12 h-12 rounded-full bg-red-950/30 flex items-center justify-center text-red-500 mx-auto mb-4">
               <span className="material-symbols-outlined text-[24px]">warning</span>
             </div>
