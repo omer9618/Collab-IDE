@@ -247,9 +247,14 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
     const yDocInstance = new Y.Doc();
     setYdoc(yDocInstance);
 
-    // Connect directly to backend for WebSocket
+    // Connect to backend for WebSocket (support Vite dev on :5173, Nginx reverse proxy on :80/:443, or cloud deployment)
+    const isViteDev = window.location.port === '5173';
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const wsUrl = isLocal ? `ws://${window.location.hostname}:3000` : 'wss://collabide-backend-avau.onrender.com';
+    const wsUrl = isViteDev 
+      ? `ws://${window.location.hostname}:3000` 
+      : (isLocal 
+          ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws` 
+          : 'wss://collabide-backend-avau.onrender.com');
 
     const providerInstance = new WebsocketProvider(wsUrl, roomUuid, yDocInstance, {
       params: { token: getToken() },
@@ -867,9 +872,12 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
       const freshToken = getToken();
       console.log('[Voice] Token available:', !!freshToken, 'length:', freshToken?.length);
 
-      // Connect directly to backend for Voice
+      // Connect to Voice (support direct Vite dev on 5173, Nginx reverse proxy on 80/443, and cloud deployment)
+      const isViteDev = window.location.port === '5173';
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      const backendUrl = isLocal ? 'http://localhost:3000' : 'https://collabide-backend-avau.onrender.com';
+      const backendUrl = isViteDev 
+        ? 'http://localhost:3000' 
+        : (isLocal ? window.location.origin : 'https://collabide-backend-avau.onrender.com');
 
       const socket = io(backendUrl + '/voice', {
         auth: { token: freshToken },

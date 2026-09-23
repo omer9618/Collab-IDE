@@ -22,21 +22,8 @@ export default defineConfig({
     }
   },
   build: {
-    chunkSizeWarningLimit: 3000,
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (id.includes('monaco-editor') || id.includes('@monaco-editor')) {
-              return 'monaco-vendor';
-            }
-            if (id.includes('react') || id.includes('react-dom')) {
-              return 'react-vendor';
-            }
-          }
-        }
-      }
-    }
+    chunkSizeWarningLimit: 3000
+
   }
 })
 

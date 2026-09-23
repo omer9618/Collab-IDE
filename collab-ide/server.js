@@ -318,7 +318,8 @@ server.on('upgrade', async (request, socket, head) => {
       return;
     }
 
-    const roomUuid = parsedUrl.pathname.slice(1);
+    const cleanPath = parsedUrl.pathname.replace(/^\/ws\/?/, '/');
+    const roomUuid = cleanPath.slice(1);
     const token = parsedUrl.searchParams.get('token');
 
     if (!token) {
