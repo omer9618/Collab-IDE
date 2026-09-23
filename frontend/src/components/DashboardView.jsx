@@ -58,6 +58,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
   const [deleteConfirmRoom, setDeleteConfirmRoom] = useState(null);
   const [activeMenuRoom, setActiveMenuRoom] = useState(null);
   const [showSettingsDrawer, setShowSettingsDrawer] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState('my-rooms'); // my-rooms, joined-rooms
 
   const [allRooms, setAllRooms] = useState([]);
@@ -284,7 +285,13 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
         {/* Activity Bar (56px) */}
         <aside className="w-[56px] bg-surface-base border-r border-outline-subtle flex flex-col items-center py-4 shrink-0">
           <div className="flex flex-col gap-4 w-full items-center flex-1">
-            <button className="w-10 h-10 flex items-center justify-center rounded-lg bg-[#1c2b41]/60 text-[#9fcaff] transition-colors" title="Explorer">
+            <button
+              className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${
+                sidebarOpen ? 'bg-[#1c2b41]/60 text-[#9fcaff]' : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
+              }`}
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              title="Explorer"
+            >
               <span className="material-symbols-outlined">folder</span>
             </button>
             <button className="w-10 h-10 flex items-center justify-center rounded-lg text-outline opacity-40 cursor-not-allowed" disabled title="Participants (Disabled)">
@@ -412,6 +419,8 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
             </button>
           </div>
         </aside>
+
+                )}
 
         {/* Main Content Area */}
         <main className="flex-1 bg-surface overflow-y-auto">
