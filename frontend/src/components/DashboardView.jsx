@@ -313,7 +313,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
         </aside>
 
         {/* Sidebar (240px) */}
-        <aside className="w-[240px] bg-surface-panel border-r border-outline-subtle flex flex-col shrink-0">
+        <aside className="w-[240px] bg-surface-base border-r border-outline-subtle flex flex-col shrink-0">
           {/* Profile Panel */}
           <div
             className="p-4 border-b border-outline-subtle cursor-pointer hover:bg-surface-elevated transition-colors group"
