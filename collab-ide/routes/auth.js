@@ -888,14 +888,14 @@ router.post('/google-login', authLimiter, async (req, res) => {
     const deviceInfo = `${req.ip} - ${req.headers['user-agent'] || 'Unknown Device'}`;
 
     // Generate refresh token
-    const { plaintext, tokenDoc } = RefreshToken.generate(user._id, null, deviceInfo);
+    const { plaintext, tokenDoc } = await RefreshToken.generate(user._id, null, deviceInfo);
     await tokenDoc.save();
 
     // Set HttpOnly cookie
     res.cookie('refreshToken', plaintext, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'none',
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 

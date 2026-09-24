@@ -63,6 +63,21 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
   const [allRooms, setAllRooms] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Search and View More pagination (FR-14)
+  const PAGE_SIZE = 5;
+  const [searchQuery, setSearchQuery] = useState('');
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setVisibleCount(PAGE_SIZE);
+  };
+
+  const handleSearchChange = (val) => {
+    setSearchQuery(val);
+    setVisibleCount(PAGE_SIZE);
+  };
+
   // Initial full load of the room list (FR-14)
   useEffect(() => {
     let mounted = true;
@@ -234,7 +249,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
     try {
       await logoutUser();
       onLogout();
-    } catch (err) {
+    } catch {
       onLogout();
     }
   };
@@ -248,7 +263,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
     try {
       await logoutAllDevices();
       onLogout();
-    } catch (err) {
+    } catch {
       onLogout();
     }
   };
@@ -260,6 +275,28 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
   };
 
   const userInitials = getInitials(user.displayName);
+
+  // Filter rooms by active tab (Owner = My Rooms, Non-Owner = Joined Rooms)
+  const tabRooms = allRooms.filter((r) =>
+    activeTab === 'my-rooms' ? r.myRole === 'Owner' : r.myRole !== 'Owner'
+  );
+
+  // Apply search query filter across room name, uuid, files, and participants (FR-14)
+  const searchedRooms = tabRooms.filter((room) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase().trim();
+    const nameMatch = room.name?.toLowerCase().includes(q);
+    const uuidMatch = room.uuid?.toLowerCase().includes(q);
+    const fileMatch = room.files?.some((f) => f?.toLowerCase().includes(q));
+    const participantMatch = room.participants?.some((p) =>
+      p.displayName?.toLowerCase().includes(q)
+    );
+    return nameMatch || uuidMatch || fileMatch || participantMatch;
+  });
+
+  // Apply "View More" progressive disclosure limit (FR-14)
+  const displayedRooms = searchedRooms.slice(0, visibleCount);
+  const hasMore = visibleCount < searchedRooms.length;
 
   return (
     <div className="h-screen flex flex-col bg-bg-base text-text-primary font-ui overflow-hidden">
@@ -374,26 +411,36 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
             <div className="px-4 py-2 text-text-xs font-semibold text-outline tracking-wider uppercase">Rooms</div>
             <nav className="space-y-1 px-2">
               <button
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left text-[13px] font-medium transition-colors ${
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-left text-[13px] font-medium transition-colors ${
                   activeTab === 'my-rooms'
                     ? 'bg-[#1c2b41]/80 text-[#9fcaff]'
                     : 'text-on-surface-variant hover:bg-[#2b2d30]/60 hover:text-on-surface'
                 }`}
-                onClick={() => setActiveTab('my-rooms')}
+                onClick={() => handleTabChange('my-rooms')}
               >
-                <span className="material-symbols-outlined text-[18px]">folder_open</span>
-                <span className="text-text-sm font-medium">My Rooms</span>
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-[18px]">folder_open</span>
+                  <span className="text-text-sm font-medium">My Rooms</span>
+                </div>
+                <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-[#121414] text-text-muted">
+                  {allRooms.filter(r => r.myRole === 'Owner').length}
+                </span>
               </button>
               <button
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left text-[13px] font-medium transition-colors ${
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-left text-[13px] font-medium transition-colors ${
                   activeTab === 'joined-rooms'
                     ? 'bg-[#1c2b41]/80 text-[#9fcaff]'
                     : 'text-on-surface-variant hover:bg-[#2b2d30]/60 hover:text-on-surface'
                 }`}
-                onClick={() => setActiveTab('joined-rooms')}
+                onClick={() => handleTabChange('joined-rooms')}
               >
-                <span className="material-symbols-outlined text-[18px]">group</span>
-                <span>Joined Rooms</span>
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-[18px]">group</span>
+                  <span>Joined Rooms</span>
+                </div>
+                <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-[#121414] text-text-muted">
+                  {allRooms.filter(r => r.myRole !== 'Owner').length}
+                </span>
               </button>
             </nav>
           </div>
@@ -416,21 +463,55 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
         {/* Main Content Area */}
         <main className="flex-1 bg-[#121414] overflow-y-auto">
           <div className="p-8 max-w-5xl mx-auto h-full flex flex-col">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-text-xl font-semibold text-on-surface">
-                {activeTab === 'my-rooms' ? 'My Rooms' : 'Joined Rooms'}
-              </h2>
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                title="Refresh rooms"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-text-xs text-on-surface-variant border border-[#404751] rounded-md hover:text-on-surface hover:bg-[#252626] transition-colors disabled:opacity-50"
-              >
-                <span className={`material-symbols-outlined text-[16px] ${refreshing ? 'animate-spin' : ''}`}>
-                  refresh
-                </span>
-                <span>Refresh</span>
-              </button>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div className="flex items-center gap-3">
+                <h2 className="text-text-xl font-semibold text-on-surface">
+                  {activeTab === 'my-rooms' ? 'My Rooms' : 'Joined Rooms'}
+                </h2>
+                {!fetchingRooms && (
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#1b1c1c] text-text-muted border border-[#303338]">
+                    {searchQuery.trim() ? `${searchedRooms.length} of ${tabRooms.length}` : tabRooms.length}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                {/* Search Bar */}
+                <div className="relative flex-1 sm:w-72">
+                  <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted text-[18px] pointer-events-none">
+                    search
+                  </span>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    placeholder={`Search ${activeTab === 'my-rooms' ? 'my rooms' : 'joined rooms'}...`}
+                    className="w-full bg-[#1b1c1c] border border-[#404751] rounded-md pl-9 pr-8 py-1.5 text-text-sm text-on-surface placeholder:text-text-muted focus:border-accent-blue focus:outline-none transition-colors"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => handleSearchChange('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-on-surface flex items-center justify-center p-0.5 rounded-full hover:bg-[#252626]"
+                      title="Clear search"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">close</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Refresh Button */}
+                <button
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  title="Refresh rooms"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-text-xs text-on-surface-variant border border-[#404751] rounded-md hover:text-on-surface hover:bg-[#252626] transition-colors disabled:opacity-50 shrink-0"
+                >
+                  <span className={`material-symbols-outlined text-[16px] ${refreshing ? 'animate-spin' : ''}`}>
+                    refresh
+                  </span>
+                  <span className="hidden sm:inline">Refresh</span>
+                </button>
+              </div>
             </div>
 
             {error && (
@@ -447,9 +528,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                 </div>
               ) : (
                 <>
-                  {allRooms
-                    .filter((r) => activeTab === 'my-rooms' ? r.myRole === 'Owner' : r.myRole !== 'Owner')
-                    .map((room) => {
+                  {displayedRooms.map((room) => {
                       const lang = getRoomLang(room.files);
                       // FR-14: "last active" is presence-based, not metadata-based
                       const timeStr = getRelativeTime(room.lastActiveAt || room.updatedAt);
@@ -600,7 +679,43 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                       );
                     })}
                   
-                  {allRooms.filter((r) => activeTab === 'my-rooms' ? r.myRole === 'Owner' : r.myRole !== 'Owner').length === 0 && (
+                  {/* View More button when there are more rooms to display */}
+                  {hasMore && (
+                    <div className="pt-3 pb-1 flex flex-col items-center gap-1.5">
+                      <button
+                        onClick={() => setVisibleCount((prev) => prev + PAGE_SIZE)}
+                        className="flex items-center gap-2 px-5 py-2 bg-[#1b1c1c] border border-[#404751] hover:border-accent-blue hover:bg-[#252626] text-on-surface text-text-sm font-medium rounded-lg transition-all shadow-sm group"
+                      >
+                        <span>View More Rooms</span>
+                        <span className="text-text-muted text-xs bg-[#252626] px-2 py-0.5 rounded-full border border-[#3b3d42]">
+                          +{Math.min(PAGE_SIZE, searchedRooms.length - visibleCount)} of {searchedRooms.length - visibleCount} more
+                        </span>
+                        <span className="material-symbols-outlined text-[18px] group-hover:translate-y-0.5 transition-transform text-accent-blue">
+                          expand_more
+                        </span>
+                      </button>
+                      <span className="text-[11px] text-text-muted">
+                        Showing {displayedRooms.length} of {searchedRooms.length} rooms
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Show Less option when all rooms are expanded beyond PAGE_SIZE */}
+                  {!hasMore && searchedRooms.length > PAGE_SIZE && (
+                    <div className="pt-3 pb-1 flex items-center justify-between text-xs text-text-muted border-t border-[#2b2b2b]/60 px-1">
+                      <span>Showing all {searchedRooms.length} rooms</span>
+                      <button
+                        onClick={() => setVisibleCount(PAGE_SIZE)}
+                        className="text-accent-blue hover:underline flex items-center gap-0.5"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">expand_less</span>
+                        <span>Show Less</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Empty state: No rooms in this tab at all */}
+                  {tabRooms.length === 0 && (
                     <div className="text-center py-12 border border-dashed border-[#404751] rounded-lg">
                       <span className="material-symbols-outlined text-[48px] text-text-muted mb-2">folder</span>
                       <div className="text-text-base text-on-surface">
@@ -609,6 +724,24 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                       <div className="text-text-xs text-text-muted mt-1">
                         {activeTab === 'my-rooms' ? 'Click Create new room to get started.' : 'Use a share code to join another user\'s room.'}
                       </div>
+                    </div>
+                  )}
+
+                  {/* Empty state: No rooms match the active search query */}
+                  {tabRooms.length > 0 && searchedRooms.length === 0 && (
+                    <div className="text-center py-12 border border-dashed border-[#404751] rounded-lg">
+                      <span className="material-symbols-outlined text-[48px] text-text-muted mb-2">search_off</span>
+                      <div className="text-text-base text-on-surface">No matching rooms</div>
+                      <div className="text-text-xs text-text-muted mt-1">
+                        No rooms match &ldquo;{searchQuery}&rdquo;. Try another name, code, or keyword.
+                      </div>
+                      <button
+                        onClick={() => handleSearchChange('')}
+                        className="mt-3 px-3 py-1.5 text-text-xs text-accent-blue hover:text-white hover:bg-accent-blue/20 border border-accent-blue/30 rounded-md transition-colors inline-flex items-center gap-1"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">close</span>
+                        <span>Clear Search</span>
+                      </button>
                     </div>
                   )}
                 </>

@@ -70,10 +70,21 @@ function getOnlineUserIds(roomUuid, presenceMap) {
 // @access  Private
 router.get('/', protect, apiLimiter, async (req, res) => {
   try {
-    // Find rooms where participants array contains the user
-    const rooms = await Room.find({
+    const { search } = req.query;
+    const query = {
       'participants.user': req.user._id,
-    })
+    };
+
+    if (search && search.trim()) {
+      const sanitized = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      query.$or = [
+        { name: { $regex: sanitized, $options: 'i' } },
+        { uuid: { $regex: sanitized, $options: 'i' } },
+      ];
+    }
+
+    // Find rooms where participants array contains the user
+    const rooms = await Room.find(query)
       .populate('owner', 'displayName email')
       .populate('participants.user', 'displayName avatarColor')
       .sort({ lastActiveAt: -1, updatedAt: -1 });

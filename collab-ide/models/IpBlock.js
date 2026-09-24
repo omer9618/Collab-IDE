@@ -30,9 +30,8 @@ const ipBlockSchema = new mongoose.Schema(
 );
 
 // Update `updatedAt` on save to reset TTL
-ipBlockSchema.pre('save', function (next) {
+ipBlockSchema.pre('save', function () {
   this.updatedAt = new Date();
-  next();
 });
 
 const IpBlock = mongoose.model('IpBlock', ipBlockSchema);

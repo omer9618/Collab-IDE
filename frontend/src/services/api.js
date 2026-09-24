@@ -270,8 +270,9 @@ export async function revokeAllOtherSessions() {
 
 // ─── ROOMS ENDPOINTS ──────────────────────────────────────────────────────────
 
-export async function getRooms() {
-  const res = await request('/rooms');
+export async function getRooms(search = '') {
+  const query = search && search.trim() ? `?search=${encodeURIComponent(search.trim())}` : '';
+  const res = await request(`/rooms${query}`);
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || 'Failed to fetch rooms');
   return Array.isArray(data) ? data : (data.rooms || []);
