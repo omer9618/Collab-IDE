@@ -12,6 +12,40 @@ const API_BASE = window.location.origin.includes('localhost') || window.location
 let accessToken = null;
 let refreshTimeoutId = null;
 let refreshPromise = null;
+let csrfPromise = null;
+
+export function getCsrfToken() {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+export async function ensureCsrfToken() {
+  const existing = getCsrfToken();
+  if (existing) return existing;
+
+  if (csrfPromise) return csrfPromise;
+
+  csrfPromise = (async () => {
+    try {
+      const res = await fetch(`${API_BASE}/auth/csrf-token`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.csrfToken || getCsrfToken();
+      }
+      return getCsrfToken();
+    } catch (e) {
+      return getCsrfToken();
+    } finally {
+      csrfPromise = null;
+    }
+  })();
+
+  return csrfPromise;
+}
 
 function parseJwt(token) {
   try {
@@ -31,7 +65,16 @@ export async function refreshSession() {
   
   refreshPromise = (async () => {
     try {
-      const refreshRes = await fetch(`${API_BASE}/auth/refresh`, { method: 'POST', credentials: 'include' });
+      const csrfToken = await ensureCsrfToken();
+      const headers = {};
+      if (csrfToken) {
+        headers['X-CSRF-Token'] = csrfToken;
+      }
+      const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+      });
       if (refreshRes.ok) {
         const refreshData = await refreshRes.json();
         setToken(refreshData.accessToken);
@@ -96,6 +139,16 @@ async function request(path, options = {}) {
 
   if (accessToken) {
     headers['Authorization'] = `Bearer ${accessToken}`;
+  }
+
+  // NFR-15: Attach CSRF token on state-changing requests (POST, PUT, PATCH, DELETE)
+  const method = (options.method || 'GET').toUpperCase();
+  const isStateChanging = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+  if (isStateChanging) {
+    const csrfToken = await ensureCsrfToken();
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
+    }
   }
 
   const res = await fetch(`${API_BASE}${path}`, {

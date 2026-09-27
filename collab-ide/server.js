@@ -57,6 +57,8 @@ initVoiceSignalling(io);
 // Connect to Database
 connectDB();
 
+const { csrfProtection } = require('./middleware/csrf');
+
 // Global Middlewares
 app.use(cors({
   origin: true,
@@ -64,6 +66,7 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(cookieParser());
+app.use(csrfProtection);
 
 // Static Client Files
 app.use(express.static(path.join(__dirname, 'public')));

@@ -8,6 +8,7 @@ const RefreshToken = require('../models/RefreshToken');
 const IpBlock = require('../models/IpBlock');
 const { privateKey } = require('../utils/keys');
 const { protect } = require('../middleware/auth'); // We will export it from middleware/auth.js
+const { setCsrfCookie, clearCsrfCookie, generateCsrfToken } = require('../middleware/csrf');
 
 const router = express.Router();
 
@@ -46,6 +47,15 @@ function generateAccessToken(userId) {
     expiresIn: '15m',
   });
 }
+
+// @route   GET /api/auth/csrf-token
+// @desc    Retrieve or rotate CSRF token (NFR-15)
+// @access  Public
+router.get('/csrf-token', (req, res) => {
+  const token = (req.cookies && req.cookies['XSRF-TOKEN']) || generateCsrfToken();
+  setCsrfCookie(res, token);
+  res.json({ csrfToken: token });
+});
 
 // @route   POST /api/auth/register
 // @desc    Register a new user
@@ -238,10 +248,16 @@ router.post('/login', authLimiter, ipBruteForceLimiter, async (req, res) => {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/',
     });
+
+    // Issue fresh CSRF token cookie (NFR-15)
+    const csrfToken = generateCsrfToken();
+    setCsrfCookie(res, csrfToken);
 
     res.json({
       accessToken,
+      csrfToken,
       user: {
         id: user._id,
         email: user.email,
@@ -286,14 +302,26 @@ router.post('/refresh', async (req, res) => {
     if (storedToken.isRotated) {
       console.warn(`🚨 Replay attack detected! Invaliding token family: ${storedToken.familyId}`);
       await RefreshToken.deleteMany({ familyId: storedToken.familyId });
-      res.clearCookie('refreshToken');
+      res.clearCookie('refreshToken', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path: '/',
+      });
+      clearCsrfCookie(res);
       return res.status(403).json({ message: 'Access denied. Refresh token reuse detected.' });
     }
 
     // Expiry check
     if (storedToken.expiresAt < new Date()) {
       await storedToken.deleteOne();
-      res.clearCookie('refreshToken');
+      res.clearCookie('refreshToken', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path: '/',
+      });
+      clearCsrfCookie(res);
       return res.status(401).json({ message: 'Refresh token expired' });
     }
 
@@ -315,9 +343,14 @@ router.post('/refresh', async (req, res) => {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
     });
 
-    res.json({ accessToken });
+    // Rotate CSRF token (NFR-15)
+    const newCsrfToken = generateCsrfToken();
+    setCsrfCookie(res, newCsrfToken);
+
+    res.json({ accessToken, csrfToken: newCsrfToken });
   } catch (error) {
     console.error('Refresh error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -337,7 +370,13 @@ router.post('/logout', async (req, res) => {
       }
     }
     
-    res.clearCookie('refreshToken');
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
+    });
+    clearCsrfCookie(res);
     res.json({ message: 'Successfully logged out' });
   } catch (error) {
     console.error('Logout error:', error);
@@ -351,7 +390,13 @@ router.post('/logout', async (req, res) => {
 router.post('/logout-all', protect, async (req, res) => {
   try {
     await RefreshToken.deleteMany({ user: req.user._id });
-    res.clearCookie('refreshToken');
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
+    });
+    clearCsrfCookie(res);
     res.json({ message: 'Successfully logged out from all devices' });
   } catch (error) {
     console.error('Logout all error:', error);
@@ -911,16 +956,22 @@ router.post('/google-login', authLimiter, async (req, res) => {
     const { plaintext, tokenDoc } = RefreshToken.generate(user._id, null, deviceInfo);
     await tokenDoc.save();
 
-    // Set HttpOnly cookie
+    // Set HttpOnly cookie (NFR-12 & NFR-15)
     res.cookie('refreshToken', plaintext, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'none',
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/',
     });
+
+    // Issue fresh CSRF token cookie (NFR-15)
+    const csrfToken = generateCsrfToken();
+    setCsrfCookie(res, csrfToken);
 
     res.json({
       accessToken: newAccessToken,
+      csrfToken,
       user: {
         id: user._id,
         email: user.email,
