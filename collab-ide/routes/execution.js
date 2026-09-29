@@ -31,6 +31,7 @@ const LANGUAGE_MAP = {
   cpp:        { id: 54, name: 'C++ (GCC 9.2.0)' },
   c:          { id: 50, name: 'C (GCC 9.2.0)' },
   java:       { id: 62, name: 'Java (OpenJDK 13.0.1)' },
+  html:       { id: null, name: 'HTML/CSS (Web Browser)' },
 };
 
 /** Hard resource limits applied on every Judge0 submission (NFR-43) */
@@ -151,6 +152,7 @@ function getMockResult(languageKey, sourceCode) {
     cpp:        'Hello from C++!\n',
     c:          'Hello from C!\n',
     java:       'Hello from Java!\n',
+    html:       'HTML/CSS rendered in browser preview.\n',
   };
 
   return {
@@ -210,7 +212,15 @@ router.post('/:uuid/run', protect, execLimiter, async (req, res) => {
     let rawResult;
     const isMock = process.env.EXECUTION_MOCK_MODE === 'true';
 
-    if (isMock) {
+    if (languageKey === 'html' || langEntry.id === null) {
+      rawResult = {
+        stdout: 'HTML/CSS is executed directly in the browser preview pane (FR-33).\nNo remote sandbox compilation required.\n',
+        stderr: '',
+        status: { description: 'Accepted' },
+        time: '0.001',
+        memory: 0,
+      };
+    } else if (isMock) {
       // Small simulated delay for realism
       await new Promise(r => setTimeout(r, 300 + Math.random() * 400));
       rawResult = getMockResult(languageKey, code);

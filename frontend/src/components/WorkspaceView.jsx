@@ -83,6 +83,29 @@ module.exports = { formatDate };`,
 };
 
 /**
+ * Supported Languages and Judge0 mapping (FR-23)
+ * Languages: JavaScript, Python, C++, C, Java, HTML/CSS
+ */
+const SUPPORTED_LANGUAGES = [
+  { id: 'javascript', name: 'JavaScript', monaco: 'javascript', judge0Id: 63, version: 'Node.js 12.14.0' },
+  { id: 'python',     name: 'Python',     monaco: 'python',     judge0Id: 71, version: 'Python 3.8.1' },
+  { id: 'cpp',        name: 'C++',        monaco: 'cpp',        judge0Id: 54, version: 'GCC 9.2.0' },
+  { id: 'c',          name: 'C',          monaco: 'c',          judge0Id: 50, version: 'GCC 9.2.0' },
+  { id: 'java',       name: 'Java',       monaco: 'java',       judge0Id: 62, version: 'OpenJDK 13.0.1' },
+  { id: 'html',       name: 'HTML/CSS',   monaco: 'html',       judge0Id: null, version: 'Browser Preview' },
+];
+
+const getDefaultLanguage = (filename = '') => {
+  const lower = filename.toLowerCase();
+  if (lower.endsWith('.py') || lower.endsWith('.pyw')) return 'python';
+  if (lower.endsWith('.cpp') || lower.endsWith('.cc') || lower.endsWith('.cxx') || lower.endsWith('.hpp')) return 'cpp';
+  if (lower.endsWith('.c') || lower.endsWith('.h')) return 'c';
+  if (lower.endsWith('.java')) return 'java';
+  if (lower.endsWith('.html') || lower.endsWith('.htm') || lower.endsWith('.css')) return 'html';
+  return 'javascript';
+};
+
+/**
  * Converts a flat array of file path strings into a nested tree structure.
  * e.g. ['src/main.js', 'README.md'] ->
  *   [ { type:'folder', name:'src', path:'src', children:[{type:'file',name:'main.js',path:'src/main.js'}] },
@@ -163,6 +186,45 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     toastTimerRef.current = setTimeout(() => setToastMessage(null), 2500);
   };
   const [activeFile, setActiveFile] = useState('main.js');
+  const [fileLanguages, setFileLanguages] = useState({});
+  const [showLangDropdown, setShowLangDropdown] = useState(false);
+  const langDropdownRef = useRef(null);
+
+  // FR-23: Active file language configuration
+  const currentLanguageId = activeFile ? (fileLanguages[activeFile] || getDefaultLanguage(activeFile)) : 'javascript';
+  const currentLangConfig = SUPPORTED_LANGUAGES.find((l) => l.id === currentLanguageId) || SUPPORTED_LANGUAGES[0];
+
+  // Close language dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (langDropdownRef.current && !langDropdownRef.current.contains(event.target)) {
+        setShowLangDropdown(false);
+      }
+    }
+    if (showLangDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showLangDropdown]);
+
+  // Handle instant language switch (FR-23)
+  const handleSelectLanguage = (langId) => {
+    if (!activeFile) return;
+    setFileLanguages((prev) => ({
+      ...prev,
+      [activeFile]: langId,
+    }));
+    setShowLangDropdown(false);
+
+    const langConfig = SUPPORTED_LANGUAGES.find((l) => l.id === langId);
+    if (langConfig && editorRef.current && monacoRef.current) {
+      const model = editorRef.current.getModel();
+      if (model) {
+        monacoRef.current.editor.setModelLanguage(model, langConfig.monaco);
+      }
+    }
+    showToast(`Language set to ${langConfig?.name || langId}`, 'info');
+  };
   const [isSyncing, setIsSyncing] = useState(true);
   const [syncStatus, setSyncStatus] = useState('Connecting…');
   const [onlineCount, setOnlineCount] = useState(0);
@@ -435,6 +497,13 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
       }
     });
 
+    const activeLangId = fileLanguages[activeFile] || getDefaultLanguage(activeFile);
+    const langConfig = SUPPORTED_LANGUAGES.find((l) => l.id === activeLangId) || SUPPORTED_LANGUAGES[0];
+    const model = editor.getModel();
+    if (model) {
+      monaco.editor.setModelLanguage(model, langConfig.monaco);
+    }
+
     bindEditorModel(activeFile);
   };
 
@@ -447,6 +516,13 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     const model = editor.getModel();
     if (!model) return;
     model.setEOL(0); // Enforce LF line endings (0) to prevent cursor offset misalignment between CRLF and LF clients
+
+    // Instant update of language highlighting for current model (FR-23)
+    const activeLangId = fileLanguages[fileName] || getDefaultLanguage(fileName);
+    const langConfig = SUPPORTED_LANGUAGES.find((l) => l.id === activeLangId) || SUPPORTED_LANGUAGES[0];
+    if (monacoRef.current && langConfig) {
+      monacoRef.current.editor.setModelLanguage(model, langConfig.monaco);
+    }
 
     const isReadOnly = room?.isClosed || role === 'Viewer' || (editorOnlyMode && role === 'Editor' && !inVoice);
 
@@ -488,40 +564,44 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     }
   }, [activeFile, ydoc, provider, role, editorOnlyMode, inVoice]);
 
-  // Run code handler
+  // Run code handler (FR-23, FR-28)
   const handleRunCode = async () => {
-    if (!editorRef.current || isRunning) return;
+    if (!editorRef.current || isRunning || !activeFile) return;
     setIsRunning(true);
     setConsoleOpen(true);
     setConsoleTab('output');
-    setOutputLines((prev) => [...prev, { text: `> Running ${activeFile}...`, type: 'info' }]);
+
+    const activeLangId = fileLanguages[activeFile] || getDefaultLanguage(activeFile);
+    const langConfig = SUPPORTED_LANGUAGES.find((l) => l.id === activeLangId) || SUPPORTED_LANGUAGES[0];
+
+    setOutputLines((prev) => [
+      ...prev,
+      {
+        text: `> Running ${activeFile} (${langConfig.name} · Judge0 ID: ${langConfig.judge0Id ?? 'Browser Preview'})...`,
+        type: 'info',
+      },
+    ]);
 
     try {
       const code = editorRef.current.getValue();
-      const language = activeFile.endsWith('.py')
-        ? 'python'
-        : activeFile.endsWith('.java')
-        ? 'java'
-        : (activeFile.endsWith('.cpp') || activeFile.endsWith('.cc'))
-        ? 'cpp'
-        : activeFile.endsWith('.c')
-        ? 'c'
-        : 'javascript';
-
-      const result = await apiRunCode(roomUuid, { code, language });
+      const result = await apiRunCode(roomUuid, { code, language: langConfig.id });
 
       const newLines = [];
       if (result.stdout) newLines.push({ text: result.stdout, type: 'success' });
       if (result.stderr) newLines.push({ text: result.stderr, type: 'err' });
       newLines.push({
-        text: `Status: ${result.status} | Time: ${result.time || '?'}s | Memory: ${result.memory || '?'} KB`,
+        text: `Status: ${result.status} | Language: ${result.language || langConfig.name} (ID: ${result.languageId ?? langConfig.judge0Id ?? 'Client'}) | Time: ${result.time || '?'}s | Memory: ${result.memory || '?'} KB`,
         type: 'info',
       });
       newLines.push({ text: '----------------------------------------', type: 'info' });
 
       setOutputLines((prev) => [...prev, ...newLines]);
     } catch (err) {
-      setOutputLines((prev) => [...prev, { text: `Error: ${err.message}`, type: 'err' }]);
+      setOutputLines((prev) => [
+        ...prev,
+        { text: `Error: ${err.message}`, type: 'err' },
+        { text: '----------------------------------------', type: 'info' },
+      ]);
     } finally {
       setIsRunning(false);
     }
@@ -1211,11 +1291,73 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
         </div>
 
         <div className="flex items-center gap-1.5">
+          {/* FR-23: Language Selection Dropdown */}
+          <div className="relative" ref={langDropdownRef}>
+            <button
+              onClick={() => setShowLangDropdown((prev) => !prev)}
+              disabled={!activeFile}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-[10px] font-medium transition-all ${
+                showLangDropdown
+                  ? 'bg-accent-blue/15 border-accent-blue text-accent-blue'
+                  : 'bg-surface-elevated hover:bg-surface-hover border-outline text-on-surface'
+              } ${!activeFile ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+              title="Select Active File Language (FR-23)"
+            >
+              <FileCode size={13} className="text-accent-blue shrink-0" />
+              <span className="font-semibold">{currentLangConfig.name}</span>
+              <span className="text-[8.5px] px-1 py-0.2 rounded bg-surface-panel border border-outline/40 text-on-surface-muted">
+                {currentLangConfig.judge0Id ? `ID:${currentLangConfig.judge0Id}` : 'Web'}
+              </span>
+              <ChevronDown
+                size={12}
+                className={`transition-transform duration-150 ${showLangDropdown ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            {showLangDropdown && (
+              <div className="absolute right-0 mt-1 w-56 bg-surface-panel border border-outline rounded-lg shadow-2xl py-1.5 z-50 backdrop-blur-md">
+                <div className="px-3 py-1 text-[9px] font-semibold text-on-surface-muted tracking-wider uppercase border-b border-outline/40 mb-1 flex items-center justify-between">
+                  <span>Supported Languages</span>
+                  <span className="text-[8px] text-accent-blue">Judge0 CE</span>
+                </div>
+                {SUPPORTED_LANGUAGES.map((lang) => {
+                  const isSelected = currentLangConfig.id === lang.id;
+                  return (
+                    <button
+                      key={lang.id}
+                      onClick={() => handleSelectLanguage(lang.id)}
+                      className={`w-full px-3 py-1.5 text-left text-[11px] flex items-center justify-between transition-colors ${
+                        isSelected
+                          ? 'bg-accent-blue/15 text-accent-blue font-semibold'
+                          : 'text-on-surface hover:bg-surface-hover'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${isSelected ? 'bg-accent-blue' : 'bg-on-surface-muted/40'}`} />
+                        <div className="flex flex-col">
+                          <span>{lang.name}</span>
+                          <span className="text-[8.5px] text-on-surface-muted">{lang.version}</span>
+                        </div>
+                      </div>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono ${
+                        isSelected
+                          ? 'bg-accent-blue text-white'
+                          : 'bg-surface-elevated text-on-surface-muted border border-outline/30'
+                      }`}>
+                        {lang.judge0Id ? `ID ${lang.judge0Id}` : 'Preview'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           <button
             onClick={handleRunCode}
-            disabled={isRunning || role === 'Viewer' || !activeFile || activeFile.endsWith('.md')}
+            disabled={isRunning || role === 'Viewer' || !activeFile}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-white text-[10px] font-medium rounded-md transition-all shadow-sm ${
-              (isRunning || role === 'Viewer' || !activeFile || activeFile.endsWith('.md'))
+              (isRunning || role === 'Viewer' || !activeFile)
                 ? 'bg-[#2b2d30] text-on-surface-muted cursor-not-allowed'
                 : 'bg-accent-blue hover:bg-accent-blue/90 shadow-accent-blue/20'
             }`}
@@ -1604,19 +1746,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
               <Editor
                 height="100%"
                 path={activeFile}
-                language={
-                  activeFile.endsWith('.py')
-                    ? 'python'
-                    : activeFile.endsWith('.java')
-                    ? 'java'
-                    : (activeFile.endsWith('.cpp') || activeFile.endsWith('.cc'))
-                    ? 'cpp'
-                    : activeFile.endsWith('.c')
-                    ? 'c'
-                    : activeFile.endsWith('.md')
-                    ? 'markdown'
-                    : 'javascript'
-                }
+                language={currentLangConfig.monaco}
                 theme={user?.theme === 'light' ? 'light' : 'vs-dark'}
                 loading="Loading Editor Workspace..."
                 onMount={handleEditorDidMount}
@@ -1996,7 +2126,14 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
           <span>{onlineCount} online</span>
         </div>
         <div className="flex items-center gap-1">
-          <span>{activeFile.endsWith('.js') ? 'JavaScript' : 'Python'}</span>
+          <button
+            onClick={() => setShowLangDropdown((prev) => !prev)}
+            className="hover:bg-white/10 px-1.5 py-0.5 rounded flex items-center gap-1 cursor-pointer transition-colors"
+            title="Click to switch language (FR-23)"
+          >
+            <span className="font-medium">{currentLangConfig.name}</span>
+            <span className="text-[8px] opacity-80">({currentLangConfig.judge0Id ? `ID: ${currentLangConfig.judge0Id}` : 'Web'})</span>
+          </button>
           <div className="h-3 w-px bg-white/20" />
           <span className="cursor-pointer hover:underline" onClick={() => navigator.clipboard.writeText(roomUuid)}>
             Room: {roomUuid.slice(0, 8)}
