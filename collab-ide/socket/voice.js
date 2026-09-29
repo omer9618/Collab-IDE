@@ -1,24 +1,21 @@
 /**
- * socket/voice.js
- *
- * WebRTC Voice Chat Signalling Module — FR-45 to FR-53, NFR-29 to NFR-31
- *
- * Attaches to the Socket.IO /voice namespace.
- * All events relay SDP offers/answers and ICE candidates between peers (text only).
- * No audio bytes pass through this server (NFR-31).
- *
- * Usage:
- *   const { initVoiceSignalling } = require('./socket/voice');
- *   initVoiceSignalling(io);
- *
- * In-memory state shape:
- *   voiceRooms: Map<roomUuid, {
- *     participants: Map<socketId, {
- *       userId, displayName, avatarColor, role,
- *       isMuted, isHardMuted, joinedAt
- *     }>,
- *     editorOnlyMode: boolean
- *   }>
+ * @file socket/voice.js
+ * @module socket/voice
+ * @description WebRTC Peer-to-Peer Voice Chat Signalling Module (FR-45 – FR-53, NFR-29 – NFR-31).
+ * 
+ * Attaches to the Socket.IO `/voice` namespace. Relays WebRTC SDP offers, answers,
+ * and ICE candidates between browser peers in a mesh topology.
+ * 
+ * SECURITY REASONING & PRIVACY (NFR-31):
+ * - Zero Audio on Server: The server functions purely as a metadata signalling relay.
+ *   No audio bytes, media streams, or voice recordings ever pass through or are stored
+ *   on the server, preserving end-to-end participant confidentiality and low latency.
+ * - Authenticated Handshake: Every socket connection must present a valid RS256 JWT
+ *   access token from a verified user before being accepted into the namespace.
+ * - Strict In-Room Scoping: Signalling frames (SDP/ICE) are routed exclusively between
+ *   clients confirmed to be co-present in the same room, preventing cross-room eavesdropping.
+ * - Role-Based Voice Governance: Only room Owners and designated Room Leaders possess
+ *   administrative authority to hard-mute participants or restrict channels to Editor-only mode.
  */
 
 const jwt  = require('jsonwebtoken');
@@ -29,11 +26,33 @@ const Room = require('../models/Room');
 // ─── In-Memory Voice State ────────────────────────────────────────────────────
 
 /**
- * voiceRooms persists for the lifetime of the server process.
- * Exported so REST routes can read participant counts.
+ * In-memory registry of voice channel rooms.
+ * Maps room UUID to its participant set and channel configuration flags.
+ * Persists for the lifetime of the process.
+ * 
+ * @type {Map<string, {
+ *   participants: Map<string, {
+ *     userId: string,
+ *     displayName: string,
+ *     avatarColor: string,
+ *     role: string,
+ *     isMuted: boolean,
+ *     isHardMuted: boolean,
+ *     joinedAt: string,
+ *     socketId: string
+ *   }>,
+ *   editorOnlyMode: boolean
+ * }>}
  */
 const voiceRooms = new Map();
 
+/**
+ * Retrieves an existing voice room state or initializes an empty one.
+ *
+ * @function getVoiceRoom
+ * @param {string} roomUuid - Target room UUID
+ * @returns {{ participants: Map<string, object>, editorOnlyMode: boolean }} Live voice room state
+ */
 function getVoiceRoom(roomUuid) {
   if (!voiceRooms.has(roomUuid)) {
     voiceRooms.set(roomUuid, {
@@ -44,7 +63,13 @@ function getVoiceRoom(roomUuid) {
   return voiceRooms.get(roomUuid);
 }
 
-/** Serialize a voiceRoom's participants to a plain array for broadcasting. */
+/**
+ * Serializes a voice room's participant map into a safe array for broadcasting over Socket.IO.
+ *
+ * @function serializeParticipants
+ * @param {{ participants: Map<string, object> }} voiceRoom - Voice room state object
+ * @returns {Array<object>} Array of serialized participant objects
+ */
 function serializeParticipants(voiceRoom) {
   return Array.from(voiceRoom.participants.values()).map(p => ({
     userId:       p.userId,
@@ -58,15 +83,33 @@ function serializeParticipants(voiceRoom) {
   }));
 }
 
-// ─── Role Helper ──────────────────────────────────────────────────────────────
+// ─── Role Helpers ──────────────────────────────────────────────────────────────
 
-/** Returns the role of a socket's user in a given room (re-checked live from participants map). */
+/**
+ * Retrieves the current collaborative role for a socket connection in a voice room.
+ *
+ * @function getSocketRole
+ * @param {{ participants: Map<string, object> }} voiceRoom - Target voice room state
+ * @param {string} socketId - Socket identifier
+ * @returns {string|null} Participant role ('Owner' | 'Room Leader' | 'Editor' | 'Viewer' | null)
+ */
 function getSocketRole(voiceRoom, socketId) {
   const p = voiceRoom.participants.get(socketId);
   return p?.role || null;
 }
 
-/** Returns true if the role can issue voice controls over others. */
+/**
+ * Evaluates whether a collaborative role has administrative voice governance privileges.
+ *
+ * SECURITY REASONING:
+ * Only Owners and Room Leaders are authorized to exercise administrative voice controls
+ * (hard-muting individuals, muting all participants, or restricting the room to Editor-only).
+ * Viewers and Editors cannot issue supervisory voice commands.
+ *
+ * @function isLeader
+ * @param {string} role - Collaborative role to check
+ * @returns {boolean} True if role has supervisory authority
+ */
 function isLeader(role) {
   return role === 'Owner' || role === 'Room Leader';
 }
@@ -74,24 +117,28 @@ function isLeader(role) {
 // ─── Signalling Initialiser ───────────────────────────────────────────────────
 
 /**
- * Attach all voice signalling logic to the /voice Socket.IO namespace.
- * Called once from server.js during startup, receives the io instance.
+ * Attaches all WebRTC voice signalling handlers to the `/voice` Socket.IO namespace.
+ * Called once during application startup.
  *
- * @param {import('socket.io').Server} io
+ * @function initVoiceSignalling
+ * @param {import('socket.io').Server} io - Root Socket.IO server instance
  */
 function initVoiceSignalling(io) {
   const voiceNs = io.of('/voice');
 
   // ── Auth Middleware (NFR-17) ────────────────────────────────────────────────
+  // Security: Authenticate the Socket.IO handshake before allowing any connection to establish
   voiceNs.use(async (socket, next) => {
     try {
       const token = socket.handshake.auth?.token;
       if (!token) return next(new Error('AUTH_REQUIRED'));
 
+      // Security: Validate RS256 signature against public key to prevent token tampering
       const decoded = jwt.verify(token, publicKey, { algorithms: ['RS256'] });
       const user = await User.findById(decoded.userId).select('-password');
 
       if (!user) return next(new Error('USER_NOT_FOUND'));
+      // Security: Enforce email verification check for voice channel participants
       if (!user.isVerified) return next(new Error('UNVERIFIED'));
 
       socket.user = user;
@@ -105,15 +152,16 @@ function initVoiceSignalling(io) {
   voiceNs.on('connection', (socket) => {
     console.log(`🎙️  Voice socket connected: ${socket.user.displayName} (${socket.id})`);
 
-    // Populated on voice:join
+    // Track active room on the socket session
     socket.roomUuid = null;
 
     // ── voice:join ─────────────────────────────────────────────────────── FR-45
+    // Enrolls user into a voice room after verifying room membership and role eligibility
     socket.on('voice:join', async ({ roomUuid } = {}) => {
       try {
         if (!roomUuid) return socket.emit('voice:error', { message: 'roomUuid is required.' });
 
-        // Verify the user is a room member
+        // Security: Authoritative check verifying the user is a registered member of the room
         const room = await Room.findOne({ uuid: roomUuid }).populate('participants.user', 'displayName email');
         if (!room) return socket.emit('voice:error', { message: 'Room not found.' });
 
@@ -125,22 +173,23 @@ function initVoiceSignalling(io) {
 
         const voiceRoom = getVoiceRoom(roomUuid);
 
-        // FR-51: Editor-only mode check
+        // Security: FR-51 Editor-only mode enforcement
+        // Blocks Viewers from joining the voice channel when editorOnlyMode is active
         if (voiceRoom.editorOnlyMode && member.role === 'Viewer') {
           return socket.emit('voice:error', {
             message: 'Voice is restricted to Editors only in this room. Ask the Room Leader to grant you Editor access first.',
           });
         }
 
-        // Detach from any previous voice room (handles re-join)
+        // Clean up previous room association if user switches rooms without disconnecting
         if (socket.roomUuid && socket.roomUuid !== roomUuid) {
           leaveVoiceRoom(socket, voiceNs);
         }
 
         socket.roomUuid = roomUuid;
-        socket.join(roomUuid); // Socket.IO room
+        socket.join(roomUuid); // Join Socket.IO room channel
 
-        // Evict stale entries for the same user (prevents ghost duplicates on reconnect)
+        // Clean up stale socket registrations for the same user (handles browser reloads/reconnects cleanly)
         const userId = socket.user._id.toString();
         for (const [existingSocketId, existingP] of voiceRoom.participants) {
           if (existingP.userId === userId && existingSocketId !== socket.id) {
@@ -164,7 +213,7 @@ function initVoiceSignalling(io) {
 
         console.log(`🎙️  [+] "${socket.user.displayName}" joined voice in room ${roomUuid} (${voiceRoom.participants.size} in voice)`);
 
-        // Tell everyone in the room (including the new joiner) the full updated list
+        // Broadcast updated participant roster to all room members
         voiceNs.to(roomUuid).emit('voice:participant-joined', {
           joined: { ...participant, socketId: socket.id },
           participants: serializeParticipants(voiceRoom),
@@ -182,15 +231,19 @@ function initVoiceSignalling(io) {
     });
 
     // ── WebRTC Signalling Relay (FR-53) ────────────────────────────────────────
-    // All three relay events forward to a specific peer socket ID.
-    // Server does NOT inspect SDP or candidate content (NFR-31).
+    // Relays SDP offers, answers, and ICE candidates strictly between verified peers.
+    // SECURITY REASONING:
+    // 1. Both the sender and target recipient must reside within the exact same room,
+    //    preventing cross-room metadata injection or session snooping.
+    // 2. The server functions as a dumb text pipe for SDP/ICE payloads, ensuring
+    //    zero inspection or persistence of cryptographic session keys.
 
     // voice:offer — SDP offer relay
     socket.on('voice:offer', ({ to, sdp }) => {
       if (!socket.roomUuid) return;
       const voiceRoom = voiceRooms.get(socket.roomUuid);
       if (!voiceRoom) return;
-      // Ensure both sockets are in the same voice room
+      // Security: Validate target socket is actively present in the same voice room
       if (!voiceRoom.participants.has(to)) return;
 
       voiceNs.to(to).emit('voice:offer', {
@@ -227,6 +280,7 @@ function initVoiceSignalling(io) {
     });
 
     // ── voice:mute-self ────────────────────────────────────────────────── FR-47
+    // Voluntary self-mute toggle
     socket.on('voice:mute-self', ({ isMuted }) => {
       if (!socket.roomUuid) return;
       const voiceRoom = voiceRooms.get(socket.roomUuid);
@@ -235,7 +289,8 @@ function initVoiceSignalling(io) {
       const participant = voiceRoom.participants.get(socket.id);
       if (!participant) return;
 
-      // Hard-muted participants cannot unmute themselves (FR-49)
+      // Security: FR-49 Hard-mute enforcement
+      // If a participant was hard-muted by the Room Leader, they CANNOT self-unmute over the socket
       if (participant.isHardMuted && !isMuted) {
         return socket.emit('voice:error', {
           message: 'You have been hard-muted by the Room Leader. You cannot unmute yourself.',
@@ -253,11 +308,13 @@ function initVoiceSignalling(io) {
     });
 
     // ── voice:mute-participant — Room Leader hard mute (FR-48) ────────────────
+    // Security: Only Owner and Room Leader can force-mute other participants
     socket.on('voice:mute-participant', ({ targetSocketId, hard = false }) => {
       if (!socket.roomUuid) return;
       const voiceRoom = voiceRooms.get(socket.roomUuid);
       if (!voiceRoom) return;
 
+      // Security: Check sender's role permissions
       const myRole = getSocketRole(voiceRoom, socket.id);
       if (!isLeader(myRole)) {
         return socket.emit('voice:error', { message: 'Only Owners and Room Leaders can mute participants.' });
@@ -269,7 +326,7 @@ function initVoiceSignalling(io) {
       target.isMuted     = true;
       target.isHardMuted = Boolean(hard);
 
-      // Notify the muted user with a personal message (FR-48)
+      // Notify the muted user with personal alert message
       const myInfo = voiceRoom.participants.get(socket.id);
       voiceNs.to(targetSocketId).emit('voice:muted-by-leader', {
         by:   myInfo?.displayName || 'Room Leader',
@@ -289,6 +346,7 @@ function initVoiceSignalling(io) {
     });
 
     // ── voice:unmute-participant — Release hard mute (FR-48) ─────────────────
+    // Security: Only Owner and Room Leader can release a hard-mute
     socket.on('voice:unmute-participant', ({ targetSocketId }) => {
       if (!socket.roomUuid) return;
       const voiceRoom = voiceRooms.get(socket.roomUuid);
@@ -314,6 +372,7 @@ function initVoiceSignalling(io) {
     });
 
     // ── voice:mute-all — Room Leader mutes all (FR-50) ───────────────────────
+    // Security: Soft-mutes all participants except the issuing leader
     socket.on('voice:mute-all', () => {
       if (!socket.roomUuid) return;
       const voiceRoom = voiceRooms.get(socket.roomUuid);
@@ -326,11 +385,11 @@ function initVoiceSignalling(io) {
 
       const myInfo = voiceRoom.participants.get(socket.id);
 
-      // Mute everyone except the leader who issued the command
+      // Soft mute everyone except the leader who issued the command
       voiceRoom.participants.forEach((participant, sid) => {
         if (sid !== socket.id) {
           participant.isMuted = true;
-          // Soft mute only — participants may self-unmute after (FR-50 spec)
+          // Soft mute only — participants may self-unmute afterwards per FR-50 specification
         }
       });
 
@@ -344,6 +403,7 @@ function initVoiceSignalling(io) {
     });
 
     // ── voice:set-editor-only — Toggle editor-only access (FR-51) ────────────
+    // Security: Only Owner and Room Leader can restrict voice channel to Editors
     socket.on('voice:set-editor-only', ({ enabled }) => {
       if (!socket.roomUuid) return;
       const voiceRoom = voiceRooms.get(socket.roomUuid);
@@ -376,8 +436,12 @@ function initVoiceSignalling(io) {
 // ─── Shared Leave Helper ──────────────────────────────────────────────────────
 
 /**
- * Remove a socket from its voice room, broadcast departure, and clean up.
- * Called on explicit voice:leave and on disconnect.
+ * Removes a socket from its voice room, broadcasts departures to remaining peers,
+ * and cleans up empty voice room structures to prevent memory leaks.
+ *
+ * @function leaveVoiceRoom
+ * @param {import('socket.io').Socket} socket - Socket instance leaving voice
+ * @param {import('socket.io').Namespace} voiceNs - Voice Socket.IO namespace
  */
 function leaveVoiceRoom(socket, voiceNs) {
   const roomUuid = socket.roomUuid;
@@ -402,7 +466,7 @@ function leaveVoiceRoom(socket, voiceNs) {
     participants: serializeParticipants(voiceRoom),
   });
 
-  // Clean up empty voice rooms to prevent memory leak
+  // Clean up empty voice rooms to prevent memory leaks
   if (voiceRoom.participants.size === 0) {
     voiceRooms.delete(roomUuid);
   }

@@ -1,3 +1,19 @@
+/**
+ * @file routes/auth.js
+ * @module routes/auth
+ * @description Authentication, Session Management, and Identity Endpoints.
+ * 
+ * Implements:
+ * - Registration with email verification token generation (FR-01)
+ * - User login with dual-layer brute force throttling (IP-level & Account-level lockout) (NFR-14)
+ * - RS256 Asymmetric JWT generation (15m access token) and rotation (7d refresh token) (NFR-12, NFR-13)
+ * - Password complexity validation & Bcrypt (cost 12) hashing (FR-01, NFR-16)
+ * - Password reset workflows with crypto-random tokens (FR-09)
+ * - Profile and email change verification workflows (FR-08)
+ * - Google Single Sign-On (SSO) integration (FR-02)
+ * - Active session listing and remote revocation (FR-07)
+ */
+
 const crypto = require('crypto');
 const express = require('express');
 const jwt = require('jsonwebtoken');
@@ -7,16 +23,16 @@ const User = require('../models/User');
 const RefreshToken = require('../models/RefreshToken');
 const IpBlock = require('../models/IpBlock');
 const { privateKey } = require('../utils/keys');
-const { protect } = require('../middleware/auth'); // We will export it from middleware/auth.js
+const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Password complexity regex
+// Password complexity regex (at least 8 chars, 1 uppercase, 1 lowercase, 1 digit, 1 special char)
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
 // Rate limiters (NFR-14 & NFR-35)
 const authLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute (per NFR-35)
+  windowMs: 1 * 60 * 1000, // 1 minute window (per NFR-35)
   max: 10, // Max 10 requests per window
   message: { message: 'Too many authentication requests, please try again after 1 minute.' },
   standardHeaders: true,
@@ -24,7 +40,7 @@ const authLimiter = rateLimit({
   skip: (req) => {
     const ip = req.ip || '';
     return ip === '127.0.0.1' || ip === '::1' || ip.endsWith('127.0.0.1') || process.env.NODE_ENV === 'test';
-  }, // Skip for local development/testing loops
+  },
 });
 
 const verifyLimiter = rateLimit({
@@ -39,7 +55,18 @@ const verifyLimiter = rateLimit({
   },
 });
 
-// Helper: Generate JWT access token (15 mins expiry, RS256)
+/**
+ * Generates an asymmetric RS256 JWT access token with 15-minute expiration (NFR-12, NFR-13).
+ *
+ * SECURITY REASONING:
+ * Uses RS256 with the private key to sign the token. Downstream microservices, WebSocket gateways,
+ * and reverse proxies can verify authenticity using the public key alone without possessing the private key.
+ * The short 15-minute lifetime minimizes the impact of token interception.
+ *
+ * @function generateAccessToken
+ * @param {string|import('mongoose').Types.ObjectId} userId - User identifier
+ * @returns {string} Signed RS256 JWT string
+ */
 function generateAccessToken(userId) {
   return jwt.sign({ userId, type: 'access' }, privateKey, {
     algorithm: 'RS256',
@@ -132,12 +159,27 @@ router.get('/verify', async (req, res) => {
   }
 });
 
-// IP Brute Force Limiter Middleware
+/**
+ * IP Brute Force Limiter Middleware (NFR-14).
+ *
+ * SECURITY REASONING:
+ * Protects against credential stuffing and distributed brute-force dictionary attacks.
+ * If an IP accumulates 20 consecutive failed authentication attempts, it is temporarily
+ * blacklisted from login endpoints for 1 hour, returning HTTP 429 Too Many Requests.
+ *
+ * @async
+ * @function ipBruteForceLimiter
+ * @param {import('express').Request} req - Express request
+ * @param {import('express').Response} res - Express response
+ * @param {import('express').NextFunction} next - Next middleware
+ * @returns {Promise<void>}
+ */
 const ipBruteForceLimiter = async (req, res, next) => {
   try {
     const ip = req.ip;
     const ipBlock = await IpBlock.findOne({ ip });
     
+    // Security: Reject traffic if IP is currently under active ban
     if (ipBlock && ipBlock.blockUntil && ipBlock.blockUntil > new Date()) {
       return res.status(429).json({
         message: 'Too many failed login attempts from this IP. Please try again in 1 hour.',
@@ -150,6 +192,19 @@ const ipBruteForceLimiter = async (req, res, next) => {
   }
 };
 
+/**
+ * Increments failed login counters for both IP address and targeted account (NFR-14).
+ * Enforces dual-layer brute force throttling:
+ * 1. IP level: 20 failed attempts -> 1 hour IP ban.
+ * 2. Account level: 5 failed attempts -> 15 minute user account lockout with notification alert.
+ *
+ * @async
+ * @function handleFailedLogin
+ * @param {import('express').Request} req - Express request
+ * @param {import('../models/User').UserDocument|null} user - Target user document if email matched
+ * @param {import('../models/IpBlock').IpBlockDocument|null} ipBlockDoc - IP block tracker document
+ * @returns {Promise<void>}
+ */
 const handleFailedLogin = async (req, user, ipBlockDoc) => {
   const ip = req.ip;
 

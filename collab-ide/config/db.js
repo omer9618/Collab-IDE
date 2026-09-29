@@ -1,5 +1,24 @@
+/**
+ * @file config/db.js
+ * @module config/db
+ * @description MongoDB database connection establishment and pool sizing (NFR-40).
+ */
+
 const mongoose = require('mongoose');
 
+/**
+ * Initializes connection to MongoDB with connection pooling configuration.
+ *
+ * CONFIGURATION & SECURITY (NFR-40):
+ * - Pool Size Bounds: `minPoolSize` (default: 5) ensures warm connections are pre-allocated;
+ *   `maxPoolSize` (default: 20) bounds concurrent socket utilization, preventing socket starvation.
+ * - Timeouts: `serverSelectionTimeoutMS` (5000ms) fails fast on network partitioning;
+ *   `socketTimeoutMS` (45000ms) reaps idle connections.
+ *
+ * @async
+ * @function connectDB
+ * @returns {Promise<void>}
+ */
 const connectDB = async () => {
   try {
     const connUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/collabide';

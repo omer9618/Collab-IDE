@@ -1,3 +1,13 @@
+/**
+ * @fileoverview Collaborative Dashboard View Component (DashboardView.jsx).
+ *
+ * Implements workspace listing, creation, and joining, presence polling (FR-14),
+ * room state management (closing, opening, deleting rooms), tab filtering,
+ * and user profile access.
+ *
+ * @module components/DashboardView
+ */
+
 import React, { useState, useEffect } from 'react';
 import { createRoom, joinRoom, logoutUser, logoutAllDevices, getRooms, getRoomsPresence, closeRoom, openRoom, deleteRoom, updateProfile } from '../services/api';
 import ProfileDrawer from './ProfileDrawer';
@@ -9,6 +19,12 @@ const PRESENCE_POLL_MS = 15000;
 const RANDOM_ADJECTIVES = ['Super', 'Sleek', 'Hyper', 'Delta', 'Quantum', 'Cyber', 'Mega', 'Apex'];
 const RANDOM_NOUNS = ['Space', 'Node', 'Grid', 'Core', 'Doc', 'Byte', 'Stack', 'Nexus'];
 
+/**
+ * Calculates a friendly human-readable relative time string (e.g., "5 min ago", "Yesterday").
+ *
+ * @param {string|Date} dateStr - Date string or timestamp to evaluate.
+ * @returns {string} Relative time representation.
+ */
 const getRelativeTime = (dateStr) => {
   if (!dateStr) return 'Unknown';
   const parsed = new Date(dateStr).getTime();
@@ -27,6 +43,12 @@ const getRelativeTime = (dateStr) => {
   return new Date(parsed).toLocaleDateString();
 };
 
+/**
+ * Infers language badge label from the workspace's primary file extension.
+ *
+ * @param {Array<string>} [files] - List of file paths inside the room.
+ * @returns {'JS'|'PY'|'HTML'|'CSS'|'TXT'} Language badge acronym.
+ */
 const getRoomLang = (files) => {
   if (!files || files.length === 0) return 'TXT';
   const firstFile = files[0];
@@ -37,6 +59,12 @@ const getRoomLang = (files) => {
   return 'TXT';
 };
 
+/**
+ * Formats a list of file paths into a condensed overview string for card displays.
+ *
+ * @param {Array<string>} [files] - List of file paths.
+ * @returns {string} Comma-delimited list of initial files with overflow indicator.
+ */
 const formatFilesText = (files) => {
   if (!files || files.length === 0) return 'No files';
   if (files.length === 1) return files[0];
@@ -44,6 +72,16 @@ const formatFilesText = (files) => {
   return `${files[0]}, ${files[1]}, +${files.length - 2}`;
 };
 
+/**
+ * Dashboard View component.
+ *
+ * @param {Object} props - Component properties.
+ * @param {Object} props.user - Active user profile object.
+ * @param {Function} props.onRoomSelect - Callback invoked when a room card is clicked.
+ * @param {Function} props.onLogout - Callback invoked on user logout.
+ * @param {Function} props.onUserUpdate - Callback invoked when user profile is updated.
+ * @returns {React.ReactElement} Dashboard interface element.
+ */
 export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpdate }) {
   const [roomName, setRoomName] = useState('');
   const [joinUuid, setJoinUuid] = useState('');

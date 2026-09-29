@@ -1,3 +1,24 @@
+/**
+ * @fileoverview Collaborative Workspace View Component (WorkspaceView.jsx).
+ *
+ * Implements real-time multi-user code editing via Yjs and y-websocket,
+ * Monaco editor integration with language switching (FR-23), in-browser HTML/CSS
+ * live preview, remote code execution (FR-28, Judge0 CE), WebRTC voice signalling
+ * and room moderation (FR-29/30/31), chat messaging, presence awareness,
+ * and role-based access enforcement (NFR-18, NFR-25).
+ *
+ * Security Architecture & Role Enforcement:
+ * - Dual-layer write barrier: The server enforces a binary write barrier that drops
+ *   mutation frames originating from Viewers (NFR-18). Client-side, Monaco editor
+ *   locks write operations with `readOnly: true` and intercepts keyboard/contextmenu events
+ *   via `window._collabIdeReadOnly` to prevent `y-monaco` concurrency lock-clearing bugs.
+ * - WebSocket Message Protocol: Custom JSON control messages (`role_update`, `room_closed`,
+ *   `room_opened`, `room_deleted`) are received over the shared WebSocket carrier alongside
+ *   Yjs binary sync and awareness protocol frames.
+ *
+ * @module components/WorkspaceView
+ */
+
 import React, { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import * as Y from 'yjs';
@@ -58,6 +79,14 @@ const WHATSAPP_CHAT_COLORS = [
   '#60a5fa', // Blue
 ];
 
+/**
+ * Computes a deterministic hexadecimal color code from a user identifier or display name.
+ * Used for chat message author labels and collaborator cursor indicators.
+ *
+ * @param {string} [userId] - Unique user identifier.
+ * @param {string} [displayName] - User's display name fallback.
+ * @returns {string} Hex color string from WHATSAPP_CHAT_COLORS.
+ */
 const getUserColor = (userId, displayName) => {
   const identifier = userId || displayName || '';
   let hash = 0;
@@ -158,6 +187,13 @@ const SUPPORTED_LANGUAGES = [
   { id: 'html',       name: 'HTML/CSS',   monaco: 'html',       judge0Id: null, version: 'Browser Preview' },
 ];
 
+/**
+ * Infers language identifier from the file extension.
+ * Defaults to 'javascript' if no extension matches.
+ *
+ * @param {string} [filename=''] - File path or name.
+ * @returns {string} Language ID corresponding to SUPPORTED_LANGUAGES entry.
+ */
 const getDefaultLanguage = (filename = '') => {
   const lower = filename.toLowerCase();
   if (lower.endsWith('.py') || lower.endsWith('.pyw')) return 'python';
@@ -173,6 +209,9 @@ const getDefaultLanguage = (filename = '') => {
  * e.g. ['src/main.js', 'README.md'] ->
  *   [ { type:'folder', name:'src', path:'src', children:[{type:'file',name:'main.js',path:'src/main.js'}] },
  *     { type:'file', name:'README.md', path:'README.md' } ]
+ *
+ * @param {Array<{name: string}|string>} files - List of file objects or file path strings.
+ * @returns {Array<Object>} Hierarchical file/folder tree nodes.
  */
 function buildFileTree(files) {
   const root = [];
@@ -203,6 +242,17 @@ function buildFileTree(files) {
   return root;
 }
 
+/**
+ * Main Collaborative Workspace View component.
+ *
+ * @param {Object} props - Component properties.
+ * @param {string} props.roomUuid - Room UUID identifier.
+ * @param {Object} props.user - Currently logged in user profile object.
+ * @param {Function} props.onBack - Callback invoked to return to Dashboard.
+ * @param {Function} props.onRoomSelect - Callback invoked to switch active room workspace.
+ * @param {Function} props.onUserUpdate - Callback invoked when user profile is updated.
+ * @returns {React.ReactElement} The rendered Workspace UI.
+ */
 export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, onUserUpdate }) {
   const [room, setRoom] = useState(null);
   const [joinedRooms, setJoinedRooms] = useState([]);
@@ -210,7 +260,10 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
   const [showProfileDrawer, setShowProfileDrawer] = useState(false);
   const [themeToggling, setThemeToggling] = useState(false);
 
-  // FR-24: Quick theme toggle (Dark <-> Light) persisting to profile
+  /**
+   * Toggles the UI theme between dark ('vs-dark') and light ('light'), persisting
+   * the choice to the user's backend profile and updating the document class (FR-24).
+   */
   const handleQuickThemeToggle = async () => {
     if (themeToggling) return;
     const currentTheme = user?.theme || 'vs-dark';
@@ -243,6 +296,12 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
   const [toastMessage, setToastMessage] = useState(null); // { text, type: 'success'|'error'|'warning'|'info' }
   const toastTimerRef = useRef(null);
 
+  /**
+   * Displays an ephemeral notification toast message.
+   *
+   * @param {string} text - Message text to display.
+   * @param {'success'|'error'|'warning'|'info'} [type='success'] - Visual styling variant.
+   */
   const showToast = (text, type = 'success') => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToastMessage({ text, type });
@@ -270,7 +329,13 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     }
   }, [showLangDropdown]);
 
-  // Handle instant language switch (FR-23)
+  /**
+   * Handles user selection of a programming language for the active file (FR-23).
+   * Updates local file language map, switches Monaco editor language model,
+   * and prepares language ID mapping for remote code execution.
+   *
+   * @param {string} langId - Language ID from SUPPORTED_LANGUAGES.
+   */
   const handleSelectLanguage = (langId) => {
     if (!activeFile) return;
     setFileLanguages((prev) => ({
@@ -387,7 +452,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     loadDetails();
   }, [roomUuid]);
 
-  // Connect Yjs WebSocket Sync
+  // Connect Yjs WebSocket Sync & Real-Time Operational Messaging Protocol
   useEffect(() => {
     if (!isAuthReady) return;
     const yDocInstance = new Y.Doc();
@@ -402,6 +467,8 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
           ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws` 
           : 'wss://collabide-backend-avau.onrender.com');
 
+    // SECURITY: Authenticate the WebSocket connection using the short-lived RS256 JWT access token.
+    // The token is validated during the HTTP upgrade handshake in collab-ide/server.js.
     const providerInstance = new WebsocketProvider(wsUrl, roomUuid, yDocInstance, {
       params: { token: getToken() },
     });
@@ -420,10 +487,11 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
 
     providerInstance.on('status', ({ status }) => {
       if (status === 'connecting') {
-        // Proactively trigger profile call to let api.js automatically rotate token if expired
+        // SECURITY: Proactively trigger profile refresh if the access token has expired.
+        // api.js intercepts 401s and exchanges the HttpOnly refresh cookie for a fresh access token.
         getProfile().catch(() => {});
 
-        // Update Yjs parameters with the latest token dynamically (y-websocket regenerates URL using getter)
+        // Update Yjs parameters with the latest token dynamically so reconnects carry valid credentials
         providerInstance.params = {
           ...providerInstance.params,
           token: getToken()
@@ -432,6 +500,48 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
 
       setIsSyncing(status !== 'connected');
       setSyncStatus(status === 'connected' ? 'Synced' : 'Connecting…');
+
+      /**
+       * ─────────────────────────────────────────────────────────────────────────────
+       * WEBSOCKET MESSAGE PROTOCOL & SECURITY REASONING (NFR-50)
+       * ─────────────────────────────────────────────────────────────────────────────
+       * The underlying WebSocket connection multiplexes two distinct communication channels:
+       *
+       * 1. Binary Frames:
+       *    Carries Yjs CRDT synchronization updates (messageSync = 0, messageAwareness = 1,
+       *    messageAuth = 2). On the server, `collab-ide/server.js` decodes these frames and
+       *    enforces a zero-trust write barrier: if a user with role 'Viewer' attempts to submit
+       *    file mutations (Y.Text / files array updates), the server silently drops the frame
+       *    while permitting Y.Array chat messages (`${roomUuid}:chat`).
+       *
+       * 2. Text (JSON) Frames:
+       *    Out-of-band operational server push events dispatched by REST route actions
+       *    (e.g., role promotions/demotions, room closures, or room deletion).
+       *
+       * Message Types:
+       * - 'role_update':
+       *   Triggered when a Room Leader or Owner changes a member's role via
+       *   `PUT /api/rooms/:uuid/members/:id/role`. The server sends `{ type: 'role_update', role }`
+       *   directly to the affected socket. The client updates `role` state, immediately flipping
+       *   Monaco to `readOnly: true` (if demoted to Viewer) or enabling writes (if promoted).
+       *   Even if a tampered client attempts to ignore this signal, the server drops all
+       *   file mutation frames from Viewers, guaranteeing full integrity.
+       *
+       * - 'room_closed':
+       *   Dispatched when the Room Owner locks the workspace (`PUT /api/rooms/:uuid/close`).
+       *   All participants transition into read-only mode and are disconnected from the voice
+       *   channel to prevent unauthorized collaboration or background eavesdropping.
+       *
+       * - 'room_opened':
+       *   Dispatched when the Room Owner re-opens the workspace, restoring full editing and
+       *   voice collaboration permissions.
+       *
+       * - 'room_deleted':
+       *   Dispatched when the Room Owner permanently deletes the workspace (`DELETE /api/rooms/:uuid`).
+       *   Displays a terminal modal informing the user that the room was disbanded, preventing
+       *   further state writes to orphaned database entries.
+       * ─────────────────────────────────────────────────────────────────────────────
+       */
       if (status === 'connected' && providerInstance.ws) {
         providerInstance.ws.addEventListener('message', (event) => {
           try {
@@ -453,7 +563,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
               }
             }
           } catch (e) {
-            // ignore
+            // Non-JSON or binary frames are handled by y-websocket internally
           }
         });
       }
@@ -525,12 +635,36 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     };
   }, []);
 
-  // Monaco Editor Binding
+  /**
+   * Monaco Editor mount callback. Stores editor/monaco instances, attaches keydown
+   * interceptors for read-only role enforcement, sets initial language, and binds model.
+   *
+   * @param {Object} editor - Monaco editor instance.
+   * @param {Object} monaco - Monaco namespace root object.
+   */
   const handleEditorDidMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
 
-    // Enforce read-only behavior by intercepting keyboard events, bypassing y-monaco readOnly lock issues
+    /**
+     * ─────────────────────────────────────────────────────────────────────────────
+     * ROLE ENFORCEMENT & CLIENT-SIDE READ-ONLY KEYBOARD SHIELD (NFR-50)
+     * ─────────────────────────────────────────────────────────────────────────────
+     * Monaco's native `readOnly: true` option disables standard editor editing.
+     * However, in collaborative environments using `y-monaco`, concurrent CRDT remote
+     * text insertions can trigger internal model events that momentarily desynchronize
+     * or bypass Monaco's readOnly lock state.
+     *
+     * To prevent viewers or muted editors from injecting keystrokes or pasting code:
+     * 1. We attach a low-level `editor.onKeyDown` listener that checks `window._collabIdeReadOnly`.
+     * 2. Allowed keys: Whitelisted non-mutating navigation (arrows, page up/down, home/end, Esc)
+     *    and safe read-only shortcuts (Ctrl+C copy, Ctrl+A select-all, Ctrl+F find).
+     * 3. Blocked keys: Any mutating keystroke (alphanumeric, backspace, delete, enter,
+     *    paste Ctrl+V, cut Ctrl+X, undo Ctrl+Z) is intercepted and neutralized via
+     *    `e.preventDefault()` and `e.stopPropagation()`.
+     * 4. Context menu is conditionally disabled when read-only to block mouse-driven pasting.
+     * ─────────────────────────────────────────────────────────────────────────────
+     */
     editor.onKeyDown((e) => {
       if (window._collabIdeReadOnly) {
         // Allow navigation keys
@@ -570,6 +704,13 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     bindEditorModel(activeFile);
   };
 
+  /**
+   * Binds the active file's Yjs Y.Text instance to the Monaco editor model.
+   * Dynamically switches between a one-way observer (for read-only Viewers)
+   * and a two-way collaborative MonacoBinding (for authorized Editors).
+   *
+   * @param {string} fileName - File path to bind with Monaco.
+   */
   const bindEditorModel = (fileName) => {
     if (!editorRef.current || !ydoc || !provider) return;
 
@@ -598,6 +739,13 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
       monacoBindingRef.current = null;
     }
 
+    /**
+     * SECURITY: Asymmetric Binding Architecture.
+     * When read-only, we do NOT initialize `MonacoBinding`. A `MonacoBinding` creates
+     * two-way event synchronization which could inadvertently emit Yjs transaction updates.
+     * Instead, we attach a one-way observer (`ytext.observe`): the client displays incoming
+     * edits from authorized collaborators, but has no mechanism to transmit local edits.
+     */
     if (isReadOnly) {
       const updateModel = () => {
         const text = ytext.toString();
@@ -627,7 +775,18 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     }
   }, [activeFile, ydoc, provider, role, editorOnlyMode, inVoice]);
 
-  // Run code handler (FR-23, FR-28)
+  /**
+   * Triggers code execution for the active file buffer (FR-23, FR-28).
+   *
+   * SECURITY REASONING (Role-Based Execution Guard):
+   * - Client Check: The UI disables the Run button and blocks execution if `role === 'Viewer'`.
+   * - Server Check: The backend endpoint `POST /api/rooms/:uuid/run` enforces that the
+   *   caller has an active role of 'Editor', 'Room Leader', or 'Owner' (FR-27), rejecting
+   *   Viewers with HTTP 403 Forbidden.
+   * - Resource Isolation: Code execution is sandboxed via Judge0 CE with strict CPU,
+   *   memory, and timeout quotas to prevent denial-of-service abuse (NFR-43).
+   * - HTML/CSS files bypass remote execution and render directly in the local sandbox iframe.
+   */
   const handleRunCode = async () => {
     if (!editorRef.current || isRunning || !activeFile) return;
     setIsRunning(true);
@@ -675,7 +834,9 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     }
   };
 
-  // Copy console output to clipboard
+  /**
+   * Copies the accumulated terminal/console execution logs to the system clipboard.
+   */
   const handleCopyOutput = () => {
     const textToCopy = outputLines.map(line => line.text).join('\n');
     if (textToCopy) {
@@ -683,13 +844,18 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     }
   };
 
-  // Clear console output
+  /**
+   * Clears all output lines from the console execution panel.
+   */
   const handleClearOutput = () => {
     setOutputLines([]);
   };
 
-  // Resize console height via mouse drag
-
+  /**
+   * Initiates mouse-drag resizing of the left file explorer sidebar panel.
+   *
+   * @param {React.MouseEvent} e - Mouse down event initiating drag.
+   */
   const handleLeftPanelResize = (e) => {
     e.preventDefault();
     const startX = e.clientX;
@@ -705,6 +871,11 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     window.addEventListener('mouseup', stopResize);
   };
 
+  /**
+   * Initiates mouse-drag resizing of the right collaboration panel (chat/participants).
+   *
+   * @param {React.MouseEvent} e - Mouse down event initiating drag.
+   */
   const handleRightPanelResize = (e) => {
     e.preventDefault();
     const startX = e.clientX;
@@ -720,6 +891,11 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     window.addEventListener('mouseup', stopResize);
   };
 
+  /**
+   * Initiates mouse-drag resizing of the bottom console/terminal panel.
+   *
+   * @param {React.MouseEvent} e - Mouse down event initiating drag.
+   */
   const handleConsoleResize = (e) => {
     e.preventDefault();
     const startY = e.clientY;
@@ -740,7 +916,15 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     window.addEventListener('mouseup', stopResize);
   };
 
-  // Create new file dynamically (VS Code style inline creation)
+  /**
+   * Opens inline file creation input in the file explorer sidebar.
+   *
+   * SECURITY REASONING:
+   * Viewers are prohibited from creating files. Even if the UI check were bypassed,
+   * the server drops any binary Yjs mutation frames affecting the room's files array.
+   *
+   * @param {string} [parentFolderPath=''] - Path of folder to create file inside.
+   */
   const handleCreateFile = (parentFolderPath = '') => {
     if (role === 'Viewer') {
       showToast('Viewers cannot create files. Ask the Room Leader to promote you.', 'warning');
@@ -757,7 +941,11 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     }
   };
 
-  // Create new folder (inserts a .gitkeep placeholder to represent it)
+  /**
+   * Opens inline folder creation input in the file explorer sidebar.
+   *
+   * @param {string} [parentFolderPath=''] - Path of folder to create new folder inside.
+   */
   const handleCreateFolder = (parentFolderPath = '') => {
     if (role === 'Viewer') {
       showToast('Viewers cannot create folders.', 'warning');
@@ -772,6 +960,10 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     }
   };
 
+  /**
+   * Validates and commits the newly created folder by pushing a `.gitkeep` placeholder
+   * path to the shared Yjs files array.
+   */
   const handleCommitNewFolder = () => {
     const trimmed = newFolderNameInput.trim();
     if (!trimmed) {
@@ -797,11 +989,21 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     setNewFolderNameInput('');
   };
 
+  /**
+   * Handles keyboard shortcuts inside the new folder input field (Enter to commit, Esc to cancel).
+   *
+   * @param {React.KeyboardEvent} e - Keyboard event.
+   */
   const handleNewFolderKeyDown = (e) => {
     if (e.key === 'Enter') handleCommitNewFolder();
     else if (e.key === 'Escape') { setIsCreatingFolder(false); setNewFolderNameInput(''); }
   };
 
+  /**
+   * Deletes a folder and all its contents atomically within a single Yjs transaction.
+   *
+   * @param {string} folderPath - Path of the folder to delete.
+   */
   const handleDeleteFolder = (folderPath) => {
     if (role === 'Viewer') return;
     const yfiles = ydoc.getArray(`${roomUuid}:files`);
@@ -822,6 +1024,10 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     showToast(`Folder "${folderPath.split('/').pop()}" deleted`, 'success');
   };
 
+  /**
+   * Commits a new file name to the collaborative Yjs file collection.
+   * Performs path validation, uniqueness checks, and pushes to shared state.
+   */
   const handleCommitNewFile = () => {
     if (isCommittingFileRef.current) return;
     isCommittingFileRef.current = true;
@@ -865,6 +1071,11 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     isCommittingFileRef.current = false;
   };
 
+  /**
+   * Handles keyboard shortcuts inside the new file input field.
+   *
+   * @param {React.KeyboardEvent} e - Keyboard event.
+   */
   const handleNewFileKeyDown = (e) => {
     if (e.key === 'Enter') {
       handleCommitNewFile();
@@ -875,6 +1086,12 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     }
   };
 
+  /**
+   * Opens file action context menu on double-click. Blocked for Viewers.
+   *
+   * @param {React.MouseEvent} e - Double click event.
+   * @param {string} fileName - Target file path.
+   */
   const handleFileDoubleClick = (e, fileName) => {
     e.preventDefault();
     if (role === 'Viewer') return; // Viewers can't modify files
@@ -885,6 +1102,11 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     });
   };
 
+  /**
+   * Activates inline file rename mode. Blocked for Viewers.
+   *
+   * @param {string} oldName - Current file path.
+   */
   const handleRenameFile = (oldName) => {
     if (role === 'Viewer') return;
     setRenamingFileName(oldName);
@@ -892,6 +1114,13 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     isCommittingFileRef.current = false;
   };
 
+  /**
+   * Commits a file rename collaboratively via an atomic Yjs transaction.
+   * Preserves file text buffer content by copying it to the new file key
+   * before replacing the path entry in the shared files array.
+   *
+   * @param {string} oldName - Previous file path.
+   */
   const handleCommitRename = (oldName) => {
     if (isCommittingFileRef.current) return;
     isCommittingFileRef.current = true;
@@ -950,6 +1179,12 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     isCommittingFileRef.current = false;
   };
 
+  /**
+   * Handles keyboard shortcuts inside the file rename input field.
+   *
+   * @param {React.KeyboardEvent} e - Keyboard event.
+   * @param {string} oldName - Previous file path.
+   */
   const handleRenameKeyDown = (e, oldName) => {
     if (e.key === 'Enter') {
       handleCommitRename(oldName);
@@ -960,6 +1195,12 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     }
   };
 
+  /**
+   * Triggers confirmation prompt for deleting a file.
+   * Enforces last-file stability rule to prevent an empty workspace state.
+   *
+   * @param {string} fileName - File path to delete.
+   */
   const handleDeleteFile = (fileName) => {
     if (role === 'Viewer') return;
     // Don't delete the last file to ensure stability
@@ -975,6 +1216,9 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     setDeleteConfirmFile(fileName);
   };
 
+  /**
+   * Confirms and deletes a file from the shared Yjs files array.
+   */
   const handleConfirmDelete = () => {
     if (!deleteConfirmFile || !ydoc) return;
     const yfiles = ydoc.getArray(`${roomUuid}:files`);
@@ -994,7 +1238,11 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     setDeleteConfirmFile(null);
   };
 
-  // Close an opened tab
+  /**
+   * Closes an open editor tab and switches active file to adjacent tab if closed was active.
+   *
+   * @param {string} fileName - File path tab to close.
+   */
   const handleCloseFile = (fileName) => {
     const updated = openedFiles.filter((name) => name !== fileName);
     setOpenedFiles(updated);
@@ -1008,7 +1256,14 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     }
   };
 
-  // Chat message sender
+  /**
+   * Sends a chat message into the shared Yjs chat array (`${roomUuid}:chat`).
+   *
+   * SECURITY REASONING:
+   * Viewers ARE permitted to participate in text chat. The server's binary write barrier
+   * explicitly permits Yjs update frames directed at the `:chat` shared type while
+   * rejecting any frames attempting to mutate files.
+   */
   const handleSendChat = () => {
     if (!chatInput.trim() || !ydoc) return;
     const ychat = ydoc.getArray(`${roomUuid}:chat`);
@@ -1026,6 +1281,20 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
 
   // ─── WebRTC VOICE SIGNALLING ────────────────────────────────────────────────
 
+  /**
+   * Initializes WebRTC voice mesh connection for the current room.
+   *
+   * SECURITY REASONING (Zero Audio on Server & Ephemeral TURN Credentials):
+   * 1. P2P Architecture: Audio streams flow purely peer-to-peer using RTCPeerConnection mesh.
+   *    No unencrypted or raw audio packets ever touch or reside on the server (NFR-31).
+   * 2. Authenticated Signalling: The Socket.IO signalling connection (`/voice`) strictly
+   *    requires a valid RS256 JWT access token during connection handshake.
+   * 3. Ephemeral TURN Credentials: TURN/STUN relay credentials are generated dynamically
+   *    via HMAC-SHA1 with short 24-hour expiration (NFR-30) and delivered only after
+   *    validating the user's room membership in `collab-ide/routes/voice.js` (NFR-25).
+   * 4. Automatic Revocation: If the room is closed or the user is kicked, the voice socket
+   *    is forcefully severed and peer connections are destroyed immediately.
+   */
   const joinVoice = async () => {
     if (inVoice) return;
     setMutedByLeaderMsg('');
@@ -1150,6 +1419,10 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     }
   };
 
+  /**
+   * Leaves the voice channel: stops local microphone tracks, disconnects
+   * signaling socket, and tears down all peer RTCPeerConnections and audio elements.
+   */
   const leaveVoice = () => {
     if (localStream) {
       localStream.getTracks().forEach((track) => track.stop());
@@ -1168,6 +1441,14 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     setActiveSpeakerSocketId(null);
   };
 
+  /**
+   * Instantiates an RTCPeerConnection to communicate with a remote peer in the mesh.
+   *
+   * @param {string} peerSocketId - Remote peer's Socket.IO socket identifier.
+   * @param {MediaStream} stream - Local audio MediaStream to send to peer.
+   * @param {Array<Object>} iceServers - STUN/TURN server configuration objects.
+   * @returns {RTCPeerConnection} Configured peer connection instance.
+   */
   const createPeerConnection = (peerSocketId, stream, iceServers) => {
     const pc = new RTCPeerConnection({ iceServers });
     peerConnectionsRef.current.set(peerSocketId, pc);
@@ -1199,6 +1480,11 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     return pc;
   };
 
+  /**
+   * Closes and removes the RTCPeerConnection associated with a departed peer.
+   *
+   * @param {string} peerSocketId - Remote peer's socket identifier.
+   */
   const closePeerConnection = (peerSocketId) => {
     const pc = peerConnectionsRef.current.get(peerSocketId);
     if (pc) {
@@ -1212,6 +1498,9 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     }
   };
 
+  /**
+   * Toggles local microphone mute status, disabling audio tracks and broadcasting state.
+   */
   const toggleMuteSelf = () => {
     if (!localStream || !voiceSocketRef.current) return;
     const nextMute = !isMuted;
@@ -1226,16 +1515,42 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
 
   // ─── LEADER CONTROLS ────────────────────────────────────────────────────────
 
+  /**
+   * Toggles editor-only voice restriction mode.
+   *
+   * SECURITY REASONING:
+   * Only the Room Leader or Owner can configure this room-wide setting.
+   * The server validates leadership permissions in `collab-ide/socket/voice.js`
+   * before applying the change and broadcasting `voice:room-settings`.
+   */
   const toggleEditorOnlyVoice = () => {
     if (!voiceSocketRef.current) return;
     voiceSocketRef.current.emit('voice:set-editor-only', { enabled: !editorOnlyMode });
   };
 
+  /**
+   * Broadcasts a mass-mute command to all participants in the voice room.
+   *
+   * SECURITY REASONING:
+   * Restricted to Room Leaders and Owners. Server-side validation guarantees
+   * non-leaders cannot invoke mass-mute actions.
+   */
   const handleMuteAll = () => {
     if (!voiceSocketRef.current) return;
     voiceSocketRef.current.emit('voice:mute-all');
   };
 
+  /**
+   * Applies or lifts a hard-mute on a specific participant.
+   *
+   * SECURITY REASONING (Hard Mute Enforcement):
+   * Unlike self-mute, a hard-mute enforces that the target user cannot unmute
+   * their microphone locally until a Room Leader or Owner explicitly lifts the lock.
+   * Server validates leader authorization on every mute/unmute request.
+   *
+   * @param {string} targetSocketId - Target participant's socket ID.
+   * @param {boolean} currentlyHard - Whether target is currently hard-muted.
+   */
   const handleHardMuteParticipant = (targetSocketId, currentlyHard) => {
     if (!voiceSocketRef.current) return;
     if (currentlyHard) {
@@ -1245,6 +1560,20 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     }
   };
 
+  /**
+   * Promotes or demotes a workspace member's role (Owner > Room Leader > Editor > Viewer).
+   *
+   * SECURITY REASONING (Role Hierarchy Governance):
+   * - REST Verification: Handled via `PUT /api/rooms/:uuid/members/:id/role`.
+   *   The endpoint checks that the requester has sufficient rank (Owner or Room Leader).
+   * - Invariants: Room Owner cannot be demoted; only one Room Leader can exist simultaneously.
+   * - Real-Time Synchronization: Upon success, the server updates in-memory role mappings
+   *   (`updateClientRoleInMemory`) and dispatches `{ type: 'role_update' }` over WebSocket,
+   *   ensuring immediate client lock/unlock without requiring page reloads.
+   *
+   * @param {string} targetUserId - Target user ID.
+   * @param {'Room Leader'|'Editor'|'Viewer'} newRole - New role designation.
+   */
   const handleRoleChange = async (targetUserId, newRole) => {
     try {
       await promoteMember(roomUuid, targetUserId, newRole);
@@ -1828,6 +2157,12 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                   cursorBlinking: 'smooth',
                   cursorSmoothCaretAnimation: 'on',
                   padding: { top: 12 },
+                  // SECURITY REASONING (Dual-Layer Monaco Read-Only Barrier):
+                  // 1. Monaco native readOnly is active when room is closed, role is Viewer,
+                  //    or editor-only voice mode restricts text mutations to active voice participants.
+                  // 2. window._collabIdeReadOnly synchronizes the state with the editor.onKeyDown
+                  //    handler, ensuring keyboard events cannot bypass Monaco's lock.
+                  // 3. contextmenu is disabled when read-only to prevent right-click clipboard paste.
                   readOnly: room?.isClosed || role === 'Viewer' || (editorOnlyMode && role === 'Editor' && !inVoice),
                   contextmenu: (() => {
                     const isReadOnly = room?.isClosed || role === 'Viewer' || (editorOnlyMode && role === 'Editor' && !inVoice);

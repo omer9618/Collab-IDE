@@ -1,3 +1,13 @@
+/**
+ * @fileoverview User Profile & Settings Drawer Component (ProfileDrawer.jsx).
+ *
+ * Provides user profile management including display name editing, avatar color selection,
+ * active session management and revocation (NFR-13), email change requests,
+ * workspace navigation, and UI theme selection (FR-24).
+ *
+ * @module components/ProfileDrawer
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   updateProfile, requestEmailChange, cancelEmailChange,
@@ -15,6 +25,12 @@ const CURATED_COLORS = [
   { hex: '#ea580c', name: 'Orange' },
 ];
 
+/**
+ * Calculates a friendly human-readable relative time string for session activity.
+ *
+ * @param {string|Date} dateStr - Date string or timestamp.
+ * @returns {string} Relative time representation.
+ */
 const getRelativeTime = (dateStr) => {
   if (!dateStr) return 'Recently';
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -29,6 +45,20 @@ const getRelativeTime = (dateStr) => {
   return `${days}d ago`;
 };
 
+/**
+ * Slide-out profile and user settings drawer component.
+ *
+ * @param {Object} props - Component properties.
+ * @param {boolean} props.isOpen - Whether the drawer is open and visible.
+ * @param {Function} props.onClose - Callback invoked to close the drawer.
+ * @param {Object} props.user - Active user profile object.
+ * @param {Array<Object>} [props.allRooms=[]] - List of rooms for workspace quick-navigation.
+ * @param {Function} props.onUserUpdate - Callback invoked when profile updates are saved.
+ * @param {Function} props.onRoomSelect - Callback invoked to navigate to a room workspace.
+ * @param {Function} props.onLogoutClick - Callback invoked to trigger sign-out prompt.
+ * @param {Function} props.onLogoutAllClick - Callback invoked to trigger sign-out-all prompt.
+ * @returns {React.ReactElement} Profile drawer element.
+ */
 export default function ProfileDrawer({
   isOpen,
   onClose,
