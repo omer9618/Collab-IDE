@@ -63,6 +63,7 @@ import {
   X,
   PanelRightClose,
   PanelRightOpen,
+  Keyboard,
 } from 'lucide-react';
 
 // WhatsApp strategy color palette for distinguishable user colors in group chat (contrasty in dark mode)
@@ -377,6 +378,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showRoomDeletedModal, setShowRoomDeletedModal] = useState(false);
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   const [settingsError, setSettingsError] = useState('');
   const [consoleTab, setConsoleTab] = useState('output'); // output, terminal, problems
 
@@ -647,25 +649,139 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     monacoRef.current = monaco;
 
     /**
+     * Toggles line or block comment for selection or active cursor line (FR-25).
+     * Works seamlessly across JavaScript, Python, C++, C, Java, HTML/CSS.
+     */
+    const toggleComment = () => {
+      const model = editor.getModel();
+      if (!model) return;
+      const langId = model.getLanguageId();
+
+      // HTML utilizes block comment syntax (<!-- ... -->)
+      if (langId === 'html') {
+        const selection = editor.getSelection();
+        if (selection && !selection.isEmpty()) {
+          const blockCommentAction = editor.getAction('editor.action.blockComment');
+          if (blockCommentAction) {
+            blockCommentAction.run();
+            return;
+          }
+        }
+
+        // Single cursor line comment toggling for HTML
+        const lineNum = selection ? selection.startLineNumber : editor.getPosition()?.lineNumber || 1;
+        const lineContent = model.getLineContent(lineNum);
+        const trimmed = lineContent.trim();
+
+        if (trimmed.startsWith('<!--') && trimmed.endsWith('-->')) {
+          // Uncomment line: remove leading '<!--' and trailing '-->'
+          const startIdx = lineContent.indexOf('<!--');
+          const endIdx = lineContent.lastIndexOf('-->') + 3;
+          const innerText = trimmed.slice(4, -3).trim();
+          editor.executeEdits('toggleComment', [{
+            range: new monaco.Range(lineNum, startIdx + 1, lineNum, endIdx + 1),
+            text: innerText
+          }]);
+        } else if (trimmed.length > 0) {
+          // Comment line: wrap with <!-- ... -->
+          const firstNonWs = lineContent.search(/\S/);
+          const leadingWs = lineContent.slice(0, firstNonWs === -1 ? 0 : firstNonWs);
+          editor.executeEdits('toggleComment', [{
+            range: new monaco.Range(lineNum, 1, lineNum, lineContent.length + 1),
+            text: `${leadingWs}<!-- ${trimmed} -->`
+          }]);
+        }
+      } else {
+        // JavaScript, Python, C, C++, Java, CSS
+        const lineCommentAction = editor.getAction('editor.action.commentLine');
+        if (lineCommentAction) {
+          lineCommentAction.run();
+        }
+      }
+    };
+
+    /**
      * ─────────────────────────────────────────────────────────────────────────────
      * ROLE ENFORCEMENT & CLIENT-SIDE READ-ONLY KEYBOARD SHIELD (NFR-50)
+     * AND STANDARD EDITOR KEYBINDINGS (FR-25)
      * ─────────────────────────────────────────────────────────────────────────────
      * Monaco's native `readOnly: true` option disables standard editor editing.
      * However, in collaborative environments using `y-monaco`, concurrent CRDT remote
      * text insertions can trigger internal model events that momentarily desynchronize
      * or bypass Monaco's readOnly lock state.
      *
-     * To prevent viewers or muted editors from injecting keystrokes or pasting code:
-     * 1. We attach a low-level `editor.onKeyDown` listener that checks `window._collabIdeReadOnly`.
-     * 2. Allowed keys: Whitelisted non-mutating navigation (arrows, page up/down, home/end, Esc)
-     *    and safe read-only shortcuts (Ctrl+C copy, Ctrl+A select-all, Ctrl+F find).
-     * 3. Blocked keys: Any mutating keystroke (alphanumeric, backspace, delete, enter,
-     *    paste Ctrl+V, cut Ctrl+X, undo Ctrl+Z) is intercepted and neutralized via
-     *    `e.preventDefault()` and `e.stopPropagation()`.
-     * 4. Context menu is conditionally disabled when read-only to block mouse-driven pasting.
+     * Standard Keybindings (FR-25):
+     * - Undo: Ctrl+Z / Cmd+Z
+     * - Redo: Ctrl+Y / Cmd+Y and Ctrl+Shift+Z / Cmd+Shift+Z
+     * - Find: Ctrl+F / Cmd+F
+     * - Select All: Ctrl+A / Cmd+A
+     * - Toggle Comment: Ctrl+/ / Cmd+/
+     *
+     * Keystrokes are intercepted directly to prevent browser default shortcut collisions
+     * (e.g., Ctrl+Y browser history, Ctrl+F browser search bar). Mutating shortcuts
+     * are strictly checked against `window._collabIdeReadOnly` to preserve role security.
      * ─────────────────────────────────────────────────────────────────────────────
      */
     editor.onKeyDown((e) => {
+      // FR-25: Direct keydown overrides for standard editor keybindings
+      if (e.ctrlKey || e.metaKey) {
+        // Redo: Ctrl+Y / Cmd+Y
+        if (e.keyCode === monaco.KeyCode.KeyY) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!window._collabIdeReadOnly) {
+            editor.trigger('keyboard', 'redo', null);
+          }
+          return;
+        }
+
+        // Redo: Ctrl+Shift+Z / Cmd+Shift+Z
+        if (e.shiftKey && e.keyCode === monaco.KeyCode.KeyZ) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!window._collabIdeReadOnly) {
+            editor.trigger('keyboard', 'redo', null);
+          }
+          return;
+        }
+
+        // Undo: Ctrl+Z / Cmd+Z
+        if (!e.shiftKey && e.keyCode === monaco.KeyCode.KeyZ) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!window._collabIdeReadOnly) {
+            editor.trigger('keyboard', 'undo', null);
+          }
+          return;
+        }
+
+        // Comment/Uncomment: Ctrl+/ / Cmd+/
+        if (e.keyCode === monaco.KeyCode.Slash) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!window._collabIdeReadOnly) {
+            toggleComment();
+          }
+          return;
+        }
+
+        // Find: Ctrl+F / Cmd+F
+        if (e.keyCode === monaco.KeyCode.KeyF) {
+          e.preventDefault();
+          e.stopPropagation();
+          editor.getAction('actions.find')?.run();
+          return;
+        }
+
+        // Select All: Ctrl+A / Cmd+A
+        if (e.keyCode === monaco.KeyCode.KeyA) {
+          e.preventDefault();
+          e.stopPropagation();
+          editor.trigger('keyboard', 'editor.action.selectAll', null);
+          return;
+        }
+      }
+
       if (window._collabIdeReadOnly) {
         // Allow navigation keys
         const allowedKeys = [
@@ -676,7 +792,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
           monaco.KeyCode.Escape
         ];
         
-        // Allow Ctrl+C, Ctrl+A, Ctrl+F
+        // Allow Ctrl+C, Ctrl+A, Ctrl+F in read-only mode
         if (e.ctrlKey || e.metaKey) {
           if (
             e.keyCode === monaco.KeyCode.KeyC || 
@@ -692,6 +808,37 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
           e.stopPropagation();
         }
       }
+    });
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // FR-25: Register explicit Monaco editor commands for the command manager
+    // ─────────────────────────────────────────────────────────────────────────────
+    // 1. Undo: Ctrl+Z / Cmd+Z
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyZ, () => {
+      if (!window._collabIdeReadOnly) editor.trigger('keyboard', 'undo', null);
+    });
+
+    // 2. Redo: Ctrl+Y / Cmd+Y and Ctrl+Shift+Z / Cmd+Shift+Z
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyY, () => {
+      if (!window._collabIdeReadOnly) editor.trigger('keyboard', 'redo', null);
+    });
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyZ, () => {
+      if (!window._collabIdeReadOnly) editor.trigger('keyboard', 'redo', null);
+    });
+
+    // 3. Find: Ctrl+F / Cmd+F
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF, () => {
+      editor.getAction('actions.find')?.run();
+    });
+
+    // 4. Select All: Ctrl+A / Cmd+A
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyA, () => {
+      editor.trigger('keyboard', 'editor.action.selectAll', null);
+    });
+
+    // 5. Toggle Comment: Ctrl+/ / Cmd+/
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Slash, () => {
+      if (!window._collabIdeReadOnly) toggleComment();
     });
 
     const activeLangId = fileLanguages[activeFile] || getDefaultLanguage(activeFile);
@@ -1831,6 +1978,13 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
             )}
             <button 
               className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] transition-colors" 
+              title="Keyboard Shortcuts (FR-25)"
+              onClick={() => setShowShortcutsModal(true)}
+            >
+              <Keyboard size={18} />
+            </button>
+            <button 
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] transition-colors" 
               title="Profile & Settings"
               onClick={() => setShowProfileDrawer(true)}
             >
@@ -2569,6 +2723,15 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
             <span className="text-[8px] opacity-80">({currentLangConfig.judge0Id ? `ID: ${currentLangConfig.judge0Id}` : 'Web'})</span>
           </button>
           <div className="h-3 w-px bg-white/20" />
+          <button
+            onClick={() => setShowShortcutsModal(true)}
+            className="hover:bg-white/10 px-1.5 py-0.5 rounded flex items-center gap-1 cursor-pointer transition-colors"
+            title="Keyboard Shortcuts (FR-25)"
+          >
+            <Keyboard size={12} />
+            <span>Shortcuts</span>
+          </button>
+          <div className="h-3 w-px bg-white/20" />
           <span className="cursor-pointer hover:underline" onClick={() => navigator.clipboard.writeText(roomUuid)}>
             Room: {roomUuid.slice(0, 8)}
           </span>
@@ -2908,6 +3071,124 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
             >
               Return to Dashboard
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* FR-25: Keyboard Shortcuts Cheatsheet Modal */}
+      {showShortcutsModal && (
+        <div 
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in duration-200"
+          onClick={() => setShowShortcutsModal(false)}
+        >
+          <div 
+            className="bg-surface-panel border border-outline w-full max-w-md rounded-xl overflow-hidden shadow-2xl flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-outline/50 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-accent-blue/15 text-accent-blue flex items-center justify-center">
+                  <Keyboard size={18} />
+                </div>
+                <div>
+                  <h2 className="text-text-sm font-bold text-on-surface">Keyboard Shortcuts</h2>
+                  <p className="text-[10px] text-on-surface-muted">Editor keybindings reference (FR-25)</p>
+                </div>
+              </div>
+              <button 
+                className="p-1 rounded-md text-on-surface-muted hover:bg-surface-elevated hover:text-on-surface transition-colors"
+                onClick={() => setShowShortcutsModal(false)}
+                title="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-5 flex flex-col gap-3">
+              <div className="space-y-2">
+                {[
+                  {
+                    action: 'Undo',
+                    desc: 'Revert previous editor modifications',
+                    keys: ['Ctrl', 'Z'],
+                  },
+                  {
+                    action: 'Redo',
+                    desc: 'Reapply previously undone changes',
+                    keys: ['Ctrl', 'Y'],
+                    altKeys: ['Ctrl', 'Shift', 'Z'],
+                  },
+                  {
+                    action: 'Find in File',
+                    desc: 'Open the Monaco search widget',
+                    keys: ['Ctrl', 'F'],
+                  },
+                  {
+                    action: 'Select All',
+                    desc: 'Select entire file content',
+                    keys: ['Ctrl', 'A'],
+                  },
+                  {
+                    action: 'Toggle Comment',
+                    desc: 'Line comment (// or #) / HTML (<!-- -->)',
+                    keys: ['Ctrl', '/'],
+                  },
+                ].map((item, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between p-2.5 rounded-lg bg-surface-elevated/60 border border-outline/40 hover:border-outline transition-colors"
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-[12px] font-medium text-on-surface">{item.action}</span>
+                      <span className="text-[10px] text-on-surface-muted">{item.desc}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-1">
+                        {item.keys.map((k, ki) => (
+                          <kbd
+                            key={ki}
+                            className="px-2 py-0.5 text-[11px] font-mono font-semibold text-on-surface bg-surface-panel border border-outline rounded shadow-sm"
+                          >
+                            {k}
+                          </kbd>
+                        ))}
+                      </div>
+                      {item.altKeys && (
+                        <>
+                          <span className="text-[10px] text-on-surface-muted">/</span>
+                          <div className="flex items-center gap-1">
+                            {item.altKeys.map((k, ki) => (
+                              <kbd
+                                key={ki}
+                                className="px-1.5 py-0.5 text-[10px] font-mono font-semibold text-on-surface bg-surface-panel border border-outline rounded shadow-sm"
+                              >
+                                {k}
+                              </kbd>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-1 p-2.5 rounded-lg bg-accent-blue/10 border border-accent-blue/20 text-[10.5px] text-on-surface-variant flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-accent-blue shrink-0" />
+                <span>
+                  Mutating shortcuts (Undo, Redo, Comment) are disabled for <strong>Viewers</strong> to enforce role security.
+                </span>
+              </div>
+            </div>
+
+            <div className="px-5 py-3 border-t border-outline/50 flex justify-end bg-surface-elevated/30">
+              <button
+                className="px-4 py-1.5 bg-accent-blue hover:bg-blue-600 text-white rounded-md text-[11px] font-medium transition-colors cursor-pointer"
+                onClick={() => setShowShortcutsModal(false)}
+              >
+                Got it
+              </button>
+            </div>
           </div>
         </div>
       )}
