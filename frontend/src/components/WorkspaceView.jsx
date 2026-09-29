@@ -172,6 +172,8 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
   const [settingsTab, setSettingsTab] = useState('editor'); // 'editor' | 'room'
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showRoomDeletedModal, setShowRoomDeletedModal] = useState(false);
+  const [showCapacityModal, setShowCapacityModal] = useState(false);
+  const [capacityErrorMessage, setCapacityErrorMessage] = useState('');
   const [settingsError, setSettingsError] = useState('');
   const [consoleTab, setConsoleTab] = useState('output'); // output, terminal, problems
 
@@ -341,7 +343,13 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
           try {
             if (typeof event.data === 'string') {
               const data = JSON.parse(event.data);
-              if (data.type === 'role_update') {
+              if (data.type === 'error' && (data.code === 'ROOM_CAPACITY_EXCEEDED' || (typeof data.message === 'string' && data.message.includes('capacity')))) {
+                console.warn('[WS] Room capacity exceeded:', data.message);
+                providerInstance.shouldConnect = false;
+                providerInstance.disconnect();
+                setCapacityErrorMessage(data.message || 'Room capacity exceeded (maximum 20 connections per room).');
+                setShowCapacityModal(true);
+              } else if (data.type === 'role_update') {
                 console.log('[WS] Received role_update:', data.role);
                 setRole(data.role);
               } else if (data.type === 'room_closed') {
@@ -362,6 +370,17 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
         });
       }
     });
+
+    const handleConnectionClose = ([event]) => {
+      if (event && (event.code === 1008 || (typeof event.reason === 'string' && (event.reason.includes('capacity') || event.reason.includes('limit'))))) {
+        console.warn('[WS] Connection closed due to room capacity:', event.reason);
+        providerInstance.shouldConnect = false;
+        providerInstance.disconnect();
+        setCapacityErrorMessage(event.reason || 'Room capacity exceeded (maximum 20 connections per room).');
+        setShowCapacityModal(true);
+      }
+    };
+    providerInstance.on('connection-close', handleConnectionClose);
 
     providerInstance.awareness.on('change', () => {
       const states = providerInstance.awareness.getStates();
@@ -389,6 +408,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
         monacoBindingRef.current = null;
       }
       yfilesInstance.unobserve(updateFilesFromYjs);
+      providerInstance.off('connection-close', handleConnectionClose);
       providerInstance.destroy();
       yDocInstance.destroy();
       setYdoc(null);
@@ -2506,6 +2526,41 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
             >
               Return to Dashboard
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Room Capacity Exceeded Modal (NFR-36) */}
+      {showCapacityModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in duration-200">
+          <div className="bg-[#1f2020] border border-amber-500/40 w-full max-w-sm max-h-[85vh] overflow-y-auto rounded-xl shadow-2xl flex flex-col text-center p-6">
+            <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto mb-4 border border-amber-500/20">
+              <Users size={24} />
+            </div>
+            <h2 className="text-text-lg font-bold text-on-surface mb-2">Room Capacity Exceeded</h2>
+            <p className="text-text-sm text-text-muted leading-relaxed mb-6">
+              {capacityErrorMessage || 'This room has reached its maximum limit of 20 simultaneous connections. Please try again later or contact the room owner.'}
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                className="w-full px-4 py-2 bg-accent-blue hover:bg-blue-600 text-white rounded-md text-text-sm font-medium transition-colors"
+                onClick={() => {
+                  setShowCapacityModal(false);
+                  onBack();
+                }}
+              >
+                Return to Dashboard
+              </button>
+              <button
+                className="w-full px-4 py-2 bg-[#2d3139] hover:bg-[#3d424d] text-on-surface rounded-md text-text-sm font-medium transition-colors"
+                onClick={() => {
+                  setShowCapacityModal(false);
+                  window.location.reload();
+                }}
+              >
+                Retry Connection
+              </button>
+            </div>
           </div>
         </div>
       )}
