@@ -80,6 +80,69 @@ function formatDate(date) {
 }
 module.exports = { formatDate };`,
   'README.md': `# CollabIDE Room\nCollaborate and execute code live!`,
+  'index.html': `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CollabIDE Live HTML/CSS</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 30px;
+      background: linear-gradient(135deg, #1e3a8a, #0d9488);
+      color: white;
+      text-align: center;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(10px);
+      padding: 30px 40px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      max-width: 460px;
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 24px;
+      letter-spacing: -0.5px;
+    }
+    p {
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    button {
+      background: #38bdf8;
+      color: #0f172a;
+      border: none;
+      padding: 10px 24px;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 14px;
+      transition: transform 0.2s, background 0.2s;
+    }
+    button:hover {
+      background: #7dd3fc;
+      transform: scale(1.05);
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🚀 Hello from HTML &amp; CSS!</h1>
+    <p>This is a live preview rendered directly inside CollabIDE.</p>
+    <button onclick="alert('Interactive HTML/CSS works!')">Click Me</button>
+  </div>
+</body>
+</html>`,
 };
 
 /**
@@ -569,10 +632,15 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     if (!editorRef.current || isRunning || !activeFile) return;
     setIsRunning(true);
     setConsoleOpen(true);
-    setConsoleTab('output');
 
     const activeLangId = fileLanguages[activeFile] || getDefaultLanguage(activeFile);
     const langConfig = SUPPORTED_LANGUAGES.find((l) => l.id === activeLangId) || SUPPORTED_LANGUAGES[0];
+
+    if (langConfig.id === 'html') {
+      setConsoleTab('preview');
+    } else {
+      setConsoleTab('output');
+    }
 
     setOutputLines((prev) => [
       ...prev,
@@ -1823,6 +1891,17 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                   >
                     Problems
                   </button>
+                  {(currentLangConfig.id === 'html' || activeFile?.endsWith('.html') || activeFile?.endsWith('.htm')) && (
+                    <button
+                      className={`px-3 text-[9px] font-medium h-full transition-colors flex items-center gap-1.5 ${
+                        consoleTab === 'preview' ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent' : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
+                      }`}
+                      onClick={() => setConsoleTab('preview')}
+                    >
+                      <span>Web Preview</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />
+                    </button>
+                  )}
                 </div>
                 <div className="flex items-center gap-1">
                   <button
@@ -1849,9 +1928,9 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                 </div>
               </div>
 
-              <div className="flex-1 p-3 font-code text-[9.5px] overflow-y-auto bg-[#0d0e0f]">
+              <div className="flex-1 p-2 font-code text-[9.5px] overflow-hidden bg-[#0d0e0f] flex flex-col">
                 {consoleTab === 'output' && (
-                  <div className="text-on-surface">
+                  <div className="text-on-surface overflow-y-auto flex-1 p-1">
                     {outputLines.length === 0 ? (
                       <div className="text-on-surface-muted italic">Click Run to compile code.</div>
                     ) : (
@@ -1874,7 +1953,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                 )}
 
                 {consoleTab === 'terminal' && (
-                  <div className="text-on-surface-variant">
+                  <div className="text-on-surface-variant overflow-y-auto flex-1 p-1">
                     <div className="text-accent-green">$ CollabIDE interactive prompt active.</div>
                     <div className="flex items-center gap-1 mt-2">
                       <span className="text-on-surface">collab-ide/src %</span>
@@ -1884,7 +1963,27 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                 )}
 
                 {consoleTab === 'problems' && (
-                  <div className="text-on-surface-muted italic">No problems detected.</div>
+                  <div className="text-on-surface-muted italic overflow-y-auto flex-1 p-1">No problems detected.</div>
+                )}
+
+                {consoleTab === 'preview' && (
+                  <div className="w-full h-full bg-white rounded overflow-hidden flex flex-col border border-outline/30">
+                    <div className="bg-[#f3f4f6] border-b border-gray-300 px-3 py-1 text-[10px] text-gray-700 font-mono flex items-center justify-between select-none shrink-0">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-red-400 inline-block" />
+                        <span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" />
+                        <span className="w-2 h-2 rounded-full bg-green-400 inline-block" />
+                        <span className="ml-1 font-semibold text-gray-800">Browser Live Preview</span>
+                      </span>
+                      <span className="text-[9px] text-gray-500 font-medium">HTML/CSS (FR-33)</span>
+                    </div>
+                    <iframe
+                      title="HTML CSS Live Preview"
+                      srcDoc={editorRef.current ? editorRef.current.getValue() : ''}
+                      className="w-full flex-1 border-0 bg-white"
+                      sandbox="allow-scripts allow-modals"
+                    />
+                  </div>
                 )}
               </div>
             </section>
