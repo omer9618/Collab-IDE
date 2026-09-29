@@ -74,7 +74,7 @@ refreshTokenSchema.statics.hashToken = function (tokenStr) {
  * @param {string|import('mongoose').Types.ObjectId} userId - User ID owner
  * @param {string|null} [familyId=null] - Existing family ID if rotating, or null to generate a new family
  * @param {string|null} [deviceInfo=null] - User-Agent device string
- * @returns {Promise<{ plaintext: string, doc: import('mongoose').Document }>} Plaintext token and saved document
+ * @returns {Promise<{ plaintext: string, doc: import('mongoose').Document, tokenDoc: import('mongoose').Document }>} Plaintext token and saved document
  */
 refreshTokenSchema.statics.generate = async function (userId, familyId = null, deviceInfo = null) {
   const plaintext = crypto.randomBytes(40).toString('hex');
@@ -94,7 +94,7 @@ refreshTokenSchema.statics.generate = async function (userId, familyId = null, d
   });
 
   await tokenDoc.save();
-  return { plaintext, doc: tokenDoc };
+  return { plaintext, doc: tokenDoc, tokenDoc };
 };
 
 const RefreshToken = mongoose.model('RefreshToken', refreshTokenSchema);
