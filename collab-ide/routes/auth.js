@@ -247,6 +247,7 @@ router.post('/login', authLimiter, ipBruteForceLimiter, async (req, res) => {
         email: user.email,
         displayName: user.displayName,
         avatarColor: user.avatarColor,
+        theme: user.theme || 'vs-dark',
       },
     });
   } catch (error) {
@@ -504,6 +505,7 @@ router.get('/me', protect, async (req, res) => {
         email: user.email,
         displayName: user.displayName,
         avatarColor: user.avatarColor,
+        theme: user.theme || 'vs-dark',
         isVerified: user.isVerified,
         pendingEmail: user.pendingEmail || null,
         pendingEmailExpires: user.pendingEmailExpires || null,
@@ -516,11 +518,11 @@ router.get('/me', protect, async (req, res) => {
 });
 
 // @route   PUT /api/auth/profile
-// @desc    Update user display name and/or avatar color (FR-08)
+// @desc    Update user display name, avatar color, and/or editor theme (FR-08 & FR-24)
 // @access  Private
 router.put('/profile', protect, async (req, res) => {
   try {
-    const { displayName, avatarColor } = req.body;
+    const { displayName, avatarColor, theme } = req.body;
     const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -544,6 +546,13 @@ router.put('/profile', protect, async (req, res) => {
       user.avatarColor = avatarColor;
     }
 
+    if (theme !== undefined) {
+      if (!['vs-dark', 'light'].includes(theme)) {
+        return res.status(400).json({ message: 'Invalid theme. Supported themes: "vs-dark", "light"' });
+      }
+      user.theme = theme;
+    }
+
     await user.save();
 
     res.json({
@@ -554,6 +563,7 @@ router.put('/profile', protect, async (req, res) => {
         email: user.email,
         displayName: user.displayName,
         avatarColor: user.avatarColor,
+        theme: user.theme || 'vs-dark',
         isVerified: user.isVerified,
         pendingEmail: user.pendingEmail || null,
       },
@@ -906,6 +916,7 @@ router.post('/google-login', authLimiter, async (req, res) => {
         email: user.email,
         displayName: user.displayName,
         avatarColor: user.avatarColor,
+        theme: user.theme || 'vs-dark',
       },
     });
   } catch (error) {

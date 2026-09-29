@@ -16,7 +16,9 @@ import {
   closeRoom,
   openRoom,
   deleteRoom,
+  updateProfile,
 } from '../services/api';
+import ProfileDrawer from './ProfileDrawer';
 import {
   Folder,
   Users,
@@ -115,10 +117,29 @@ function buildFileTree(files) {
   return root;
 }
 
-export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) {
+export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, onUserUpdate }) {
   const [room, setRoom] = useState(null);
   const [joinedRooms, setJoinedRooms] = useState([]);
   const [showRoomDropdown, setShowRoomDropdown] = useState(false);
+  const [showProfileDrawer, setShowProfileDrawer] = useState(false);
+  const [themeToggling, setThemeToggling] = useState(false);
+
+  // FR-24: Quick theme toggle (Dark <-> Light) persisting to profile
+  const handleQuickThemeToggle = async () => {
+    if (themeToggling) return;
+    const currentTheme = user?.theme || 'vs-dark';
+    const nextTheme = currentTheme === 'light' ? 'vs-dark' : 'light';
+    try {
+      setThemeToggling(true);
+      const updated = await updateProfile({ theme: nextTheme });
+      onUserUpdate?.(updated);
+      showToast(`Switched to ${nextTheme === 'light' ? 'Light' : 'Dark'} Mode`, 'info');
+    } catch {
+      showToast('Failed to save theme preference', 'error');
+    } finally {
+      setThemeToggling(false);
+    }
+  };
 
   useEffect(() => {
     getRooms().then(rooms => setJoinedRooms(rooms)).catch(console.error);
@@ -1095,7 +1116,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
       <header className="h-[36px] shrink-0 bg-surface border-b border-outline-subtle flex items-center justify-between px-2 z-40">
         <div className="flex items-center gap-1">
           <div className="flex items-center cursor-pointer" onClick={() => { leaveVoice(); onBack(); }}>
-            <img src="/logo.png" className="h-10 object-contain" alt="CollabIDE Logo" />
+            <img src={user?.theme === 'light' ? '/logo-light.png' : '/logo.png'} className="h-10 object-contain app-logo" alt="CollabIDE Logo" />
           </div>
           <div className="h-4 w-px bg-outline mx-1" />
           <div className="relative">
@@ -1204,6 +1225,24 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
           </button>
 
 
+          {/* Quick Theme Toggle Button (FR-24) */}
+          <button
+            onClick={handleQuickThemeToggle}
+            disabled={themeToggling}
+            className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${
+              user?.theme === 'light'
+                ? 'text-amber-500 hover:text-amber-600 hover:bg-[#e5e7eb]'
+                : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
+            }`}
+            title={`Switch to ${user?.theme === 'light' ? 'Dark' : 'Light'} Mode (FR-24)`}
+          >
+            {user?.theme === 'light' ? (
+              <span className="material-symbols-outlined text-[17px]">light_mode</span>
+            ) : (
+              <span className="material-symbols-outlined text-[17px]">dark_mode</span>
+            )}
+          </button>
+
           <button
             onClick={() => setRightPanelOpen(!rightPanelOpen)}
             className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${
@@ -1215,8 +1254,10 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
           </button>
 
           <button
-            className="w-7 h-7 rounded-full shrink-0 bg-accent-blue flex items-center justify-center text-white text-[9px] font-bold border border-white/20"
-            style={{ backgroundColor: getUserColor(user.id || user._id, user.displayName) }}
+            onClick={() => setShowProfileDrawer(true)}
+            title="Profile & Settings"
+            className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-white text-[9px] font-bold border border-white/20 hover:scale-105 transition-transform cursor-pointer"
+            style={{ backgroundColor: user.avatarColor || getUserColor(user.id || user._id, user.displayName) }}
           >
             {user.displayName.charAt(0).toUpperCase()}
           </button>
@@ -1243,12 +1284,19 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
             {role === 'Owner' && (
               <button 
                 className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] transition-colors" 
-                title="Settings"
+                title="Room Settings (Close / Delete)"
                 onClick={() => setShowSettingsModal(true)}
               >
-                <Settings size={18} />
+                <Lock size={17} />
               </button>
             )}
+            <button 
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] transition-colors" 
+              title="Profile & Settings"
+              onClick={() => setShowProfileDrawer(true)}
+            >
+              <Settings size={18} />
+            </button>
             <button
               className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-accent-red hover:bg-red-950/30 transition-colors"
               onClick={() => { leaveVoice(); onBack(); }}
@@ -1537,7 +1585,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
           <div className="flex-1 relative overflow-hidden">
             {!activeFile ? (
               <div className="w-full h-full flex flex-col items-center justify-center bg-surface-panel select-none">
-                <img src="/logo.png" className="h-20 object-contain mb-8 opacity-40 filter grayscale" alt="CollabIDE Logo" />
+                <img src={user?.theme === 'light' ? '/logo-light.png' : '/logo.png'} className="h-20 object-contain mb-8 opacity-40 filter grayscale app-logo" alt="CollabIDE Logo" />
                 <h2 className="text-lg font-semibold text-on-surface mb-2">No File Open</h2>
                 <p className="text-[9px] text-on-surface-muted max-w-xs text-center mb-6">
                   Select a file from the explorer sidebar, or click the new file button to create one.
@@ -1569,7 +1617,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
                     ? 'markdown'
                     : 'javascript'
                 }
-                theme="vs-dark"
+                theme={user?.theme === 'light' ? 'light' : 'vs-dark'}
                 loading="Loading Editor Workspace..."
                 onMount={handleEditorDidMount}
                 options={{
@@ -2292,6 +2340,18 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect }) 
           </div>
         </div>
       )}
+
+      {/* Profile & Settings Slide-out Drawer (FR-08 & FR-24) */}
+      <ProfileDrawer
+        isOpen={showProfileDrawer}
+        onClose={() => setShowProfileDrawer(false)}
+        user={user}
+        allRooms={joinedRooms}
+        onUserUpdate={onUserUpdate}
+        onRoomSelect={onRoomSelect}
+        onLogoutClick={() => { leaveVoice(); onBack(); }}
+        onLogoutAllClick={() => { leaveVoice(); onBack(); }}
+      />
     </div>
   );
 }

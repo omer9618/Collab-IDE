@@ -23,6 +23,12 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: '#89b4fa',
     },
+    // FR-24: Persisted editor theme selection
+    theme: {
+      type: String,
+      enum: ['vs-dark', 'light'],
+      default: 'vs-dark',
+    },
     googleId: {
       type: String,
       unique: true,

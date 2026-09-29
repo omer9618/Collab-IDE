@@ -47,6 +47,25 @@ export default function ProfileDrawer({
   const [colorSaving, setColorSaving] = useState(false);
   const [colorSuccess, setColorSuccess] = useState(false);
 
+  // FR-24: Theme selection state
+  const [themeSaving, setThemeSaving] = useState(false);
+  const [themeSuccess, setThemeSuccess] = useState(false);
+
+  const handleSelectTheme = async (newTheme) => {
+    if (newTheme === (user.theme || 'vs-dark') || themeSaving) return;
+    try {
+      setThemeSaving(true);
+      const updated = await updateProfile({ theme: newTheme });
+      onUserUpdate?.(updated);
+      setThemeSuccess(true);
+      setTimeout(() => setThemeSuccess(false), 2000);
+    } catch (err) {
+      console.error('Failed to update theme:', err);
+    } finally {
+      setThemeSaving(false);
+    }
+  };
+
   // Email change state
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [newEmail, setNewEmail] = useState('');
@@ -398,7 +417,82 @@ export default function ProfileDrawer({
             </div>
           </div>
 
-          {/* Section 4: Email Address & Re-verification */}
+          {/* Section 4: Application & Editor Theme (FR-24) */}
+          <div className="space-y-2.5 pt-2 border-t border-outline-subtle">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-text-muted uppercase tracking-wider">
+                Theme (Full UI & Editor)
+              </label>
+              {themeSuccess && (
+                <span className="text-[11px] text-accent-green font-medium animate-fade-in">
+                  Theme saved!
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-text-muted">
+              Choose between dark and light theme for the entire workspace and Monaco code editor. Persists across sessions.
+            </p>
+
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              {/* Dark Theme Option */}
+              <button
+                type="button"
+                disabled={themeSaving}
+                onClick={() => handleSelectTheme('vs-dark')}
+                className={`p-3 rounded-lg border text-left transition-all relative flex flex-col gap-2 ${
+                  (user.theme || 'vs-dark') === 'vs-dark'
+                    ? 'bg-accent-blue/15 border-accent-blue shadow-md ring-1 ring-accent-blue/30'
+                    : 'bg-surface border-outline-subtle hover:border-outline hover:bg-surface-hover'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[16px] text-indigo-400">dark_mode</span>
+                    <span className="text-xs font-semibold text-text-primary">Dark Theme</span>
+                  </div>
+                  {(user.theme || 'vs-dark') === 'vs-dark' && (
+                    <span className="material-symbols-outlined text-accent-blue text-[16px]">check_circle</span>
+                  )}
+                </div>
+                <div className="h-7 w-full bg-[#1e1e1e] border border-[#333] rounded px-2 py-1 flex items-center gap-1.5 font-mono text-[9px] overflow-hidden">
+                  <span className="text-purple-400">const</span>
+                  <span className="text-blue-300">code</span>
+                  <span className="text-gray-400">=</span>
+                  <span className="text-amber-300">"dark"</span>
+                </div>
+              </button>
+
+              {/* Light Theme Option */}
+              <button
+                type="button"
+                disabled={themeSaving}
+                onClick={() => handleSelectTheme('light')}
+                className={`p-3 rounded-lg border text-left transition-all relative flex flex-col gap-2 ${
+                  user.theme === 'light'
+                    ? 'bg-accent-blue/15 border-accent-blue shadow-md ring-1 ring-accent-blue/30'
+                    : 'bg-surface border-outline-subtle hover:border-outline hover:bg-surface-hover'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[16px] text-amber-500">light_mode</span>
+                    <span className="text-xs font-semibold text-text-primary">Light Theme</span>
+                  </div>
+                  {user.theme === 'light' && (
+                    <span className="material-symbols-outlined text-accent-blue text-[16px]">check_circle</span>
+                  )}
+                </div>
+                <div className="h-7 w-full bg-[#fdfdfd] border border-gray-300 rounded px-2 py-1 flex items-center gap-1.5 font-mono text-[9px] overflow-hidden">
+                  <span className="text-blue-600">const</span>
+                  <span className="text-black">code</span>
+                  <span className="text-gray-600">=</span>
+                  <span className="text-red-600">"light"</span>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* Section 5: Email Address & Re-verification */}
           <div className="space-y-3 pt-2 border-t border-[#2b2b2b]">
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-text-muted uppercase tracking-wider">

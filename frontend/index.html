@@ -16,6 +16,23 @@
     <!-- Google Identity Services -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 
+    <script>
+      (function() {
+        try {
+          var t = localStorage.getItem('collabide_theme');
+          if (t === 'light') {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.classList.add('light');
+            document.documentElement.setAttribute('data-theme', 'light');
+          } else {
+            document.documentElement.classList.remove('light');
+            document.documentElement.classList.add('dark');
+            document.documentElement.setAttribute('data-theme', 'dark');
+          }
+        } catch (_e) {}
+      })();
+    </script>
+
     <!-- Tailwind CSS CDN with configuration (matching Stitch) -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script id="tailwind-config">
@@ -25,29 +42,32 @@
           theme: {
             extend: {
               colors: {
-                primary: "#007acc",
-                surface: "#121414",
-                "surface-base": "#0d0e0f",
-                "surface-panel": "#1b1c1c",
-                "surface-elevated": "#1f2020",
-                "on-surface": "#e3e2e2",
-                "on-surface-variant": "#c0c7d3",
-                "on-surface-muted": "#8a919d",
-                outline: "#404751",
-                "outline-subtle": "#2b2b2b",
-                "accent-blue": "#007acc",
-                "accent-blue-dim": "#9fcaff",
-                "accent-red": "#d93025",
-                "accent-orange": "#b95e01",
-                "accent-green": "#1e8e3e",
-                "text-primary": "#e3e2e2",
-                "text-secondary": "#c0c7d3",
-                "text-muted": "#8a919d",
-                "bg-base": "#0d0e0f",
-                "bg-surface": "#121414",
-                "bg-panel": "#1b1c1c",
-                "bg-elevated": "#1f2020",
-                "border-default": "#404751"
+                primary: "var(--accent-blue)",
+                surface: "var(--bg-surface)",
+                "surface-base": "var(--bg-base)",
+                "surface-panel": "var(--bg-panel)",
+                "surface-elevated": "var(--bg-elevated)",
+                "surface-hover": "var(--bg-hover)",
+                "surface-active": "var(--bg-active)",
+                "on-surface": "var(--text-primary)",
+                "on-surface-variant": "var(--text-secondary)",
+                "on-surface-muted": "var(--text-muted)",
+                outline: "var(--border-default)",
+                "outline-subtle": "var(--border-subtle)",
+                "accent-blue": "var(--accent-blue)",
+                "accent-blue-dim": "var(--accent-blue-dim)",
+                "accent-red": "var(--accent-red)",
+                "accent-orange": "var(--accent-orange)",
+                "accent-green": "var(--accent-green)",
+                "text-primary": "var(--text-primary)",
+                "text-secondary": "var(--text-secondary)",
+                "text-muted": "var(--text-muted)",
+                "bg-base": "var(--bg-base)",
+                "bg-surface": "var(--bg-surface)",
+                "bg-panel": "var(--bg-panel)",
+                "bg-elevated": "var(--bg-elevated)",
+                "border-default": "var(--border-default)",
+                "border-subtle": "var(--border-subtle)"
               },
               borderRadius: {
                 DEFAULT: "0.125rem",
@@ -86,13 +106,13 @@
       } catch (_e) {}
     </script>
     <style>
-      :root {
+      :root, html.dark {
         --bg-base: #0d0e0f;
         --bg-surface: #121414;
         --bg-panel: #1b1c1c;
         --bg-elevated: #1f2020;
         --bg-hover: #252626;
-        --bg-active: #292a2a;
+        --bg-active: #2b2d30;
         --border-subtle: #2b2b2b;
         --border-default: #404751;
         --border-strong: #8a919d;
@@ -104,6 +124,10 @@
         --accent-green: #1e8e3e;
         --accent-red: #d93025;
         --accent-orange: #b95e01;
+        --scrollbar-thumb: #404751;
+        --scrollbar-thumb-hover: #8a919d;
+        --glass-bg: rgba(31, 32, 32, 0.75);
+        color-scheme: dark;
         
         --peer-1: #1a73e8;
         --peer-2: #1e8e3e;
@@ -111,12 +135,123 @@
         --peer-4: #a142f4;
         --peer-5: #e52592;
       }
+
+      html.light {
+        --bg-base: #f1f5f9;       /* Slate-100: soft neutral page background */
+        --bg-surface: #ffffff;    /* Pure white surfaces (topbars, main canvas) */
+        --bg-panel: #f8fafc;      /* Slate-50: sidebars, explorer, activity bar, terminal */
+        --bg-elevated: #ffffff;   /* Pure white: dropdowns, modals, cards */
+        --bg-hover: #e2e8f0;      /* Slate-200: clean subtle hover */
+        --bg-active: #cbd5e1;     /* Slate-300: active press/selection */
+        --border-subtle: #e2e8f0; /* Subtle light border */
+        --border-default: #cbd5e1;/* Standard border */
+        --border-strong: #94a3b8; /* Strong border */
+        --text-primary: #0f172a;  /* Slate-900: crisp high contrast text */
+        --text-secondary: #334155;/* Slate-700: secondary descriptive text */
+        --text-muted: #64748b;    /* Slate-500: timestamps, placeholders, icons */
+        --accent-blue: #0284c7;   /* Sky-600: vibrant IDE blue */
+        --accent-blue-dim: #bae6fd;/* Sky-200: badge/highlight */
+        --accent-green: #16a34a;
+        --accent-red: #dc2626;
+        --accent-orange: #ea580c;
+        --scrollbar-thumb: #cbd5e1;
+        --scrollbar-thumb-hover: #94a3b8;
+        --glass-bg: rgba(255, 255, 255, 0.85);
+        color-scheme: light;
+
+        --peer-1: #0284c7;
+        --peer-2: #16a34a;
+        --peer-3: #d97706;
+        --peer-4: #9333ea;
+        --peer-5: #db2777;
+      }
+
       body {
-        background-color: #0d0e0f;
-        color: #e3e2e2;
+        background-color: var(--bg-base);
+        color: var(--text-primary);
         -webkit-font-smoothing: antialiased;
         font-family: 'Inter', sans-serif;
+        transition: background-color 0.2s ease, color 0.2s ease;
       }
+
+      /* Light mode comprehensive class overrides for seamless full UI theme */
+      html.light .bg-\[\#121414\],
+      html.light .bg-\[\#121314\],
+      html.light .bg-\[\#0d0e0f\] {
+        background-color: var(--bg-surface) !important;
+      }
+      html.light .bg-\[\#1b1c1c\],
+      html.light .bg-\[\#1a1b1b\],
+      html.light .bg-\[\#1f2020\],
+      html.light .bg-\[\#1f2021\],
+      html.light .bg-\[\#202225\],
+      html.light .bg-\[\#18191a\],
+      html.light .bg-\[\#181a1b\],
+      html.light .bg-\[\#141618\],
+      html.light .bg-\[\#1e2022\] {
+        background-color: var(--bg-panel) !important;
+      }
+      html.light .bg-\[\#252626\],
+      html.light .bg-\[\#2b2d30\],
+      html.light .bg-\[\#292a2a\] {
+        background-color: var(--bg-hover) !important;
+      }
+      html.light .border-\[\#2b2b2b\],
+      html.light .border-\[\#303338\],
+      html.light .border-\[\#333\] {
+        border-color: var(--border-subtle) !important;
+      }
+      html.light .border-\[\#404751\],
+      html.light .border-\[\#444\] {
+        border-color: var(--border-default) !important;
+      }
+      html.light .text-\[\#e3e2e2\],
+      html.light .text-\[\#e3e2e3\] {
+        color: var(--text-primary) !important;
+      }
+      html.light .text-\[\#c0c7d3\] {
+        color: var(--text-secondary) !important;
+      }
+      html.light .text-\[\#8a919d\] {
+        color: var(--text-muted) !important;
+      }
+      html.light [class*="bg-[#1c2b41]"] {
+        background-color: #e0f2fe !important;
+        color: #0284c7 !important;
+      }
+      html.light .text-\[\#9fcaff\] {
+        color: #0284c7 !important;
+      }
+
+      /* Role badges in light mode */
+      html.light .bg-\[\#3d3000\] {
+        background-color: #fef3c7 !important;
+        color: #b45309 !important;
+      }
+      html.light .bg-\[\#2b1d3d\],
+      html.light .bg-\[\#2a0e38\] {
+        background-color: #f3e8ff !important;
+        color: #7e22ce !important;
+      }
+      html.light .bg-\[\#0d2e1a\],
+      html.light .bg-\[\#0a2510\] {
+        background-color: #dcfce7 !important;
+        color: #15803d !important;
+      }
+      html.light .bg-red-950\/40,
+      html.light .bg-red-950\/30,
+      html.light .bg-red-900\/30 {
+        background-color: #fee2e2 !important;
+      }
+      html.light .bg-green-950\/40 {
+        background-color: #dcfce7 !important;
+      }
+
+      /* Logo theme adapt: in light mode, display logo with black circle & 'ide' */
+      html.light .app-logo {
+        content: url('/logo-light.png');
+      }
+
       .material-symbols-outlined {
         font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
         display: inline-block;
@@ -135,14 +270,14 @@
         background: transparent;
       }
       ::-webkit-scrollbar-thumb {
-        background: #404751;
+        background: var(--scrollbar-thumb);
         border-radius: 2px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #8a919d;
+        background: var(--scrollbar-thumb-hover);
       }
       .glass-panel {
-        background: rgba(31, 32, 32, 0.75);
+        background: var(--glass-bg);
         backdrop-filter: blur(8px);
         -webkit-backdrop-filter: blur(8px);
       }

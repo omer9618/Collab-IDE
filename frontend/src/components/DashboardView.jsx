@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { createRoom, joinRoom, logoutUser, logoutAllDevices, getRooms, getRoomsPresence, closeRoom, openRoom, deleteRoom } from '../services/api';
+import { createRoom, joinRoom, logoutUser, logoutAllDevices, getRooms, getRoomsPresence, closeRoom, openRoom, deleteRoom, updateProfile } from '../services/api';
 import ProfileDrawer from './ProfileDrawer';
 import { MoreVertical } from 'lucide-react';
 
@@ -67,6 +67,23 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
   const PAGE_SIZE = 5;
   const [searchQuery, setSearchQuery] = useState('');
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  // FR-24: Full UI Theme toggling
+  const [themeToggling, setThemeToggling] = useState(false);
+  const handleQuickThemeToggle = async () => {
+    if (themeToggling) return;
+    const currentTheme = user?.theme || 'vs-dark';
+    const nextTheme = currentTheme === 'light' ? 'vs-dark' : 'light';
+    try {
+      setThemeToggling(true);
+      const updated = await updateProfile({ theme: nextTheme });
+      onUserUpdate?.(updated);
+    } catch (err) {
+      console.error('Failed to toggle theme:', err);
+    } finally {
+      setThemeToggling(false);
+    }
+  };
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -303,13 +320,32 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
       {/* Top Bar (56px) */}
       <header className="h-[56px] shrink-0 bg-[#121414] border-b border-[#2b2b2b] flex items-center justify-between px-4 z-50">
         <div className="flex items-center cursor-pointer" onClick={() => window.location.href = '/'}>
-          <img src="/logo.png" className="h-12 object-contain" alt="CollabIDE Logo" />
+          <img src={user?.theme === 'light' ? '/logo-light.png' : '/logo.png'} className="h-12 object-contain app-logo" alt="CollabIDE Logo" />
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          {/* Quick Theme Toggle Button (FR-24) */}
+          <button
+            onClick={handleQuickThemeToggle}
+            disabled={themeToggling}
+            className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${
+              user?.theme === 'light'
+                ? 'text-amber-500 hover:text-amber-600 hover:bg-[#e5e7eb]'
+                : 'text-on-surface-variant hover:text-on-surface hover:bg-[#252626]'
+            }`}
+            title={`Switch to ${user?.theme === 'light' ? 'Dark' : 'Light'} Mode (FR-24)`}
+          >
+            {user?.theme === 'light' ? (
+              <span className="material-symbols-outlined text-[20px]">light_mode</span>
+            ) : (
+              <span className="material-symbols-outlined text-[20px]">dark_mode</span>
+            )}
+          </button>
+
           <div
-            className="w-8 h-8 rounded-full bg-accent-blue-dim flex items-center justify-center text-accent-blue font-semibold text-text-sm cursor-pointer"
+            className="w-8 h-8 rounded-full flex items-center justify-center font-semibold text-text-sm cursor-pointer border border-white/20 hover:scale-105 transition-transform"
             onClick={() => setShowSettingsDrawer(true)}
-            style={{ backgroundColor: user.avatarColor + '30', color: user.avatarColor }}
+            title="Profile & Settings"
+            style={{ backgroundColor: user.avatarColor || '#007acc', color: '#ffffff' }}
           >
             {userInitials}
           </div>
@@ -461,7 +497,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
         </aside>
 
         {/* Main Content Area */}
-        <main className="flex-1 bg-[#121414] overflow-y-auto">
+        <main className="flex-1 bg-bg-base overflow-y-auto">
           <div className="p-8 max-w-5xl mx-auto h-full flex flex-col">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div className="flex items-center gap-3">
