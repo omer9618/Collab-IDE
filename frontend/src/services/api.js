@@ -355,6 +355,44 @@ export async function resetPassword({ token, newPassword }) {
 }
 
 /**
+ * Validates password complexity and checks HaveIBeenPwned breach database via k-anonymity (NFR-16).
+ *
+ * @async
+ * @function validatePasswordApi
+ * @param {string} password - Candidate password
+ * @returns {Promise<{ isValid: boolean, message?: string, errors?: string[], isPwned?: boolean, breachCount?: number, details?: object }>}
+ */
+export async function validatePasswordApi(password) {
+  const res = await request('/auth/validate-password', {
+    method: 'POST',
+    body: JSON.stringify({ password }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Password validation failed');
+  return data;
+}
+
+/**
+ * Updates password for authenticated user (NFR-16).
+ *
+ * @async
+ * @function changePassword
+ * @param {object} params
+ * @param {string} params.currentPassword - Current user password
+ * @param {string} params.newPassword - New password meeting complexity and breach policy
+ * @returns {Promise<{ message: string }>} Success confirmation
+ */
+export async function changePassword({ currentPassword, newPassword }) {
+  const res = await request('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to update password');
+  return data;
+}
+
+/**
  * Updates user profile details such as display name, avatar color, and persisted theme (FR-08, FR-24).
  *
  * @async
