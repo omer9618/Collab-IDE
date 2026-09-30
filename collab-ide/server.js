@@ -77,6 +77,11 @@ const io = new Server(server, {
 const { initVoiceSignalling } = require('./socket/voice');
 initVoiceSignalling(io);
 
+// Connect to Database
+connectDB();
+
+const { csrfProtection } = require('./middleware/csrf');
+
 // Global Middlewares
 app.use(cors({
   origin: true,
