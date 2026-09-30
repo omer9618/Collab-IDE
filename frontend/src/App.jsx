@@ -64,6 +64,24 @@ export default function App() {
     };
   }, []);
 
+  // Synchronize document theme class for full web UI theming (FR-24)
+  useEffect(() => {
+    const activeTheme = user?.theme || localStorage.getItem('collabide_theme') || 'vs-dark';
+    const isLight = activeTheme === 'light';
+    if (isLight) {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
+      document.documentElement.setAttribute('data-theme', 'light');
+    } else {
+      document.documentElement.classList.remove('light');
+      document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+    if (user?.theme) {
+      localStorage.setItem('collabide_theme', user.theme);
+    }
+  }, [user?.theme]);
+
   const handleAuthSuccess = (authenticatedUser) => {
     setUser(authenticatedUser);
   };
@@ -130,6 +148,8 @@ export default function App() {
           user={user}
           roomUuid={roomUuid}
           onBack={handleBackToDashboard}
+          onUserUpdate={handleUserUpdate}
+          onRoomSelect={handleRoomSelect}
         />
       );
     }

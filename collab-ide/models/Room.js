@@ -88,6 +88,10 @@ const roomSchema = new mongoose.Schema(
   }
 );
 
+// Optimize FR-14 room listing and search query
+roomSchema.index({ 'participants.user': 1, lastActiveAt: -1 });
+roomSchema.index({ name: 'text' });
+
 const Room = mongoose.model('Room', roomSchema);
 
 module.exports = Room;

@@ -218,10 +218,10 @@ export async function resetPassword({ token, newPassword }) {
   return data;
 }
 
-export async function updateProfile({ displayName, avatarColor }) {
+export async function updateProfile({ displayName, avatarColor, theme }) {
   const res = await request('/auth/profile', {
     method: 'PUT',
-    body: JSON.stringify({ displayName, avatarColor }),
+    body: JSON.stringify({ displayName, avatarColor, theme }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || 'Failed to update profile');
@@ -270,8 +270,9 @@ export async function revokeAllOtherSessions() {
 
 // ─── ROOMS ENDPOINTS ──────────────────────────────────────────────────────────
 
-export async function getRooms() {
-  const res = await request('/rooms');
+export async function getRooms(search = '') {
+  const query = search && search.trim() ? `?search=${encodeURIComponent(search.trim())}` : '';
+  const res = await request(`/rooms${query}`);
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || 'Failed to fetch rooms');
   return Array.isArray(data) ? data : (data.rooms || []);

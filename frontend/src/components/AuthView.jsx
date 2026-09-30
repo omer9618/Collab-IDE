@@ -36,6 +36,27 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
   const [resetTargetEmail, setResetTargetEmail] = useState('');
   const [resetSuccess, setResetSuccess] = useState(false);
 
+  // Theme state for pre-auth login view
+  const [isLight, setIsLight] = useState(
+    () => document.documentElement.classList.contains('light') || localStorage.getItem('collabide_theme') === 'light'
+  );
+
+  const toggleTheme = () => {
+    const nextIsLight = !isLight;
+    setIsLight(nextIsLight);
+    if (nextIsLight) {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
+      document.documentElement.setAttribute('data-theme', 'light');
+      localStorage.setItem('collabide_theme', 'light');
+    } else {
+      document.documentElement.classList.remove('light');
+      document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
+      localStorage.setItem('collabide_theme', 'vs-dark');
+    }
+  };
+
   // Fetch Google client ID from backend
   useEffect(() => {
     async function loadConfig() {
@@ -282,7 +303,20 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
       </section>
 
       {/* Right Side: Auth Card Section */}
-      <section className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-[#121314]">
+      <section className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-[#121314] relative">
+        <button
+          onClick={toggleTheme}
+          type="button"
+          className="absolute top-6 right-6 p-2 rounded-lg text-text-muted hover:text-text-primary hover:bg-[#252626] transition-colors"
+          title={`Switch to ${isLight ? 'Dark' : 'Light'} Mode`}
+        >
+          {isLight ? (
+            <span className="material-symbols-outlined text-[20px] text-amber-500">light_mode</span>
+          ) : (
+            <span className="material-symbols-outlined text-[20px]">dark_mode</span>
+          )}
+        </button>
+
         <div className="w-full max-w-[440px] bg-[#1b1c1c] border border-[#404751] rounded-lg p-10 shadow-xl overflow-y-auto max-h-screen">
           {/* Logo */}
           <div
@@ -294,7 +328,7 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
               onClearResetToken?.();
             }}
           >
-            <img src="/logo.png" alt="CollabIDE Logo" className="h-12 object-contain" />
+            <img src={isLight ? '/logo-light.png' : '/logo.png'} alt="CollabIDE Logo" className="h-12 object-contain app-logo" />
           </div>
 
           {/* Tab Switcher (Visible in Signin / Signup mode) */}
