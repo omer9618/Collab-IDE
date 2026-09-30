@@ -24,6 +24,7 @@ const RefreshToken = require('../models/RefreshToken');
 const IpBlock = require('../models/IpBlock');
 const { privateKey } = require('../utils/keys');
 const { protect } = require('../middleware/auth');
+const { validatePasswordPolicy } = require('../utils/passwordPolicy');
 
 const router = express.Router();
 
@@ -91,10 +92,14 @@ router.post('/register', authLimiter, async (req, res) => {
       return res.status(400).json({ message: 'Email already registered' });
     }
 
-    // Validate password complexity
-    if (!PASSWORD_REGEX.test(password)) {
+    // Validate password complexity and breach status via HaveIBeenPwned k-anonymity API (NFR-16)
+    const policyResult = await validatePasswordPolicy(password);
+    if (!policyResult.isValid) {
       return res.status(400).json({
-        message: 'Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character.',
+        message: policyResult.message,
+        errors: policyResult.errors,
+        isPwned: policyResult.isPwned,
+        breachCount: policyResult.breachCount,
       });
     }
 
@@ -509,10 +514,14 @@ router.post('/reset-password', authLimiter, async (req, res) => {
       return res.status(400).json({ message: 'Invalid, already used, or expired reset token. Reset links are single-use and expire after 30 minutes.' });
     }
 
-    // Validate password complexity (FR-01 / FR-09)
-    if (!PASSWORD_REGEX.test(newPassword)) {
+    // Validate password complexity and breach status via HaveIBeenPwned k-anonymity API (NFR-16, FR-09)
+    const policyResult = await validatePasswordPolicy(newPassword);
+    if (!policyResult.isValid) {
       return res.status(400).json({
-        message: 'Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character.',
+        message: policyResult.message,
+        errors: policyResult.errors,
+        isPwned: policyResult.isPwned,
+        breachCount: policyResult.breachCount,
       });
     }
 
@@ -539,6 +548,90 @@ router.post('/reset-password', authLimiter, async (req, res) => {
   } catch (error) {
     console.error('Password reset execution error:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+/**
+ * @route   POST /api/auth/validate-password
+ * @desc    Validate password complexity and check HaveIBeenPwned breach database (NFR-16)
+ * @access  Public
+ * 
+ * SECURITY REASONING (NFR-16):
+ * Enables client interfaces to provide instant feedback to users before submitting credentials.
+ * Utilizes the HaveIBeenPwned k-anonymity model: only a 5-character SHA-1 prefix is ever checked
+ * externally, ensuring zero knowledge of candidate passwords leaks outside the host boundary.
+ */
+router.post('/validate-password', authLimiter, async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password || typeof password !== 'string') {
+      return res.status(400).json({
+        isValid: false,
+        message: 'Password string is required.',
+        errors: ['Password string is required.'],
+        isPwned: false,
+        breachCount: 0,
+      });
+    }
+
+    const result = await validatePasswordPolicy(password);
+    return res.json(result);
+  } catch (error) {
+    console.error('Password validation endpoint error:', error);
+    return res.status(500).json({ message: 'Internal server error validating password.' });
+  }
+});
+
+/**
+ * @route   POST /api/auth/change-password
+ * @desc    Change password for authenticated user (NFR-16)
+ * @access  Private
+ * 
+ * SECURITY REASONING (NFR-16, NFR-13):
+ * Verifies current password before applying new credentials.
+ * Enforces strict complexity and breach rejection via HaveIBeenPwned k-anonymity.
+ * Automatically purges all existing refresh tokens for the user to invalidate any concurrent sessions.
+ */
+router.post('/change-password', protect, authLimiter, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Current password and new password are required.' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user || !user.password) {
+      return res.status(400).json({ message: 'Account does not have a local password configured.' });
+    }
+
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Current password does not match.' });
+    }
+
+    const policyResult = await validatePasswordPolicy(newPassword);
+    if (!policyResult.isValid) {
+      return res.status(400).json({
+        message: policyResult.message,
+        errors: policyResult.errors,
+        isPwned: policyResult.isPwned,
+        breachCount: policyResult.breachCount,
+      });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    // Revoke all active sessions upon password change (NFR-13)
+    await RefreshToken.deleteMany({ user: user._id });
+    res.clearCookie('refreshToken');
+
+    console.log(`\n🔒 [PASSWORD CHANGE] Password successfully changed for user ${user.email}. All sessions revoked.\n`);
+
+    return res.json({ message: 'Password updated successfully. Please sign in again with your new password.' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    return res.status(500).json({ message: 'Server error updating password.' });
   }
 });
 
