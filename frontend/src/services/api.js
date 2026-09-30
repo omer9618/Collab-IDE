@@ -118,6 +118,117 @@ export function getToken() {
 }
 
 /**
+ * Sanitizes any error (network failure, exception, or API message) into a plain English sentence (NFR-47).
+ * Ensures zero technical jargon, stack traces, or raw error codes reach the user interface.
+ *
+ * @function formatErrorMessage
+ * @param {Error|string|unknown} err - Error instance or message
+ * @param {string} [fallback='An unexpected error occurred. Please try again.'] - User-friendly fallback
+ * @returns {string} Clean plain-English error message
+ */
+export function formatErrorMessage(err, fallback = 'An unexpected error occurred. Please try again.') {
+  if (!err) return fallback;
+
+  // Google OAuth popup closed or blocked
+  if (err?.error === 'popup_closed_by_user' || err?.type === 'popup_closed') {
+    return 'Google sign-in window was closed. Please try again.';
+  }
+
+  let msg = '';
+  if (typeof err === 'string') {
+    msg = err;
+  } else if (err instanceof Error) {
+    msg = err.message || '';
+  } else if (typeof err === 'object') {
+    if (err.message) {
+      msg = String(err.message);
+    } else if (typeof err.error === 'string') {
+      msg = err.error;
+    } else {
+      return fallback;
+    }
+  } else {
+    return fallback;
+  }
+
+  // Strip technical prefix if present
+  msg = msg.replace(/^Error:\s*/i, '').trim();
+
+  // Network connection failures
+  if (
+    msg.includes('Failed to fetch') ||
+    msg.includes('NetworkError') ||
+    msg.includes('net::ERR_') ||
+    msg.includes('Load failed') ||
+    msg.includes('Network request failed')
+  ) {
+    return 'Unable to connect to the server. Please check your internet connection.';
+  }
+
+  // JSON syntax errors or HTML doctype in responses
+  if (msg.includes('Unexpected token') || msg.includes('is not valid JSON')) {
+    return 'The server response could not be processed. Please try again later.';
+  }
+
+  // Internal JavaScript engine errors
+  if (
+    msg.includes('Cannot read properties of') ||
+    msg.includes('is not a function') ||
+    msg.includes('is undefined') ||
+    msg.includes('is null') ||
+    msg.includes('TypeError:') ||
+    msg.includes('ReferenceError:')
+  ) {
+    return fallback;
+  }
+
+  // Aborted or cancelled request
+  if (err?.name === 'AbortError' || msg.includes('aborted') || msg.includes('cancelled')) {
+    return 'Request was cancelled or timed out. Please try again.';
+  }
+
+  // Google OAuth popup closed or blocked
+  if (err?.error === 'popup_closed_by_user' || err?.type === 'popup_closed' || msg.includes('popup_closed')) {
+    return 'Google sign-in window was closed. Please try again.';
+  }
+
+  // Raw database or internal error codes
+  if (
+    /E\d{4,5}/.test(msg) ||
+    msg.includes('MongoServerError') ||
+    msg.includes('CastError') ||
+    msg.includes('BSONTypeError') ||
+    msg.includes('ECONNREFUSED')
+  ) {
+    return fallback;
+  }
+
+  // Stack trace frames or file paths
+  if (/\bat\s+[A-Za-z0-9_./\\-]+\s*\(?/.test(msg) || /[a-zA-Z]:\\[a-zA-Z0-9_\-\\]+/.test(msg) || /\/(?:var|home|usr|app)\//.test(msg)) {
+    return fallback;
+  }
+
+  return msg || fallback;
+}
+
+/**
+ * Safely parses response JSON, falling back to a plain-English message if parsing fails.
+ *
+ * @async
+ * @function safeJson
+ * @param {Response} res - Fetch response
+ * @param {string} [fallback='An unexpected server error occurred. Please try again.']
+ * @returns {Promise<any>} Parsed data
+ */
+async function safeJson(res, fallback = 'An unexpected server error occurred. Please try again.') {
+  try {
+    return await res.json();
+  } catch (e) {
+    throw new Error(fallback);
+  }
+}
+
+/**
  * Core authenticated HTTP request helper.
  * Attaches Authorization header, waits on pending refreshes, and handles 401/429 status codes.
  *
@@ -142,19 +253,24 @@ async function request(path, options = {}) {
     headers['Authorization'] = `Bearer ${accessToken}`;
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-    credentials: 'include',
-  });
+  let res;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers,
+      credentials: 'include',
+    });
+  } catch (networkError) {
+    throw new Error('Unable to connect to the server. Please check your internet connection.');
+  }
 
   if (res.status === 429) {
     try {
       const clone = res.clone();
       const data = await clone.json();
-      window.dispatchEvent(new CustomEvent('api-error', { detail: data.message || 'API rate limit exceeded.' }));
+      window.dispatchEvent(new CustomEvent('api-error', { detail: data.message || 'You have made too many requests. Please wait a moment.' }));
     } catch(e) {
-      window.dispatchEvent(new CustomEvent('api-error', { detail: 'API rate limit exceeded.' }));
+      window.dispatchEvent(new CustomEvent('api-error', { detail: 'You have made too many requests. Please wait a moment.' }));
     }
   }
 
@@ -163,7 +279,11 @@ async function request(path, options = {}) {
     const newToken = await refreshSession();
     if (newToken) {
       headers['Authorization'] = `Bearer ${newToken}`;
-      return fetch(`${API_BASE}${path}`, { ...options, headers, credentials: 'include' });
+      try {
+        return await fetch(`${API_BASE}${path}`, { ...options, headers, credentials: 'include' });
+      } catch (retryError) {
+        throw new Error('Unable to connect to the server. Please check your internet connection.');
+      }
     }
   }
 

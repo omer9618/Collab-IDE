@@ -9,6 +9,7 @@
 const jwt = require('jsonwebtoken');
 const { publicKey } = require('../utils/keys');
 const User = require('../models/User');
+const logger = require('../utils/logger');
 
 /**
  * Express middleware to authenticate incoming requests via RS256 Bearer JWT.
@@ -52,26 +53,26 @@ const protect = async (req, res, next) => {
       const user = await User.findById(decoded.userId).select('-password');
       
       if (!user) {
-        return res.status(401).json({ message: 'User not found' });
+        return res.status(401).json({ message: 'User account could not be found. Please log in again.' });
       }
 
       // Security: Enforce account email verification barrier before granting access to protected endpoints
       if (!user.isVerified) {
-        return res.status(403).json({ message: 'Please verify your email address first' });
+        return res.status(403).json({ message: 'Please verify your email address to access this resource.' });
       }
 
       // Attach verified principal to request context
       req.user = user;
       return next();
     } catch (error) {
-      console.error('JWT Verification Error:', error.message);
-      return res.status(401).json({ message: 'Not authorized, token failed' });
+      logger.warn('JWT verification failed: ' + error.message);
+      return res.status(401).json({ message: 'Authentication failed. Your session token is invalid or expired. Please log in again.' });
     }
   }
 
   // Security: Explicit rejection when no authorization header is supplied
   if (!token) {
-    return res.status(401).json({ message: 'Not authorized, no token' });
+    return res.status(401).json({ message: 'Authentication required. Please log in to access this resource.' });
   }
 };
 

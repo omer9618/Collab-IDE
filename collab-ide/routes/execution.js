@@ -21,6 +21,7 @@
 const express  = require('express');
 const rateLimit = require('express-rate-limit');
 const { protect } = require('../middleware/auth');
+const { sendPlainEnglishError } = require('../middleware/errorHandler');
 const Room = require('../models/Room');
 const logger = require('../utils/logger');
 
@@ -83,7 +84,7 @@ const execLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
   keyGenerator: (req) => req.user.userId, // per-user, not per-IP
-  message: { message: 'Execution rate limit exceeded. Maximum 10 runs per minute.' },
+  message: { message: 'You have reached the maximum limit of 10 code runs per minute. Please wait a moment before trying again.' },
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
@@ -234,20 +235,20 @@ router.post('/:uuid/run', protect, execLimiter, async (req, res) => {
 
     // ── Validate inputs ────────────────────────────────────────────────────────
     if (!code || typeof code !== 'string' || code.trim().length === 0) {
-      return res.status(400).json({ message: 'Code must be a non-empty string.' });
+      return res.status(400).json({ message: 'Please enter some code to execute.' });
     }
 
     const languageKey = (language || '').toLowerCase().trim();
     const langEntry   = LANGUAGE_MAP[languageKey];
     if (!langEntry) {
       return res.status(400).json({
-        message: `Unsupported language "${language}". Supported: ${Object.keys(LANGUAGE_MAP).join(', ')}.`,
+        message: `The selected language "${language}" is not supported. Supported languages are: JavaScript, Python, C++, C, Java, and HTML.`,
       });
     }
 
     // ── Membership & Role Guard (NFR-25) ───────────────────────────────────────
     const room = await Room.findOne({ uuid }).populate('participants.user', 'displayName email');
-    if (!room) return res.status(404).json({ message: 'Room not found.' });
+    if (!room) return res.status(404).json({ message: 'The specified room could not be found.' });
 
     const member = room.participants.find(p => {
       const pId = p.user._id ? p.user._id.toString() : p.user.toString();
@@ -255,12 +256,12 @@ router.post('/:uuid/run', protect, execLimiter, async (req, res) => {
     });
 
     if (!member) {
-      return res.status(403).json({ message: 'Access denied. You are not a member of this room.' });
+      return res.status(403).json({ message: 'You do not have access to run code in this room.' });
     }
 
     // Security: Viewers cannot execute code (FR-27). Prevents compute abuse by read-only users.
     if (member.role === 'Viewer') {
-      return res.status(403).json({ message: 'Viewers cannot execute code. Ask the Room Leader to promote you to Editor.' });
+      return res.status(403).json({ message: 'Viewers cannot execute code. Ask the Room Leader or Owner to promote you to Editor.' });
     }
 
     // ── Execute ────────────────────────────────────────────────────────────────
@@ -335,8 +336,7 @@ router.post('/:uuid/run', protect, execLimiter, async (req, res) => {
 
     return res.status(200).json({ result });
   } catch (err) {
-    logger.error('Execution error: ' + err.message, { userId: req.user?._id, roomId: uuid });
-    return res.status(500).json({ message: 'Execution failed. Please try again.' });
+    return sendPlainEnglishError(res, err, 'An error occurred while executing your code. Please try again.');
   }
 });
 
@@ -355,7 +355,7 @@ router.get('/:uuid/history', protect, async (req, res) => {
   try {
     const { uuid } = req.params;
     const room = await Room.findOne({ uuid }, 'participants executionHistory');
-    if (!room) return res.status(404).json({ message: 'Room not found.' });
+    if (!room) return res.status(404).json({ message: 'The specified room could not be found.' });
 
     // Security: Verify requesting user is a member of the room
     const isMember = room.participants.some(p => {
@@ -364,13 +364,12 @@ router.get('/:uuid/history', protect, async (req, res) => {
     });
 
     if (!isMember) {
-      return res.status(403).json({ message: 'Access denied. You are not a member of this room.' });
+      return res.status(403).json({ message: 'You do not have access to view execution history in this room.' });
     }
 
     return res.status(200).json({ history: room.executionHistory });
   } catch (err) {
-    logger.error('Error fetching execution history: ' + err.message, { userId: req.user?._id, roomId: req.params?.uuid });
-    return res.status(500).json({ message: 'Failed to fetch execution history.' });
+    return sendPlainEnglishError(res, err, 'An error occurred while retrieving execution history. Please try again.');
   }
 });
 

@@ -16,6 +16,7 @@ const Room = require('../models/Room');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
 const { apiLimiter } = require('../middleware/rateLimiter');
+const { sendPlainEnglishError } = require('../middleware/errorHandler');
 
 const router = express.Router();
 
@@ -65,7 +66,7 @@ router.post('/', protect, apiLimiter, async (req, res) => {
   try {
     const { name } = req.body;
     if (!name) {
-      return res.status(400).json({ message: 'Room name is required' });
+      return res.status(400).json({ message: 'Room name is required. Please provide a name for your workspace.' });
     }
 
     const uuid = crypto.randomUUID();
@@ -94,8 +95,7 @@ router.post('/', protect, apiLimiter, async (req, res) => {
     await newRoom.save();
     res.status(201).json(newRoom);
   } catch (error) {
-    console.error('Create room error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while creating your workspace room. Please try again.');
   }
 });
 
@@ -164,8 +164,7 @@ router.get('/', protect, apiLimiter, async (req, res) => {
 
     res.json(formattedRooms);
   } catch (error) {
-    console.error('List rooms error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while loading your rooms. Please try again.');
   }
 });
 
@@ -192,8 +191,7 @@ router.get('/presence', protect, apiLimiter, async (req, res) => {
 
     res.json({ presence });
   } catch (error) {
-    console.error('Room presence error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while checking room presence. Please try again.');
   }
 });
 
@@ -214,13 +212,13 @@ router.get('/:uuid', protect, apiLimiter, async (req, res) => {
       .populate('participants.user', 'displayName email avatarColor');
 
     if (!room) {
-      return res.status(404).json({ message: 'Room not found' });
+      return res.status(404).json({ message: 'The requested room could not be found.' });
     }
 
     // Security: Verify user is a member of the room before returning project files
     const myRole = getMemberRole(room, req.user._id);
     if (!myRole) {
-      return res.status(403).json({ message: 'Access denied. You are not a member of this room.' });
+      return res.status(403).json({ message: 'You do not have access to this room. Please request an invite to join.' });
     }
 
     res.json({
@@ -228,8 +226,7 @@ router.get('/:uuid', protect, apiLimiter, async (req, res) => {
       myRole,
     });
   } catch (error) {
-    console.error('Get room details error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while loading room details. Please try again.');
   }
 });
 
@@ -249,12 +246,12 @@ router.post('/:uuid/join', protect, apiLimiter, async (req, res) => {
     const room = await Room.findOne({ uuid: req.params.uuid });
 
     if (!room) {
-      return res.status(404).json({ message: 'Room not found' });
+      return res.status(404).json({ message: 'The requested room could not be found.' });
     }
 
     // Security: Prevent joining archived or closed rooms
     if (room.isClosed) {
-      return res.status(400).json({ message: 'Room is closed and cannot be joined.' });
+      return res.status(400).json({ message: 'This room is closed and is no longer accepting new participants.' });
     }
 
     const existingRole = getMemberRole(room, req.user._id);
@@ -278,8 +275,7 @@ router.post('/:uuid/join', protect, apiLimiter, async (req, res) => {
 
     res.json({ message: 'Successfully joined room', role: 'Viewer' });
   } catch (error) {
-    console.error('Join room error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while joining the room. Please try again.');
   }
 });
 
@@ -304,21 +300,21 @@ router.put('/:uuid/roles', protect, apiLimiter, async (req, res) => {
     const { targetUserId, newRole } = req.body;
 
     if (!targetUserId || !newRole) {
-      return res.status(400).json({ message: 'Target user ID and new role are required' });
+      return res.status(400).json({ message: 'Both the participant and the new role must be specified.' });
     }
 
     if (!['Owner', 'Room Leader', 'Editor', 'Viewer'].includes(newRole)) {
-      return res.status(400).json({ message: 'Invalid role specified' });
+      return res.status(400).json({ message: 'The specified role is invalid. Allowed roles are: Owner, Room Leader, Editor, or Viewer.' });
     }
 
     const room = await Room.findOne({ uuid: req.params.uuid });
     if (!room) {
-      return res.status(404).json({ message: 'Room not found' });
+      return res.status(404).json({ message: 'The requested room could not be found.' });
     }
 
     const requesterRole = getMemberRole(room, req.user._id);
     if (!requesterRole) {
-      return res.status(403).json({ message: 'Access denied.' });
+      return res.status(403).json({ message: 'You do not have permission to view or manage roles in this room.' });
     }
 
     // Role-based privilege checks (FR-39 to FR-43)
@@ -327,23 +323,23 @@ router.put('/:uuid/roles', protect, apiLimiter, async (req, res) => {
 
     // Security: Only Owner and Room Leader possess role administrative capabilities
     if (!isOwner && !isRoomLeader) {
-      return res.status(403).json({ message: 'Unauthorized. Only the Owner or Room Leader can manage roles.' });
+      return res.status(403).json({ message: 'Only the room Owner or Room Leader can change participant roles.' });
     }
 
     // Security Rule 1: Only the Owner can appoint or reassign the Room Leader
     if (newRole === 'Room Leader' && !isOwner) {
-      return res.status(403).json({ message: 'Unauthorized. Only the Owner can designate a Room Leader.' });
+      return res.status(403).json({ message: 'Only the room Owner can assign the Room Leader role.' });
     }
 
     // Find the participant to change
     const targetParticipant = room.participants.find(p => p.user.toString() === targetUserId);
     if (!targetParticipant) {
-      return res.status(400).json({ message: 'Target user is not a participant in this room' });
+      return res.status(400).json({ message: 'The selected user is not a participant in this room.' });
     }
 
     // Security Rule 2: Prevent modifying Owner's role to prevent room hijacking
     if (targetParticipant.role === 'Owner') {
-      return res.status(400).json({ message: 'Owner role cannot be changed' });
+      return res.status(400).json({ message: "The room Owner's role cannot be changed." });
     }
 
     // Security Rule 3: Single Leader Invariant — demote former Room Leader when a new one is selected
@@ -371,8 +367,7 @@ router.put('/:uuid/roles', protect, apiLimiter, async (req, res) => {
 
     res.json({ message: 'Role updated successfully', participants: room.participants });
   } catch (error) {
-    console.error('Update role error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while updating the participant role. Please try again.');
   }
 });
 
@@ -389,7 +384,7 @@ router.post('/:uuid/roles/grant-all', protect, apiLimiter, async (req, res) => {
   try {
     const room = await Room.findOne({ uuid: req.params.uuid });
     if (!room) {
-      return res.status(404).json({ message: 'Room not found' });
+      return res.status(404).json({ message: 'The requested room could not be found.' });
     }
 
     const requesterRole = getMemberRole(room, req.user._id);
@@ -397,7 +392,7 @@ router.post('/:uuid/roles/grant-all', protect, apiLimiter, async (req, res) => {
     const isRoomLeader = requesterRole === 'Room Leader';
 
     if (!isOwner && !isRoomLeader) {
-      return res.status(403).json({ message: 'Unauthorized. Only Owner or Room Leader can grant editor access.' });
+      return res.status(403).json({ message: 'Only the room Owner or Room Leader can grant editor permissions.' });
     }
 
     // Atomically promote all current Viewers to Editors
@@ -420,8 +415,7 @@ router.post('/:uuid/roles/grant-all', protect, apiLimiter, async (req, res) => {
 
     res.json({ message: 'Granted editor access to all viewers', participants: room.participants });
   } catch (error) {
-    console.error('Grant all error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while granting editor permissions. Please try again.');
   }
 });
 
@@ -438,7 +432,7 @@ router.post('/:uuid/roles/revoke-all', protect, apiLimiter, async (req, res) => 
   try {
     const room = await Room.findOne({ uuid: req.params.uuid });
     if (!room) {
-      return res.status(404).json({ message: 'Room not found' });
+      return res.status(404).json({ message: 'The requested room could not be found.' });
     }
 
     const requesterRole = getMemberRole(room, req.user._id);
@@ -446,7 +440,7 @@ router.post('/:uuid/roles/revoke-all', protect, apiLimiter, async (req, res) => 
     const isRoomLeader = requesterRole === 'Room Leader';
 
     if (!isOwner && !isRoomLeader) {
-      return res.status(403).json({ message: 'Unauthorized. Only Owner or Room Leader can revoke editor access.' });
+      return res.status(403).json({ message: 'Only the room Owner or Room Leader can revoke editor permissions.' });
     }
 
     // Demote all Editors back to Viewer (preserving Owner and Room Leader)
@@ -469,8 +463,7 @@ router.post('/:uuid/roles/revoke-all', protect, apiLimiter, async (req, res) => 
 
     res.json({ message: 'Revoked editor access from all editors', participants: room.participants });
   } catch (error) {
-    console.error('Revoke all error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while revoking editor permissions. Please try again.');
   }
 });
 
@@ -486,11 +479,11 @@ router.post('/:uuid/roles/revoke-all', protect, apiLimiter, async (req, res) => 
 router.post('/:uuid/close', protect, apiLimiter, async (req, res) => {
   try {
     const room = await Room.findOne({ uuid: req.params.uuid });
-    if (!room) return res.status(404).json({ message: 'Room not found' });
+    if (!room) return res.status(404).json({ message: 'The requested room could not be found.' });
     
     // Security: Only Owner can close the room
     if (room.owner.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Unauthorized. Only the Owner can close the room.' });
+      return res.status(403).json({ message: 'Only the room Owner can close this room.' });
     }
 
     room.isClosed = true;
@@ -503,8 +496,7 @@ router.post('/:uuid/close', protect, apiLimiter, async (req, res) => {
 
     res.json({ message: 'Room closed successfully', room });
   } catch (error) {
-    console.error('Close room error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while closing the room. Please try again.');
   }
 });
 
@@ -519,11 +511,11 @@ router.post('/:uuid/close', protect, apiLimiter, async (req, res) => {
 router.post('/:uuid/open', protect, apiLimiter, async (req, res) => {
   try {
     const room = await Room.findOne({ uuid: req.params.uuid });
-    if (!room) return res.status(404).json({ message: 'Room not found' });
+    if (!room) return res.status(404).json({ message: 'The requested room could not be found.' });
     
     // Security: Only Owner can reopen the room
     if (room.owner.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Unauthorized. Only the Owner can re-open the room.' });
+      return res.status(403).json({ message: 'Only the room Owner can re-open this room.' });
     }
 
     room.isClosed = false;
@@ -535,8 +527,7 @@ router.post('/:uuid/open', protect, apiLimiter, async (req, res) => {
 
     res.json({ message: 'Room opened successfully', room });
   } catch (error) {
-    console.error('Open room error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while opening the room. Please try again.');
   }
 });
 
@@ -553,11 +544,11 @@ router.post('/:uuid/open', protect, apiLimiter, async (req, res) => {
 router.delete('/:uuid', protect, apiLimiter, async (req, res) => {
   try {
     const room = await Room.findOne({ uuid: req.params.uuid });
-    if (!room) return res.status(404).json({ message: 'Room not found' });
+    if (!room) return res.status(404).json({ message: 'The requested room could not be found.' });
     
     // Security: Only Owner can delete the room
     if (room.owner.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Unauthorized. Only the Owner can delete the room.' });
+      return res.status(403).json({ message: 'Only the room Owner can delete this room.' });
     }
 
     // Security: Broadcast deletion notice before database removal to terminate open peer sessions
@@ -569,8 +560,7 @@ router.delete('/:uuid', protect, apiLimiter, async (req, res) => {
 
     res.json({ message: 'Room deleted successfully' });
   } catch (error) {
-    console.error('Delete room error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while deleting the room. Please try again.');
   }
 });
 

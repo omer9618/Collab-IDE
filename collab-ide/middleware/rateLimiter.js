@@ -32,7 +32,7 @@ const apiLimiter = rateLimit({
     }
     return req.ip;
   },
-  message: { message: 'API rate limit exceeded. Maximum 100 requests per minute.' },
+  message: { message: 'You have made too many requests. Please wait a moment before trying again.' },
   standardHeaders: true, // Draft-6 RateLimit headers
   legacyHeaders: false, // Disable X-RateLimit-* headers
   validate: false,
