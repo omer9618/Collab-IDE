@@ -21,6 +21,7 @@ const { protect } = require('../middleware/auth');
 const { apiLimiter } = require('../middleware/rateLimiter');
 const Room = require('../models/Room');
 const { voiceRooms } = require('../socket/voice');
+const logger = require('../utils/logger');
 
 const router = express.Router({ mergeParams: true });
 
@@ -100,7 +101,7 @@ router.get('/:uuid/credentials', protect, apiLimiter, async (req, res) => {
       },
     });
   } catch (err) {
-    console.error('❌ Error generating TURN credentials:', err.message);
+    logger.error('Error generating TURN credentials: ' + err.message, { userId: req.user?._id, roomId: req.params?.uuid });
     return res.status(500).json({ message: 'Failed to generate credentials.' });
   }
 });
@@ -148,7 +149,7 @@ router.get('/:uuid/participants', protect, apiLimiter, async (req, res) => {
       editorOnlyMode: voiceRoom?.editorOnlyMode || false,
     });
   } catch (err) {
-    console.error('❌ Error fetching voice participants:', err.message);
+    logger.error('Error fetching voice participants: ' + err.message, { userId: req.user?._id, roomId: req.params?.uuid });
     return res.status(500).json({ message: 'Failed to fetch participants.' });
   }
 });

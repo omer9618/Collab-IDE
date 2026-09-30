@@ -22,6 +22,7 @@ const jwt  = require('jsonwebtoken');
 const { publicKey } = require('../utils/keys');
 const User = require('../models/User');
 const Room = require('../models/Room');
+const logger = require('../utils/logger');
 
 // ─── In-Memory Voice State ────────────────────────────────────────────────────
 
@@ -150,7 +151,7 @@ function initVoiceSignalling(io) {
 
   // ── Connection Handler ──────────────────────────────────────────────────────
   voiceNs.on('connection', (socket) => {
-    console.log(`🎙️  Voice socket connected: ${socket.user.displayName} (${socket.id})`);
+    logger.info(`Voice socket connected (${socket.id})`, { userId: socket.user?._id });
 
     // Track active room on the socket session
     socket.roomUuid = null;
@@ -194,7 +195,7 @@ function initVoiceSignalling(io) {
         for (const [existingSocketId, existingP] of voiceRoom.participants) {
           if (existingP.userId === userId && existingSocketId !== socket.id) {
             voiceRoom.participants.delete(existingSocketId);
-            console.log(`🧹 Evicted stale voice entry for "${existingP.displayName}" (old socket: ${existingSocketId})`);
+            logger.info(`Evicted stale voice entry (old socket: ${existingSocketId})`, { userId: existingP.userId, roomId: roomUuid });
           }
         }
 
@@ -211,7 +212,7 @@ function initVoiceSignalling(io) {
 
         voiceRoom.participants.set(socket.id, participant);
 
-        console.log(`🎙️  [+] "${socket.user.displayName}" joined voice in room ${roomUuid} (${voiceRoom.participants.size} in voice)`);
+        logger.info(`Participant joined voice channel (${voiceRoom.participants.size} active)`, { userId: socket.user._id, roomId: roomUuid });
 
         // Broadcast updated participant roster to all room members
         voiceNs.to(roomUuid).emit('voice:participant-joined', {
@@ -220,7 +221,7 @@ function initVoiceSignalling(io) {
         });
 
       } catch (err) {
-        console.error('❌ voice:join error:', err.message);
+        logger.error('voice:join error: ' + err.message, { userId: socket.user?._id, roomId: roomUuid });
         socket.emit('voice:error', { message: 'Failed to join voice.' });
       }
     });
@@ -342,7 +343,7 @@ function initVoiceSignalling(io) {
         isHardMuted: target.isHardMuted,
       });
 
-      console.log(`🔇 "${myInfo?.displayName}" ${hard ? 'hard-' : ''}muted "${target.displayName}" in ${socket.roomUuid}`);
+      logger.audit(`VOICE_PARTICIPANT_${hard ? 'HARD_' : ''}MUTED`, { userId: target.userId, roomId: socket.roomUuid, issuedBy: socket.user?._id });
     });
 
     // ── voice:unmute-participant — Release hard mute (FR-48) ─────────────────
@@ -399,7 +400,7 @@ function initVoiceSignalling(io) {
         by:    myInfo?.displayName || 'Room Leader',
       });
 
-      console.log(`🔇 "${myInfo?.displayName}" muted all in ${socket.roomUuid}`);
+      logger.audit('VOICE_MUTE_ALL', { roomId: socket.roomUuid, issuedBy: socket.user?._id });
     });
 
     // ── voice:set-editor-only — Toggle editor-only access (FR-51) ────────────
@@ -420,17 +421,17 @@ function initVoiceSignalling(io) {
         editorOnlyMode: voiceRoom.editorOnlyMode,
       });
 
-      console.log(`🎙️  Editor-only voice mode ${voiceRoom.editorOnlyMode ? 'enabled' : 'disabled'} in ${socket.roomUuid}`);
+      logger.audit('VOICE_EDITOR_ONLY_MODE_CHANGED', { roomId: socket.roomUuid, editorOnlyMode: voiceRoom.editorOnlyMode, issuedBy: socket.user?._id });
     });
 
     // ── Disconnect ─────────────────────────────────────────────────────────────
     socket.on('disconnect', (reason) => {
-      console.log(`🎙️  Voice socket disconnected: ${socket.user.displayName} — ${reason}`);
+      logger.info(`Voice socket disconnected: ${reason}`, { userId: socket.user?._id });
       leaveVoiceRoom(socket, voiceNs);
     });
   });
 
-  console.log('🎙️  Voice signalling attached to /voice namespace.');
+  logger.info('Voice signalling attached to /voice namespace.');
 }
 
 // ─── Shared Leave Helper ──────────────────────────────────────────────────────
@@ -457,7 +458,7 @@ function leaveVoiceRoom(socket, voiceNs) {
 
   if (!departed) return;
 
-  console.log(`🎙️  [-] "${departed.displayName}" left voice in room ${roomUuid} (${voiceRoom.participants.size} remaining)`);
+  logger.info(`Participant left voice channel (${voiceRoom.participants.size} remaining)`, { userId: departed.userId, roomId: roomUuid });
 
   voiceNs.to(roomUuid).emit('voice:participant-left', {
     userId:       departed.userId,

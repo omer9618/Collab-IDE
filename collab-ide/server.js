@@ -13,6 +13,10 @@
  */
 
 require('dotenv').config();
+const logger = require('./utils/logger');
+// NFR-23: Install universal console interceptor to sanitize logs and enforce chmod 640 storage
+logger.installGlobalInterceptor();
+
 const http = require('http');
 const express = require('express');
 const path = require('path');
@@ -163,9 +167,9 @@ async function saveRoomStateToDB(roomUuid, ydoc) {
         } 
       }
     );
-    console.log(`💾 Persisted room ${roomUuid} state to MongoDB`);
+    logger.info('Persisted room state to MongoDB', { roomId: roomUuid });
   } catch (err) {
-    console.error(`❌ Error saving room ${roomUuid} to DB:`, err);
+    logger.error('Error saving room state to DB: ' + err.message, { roomId: roomUuid });
   }
 }
 
@@ -216,7 +220,7 @@ async function getOrCreateYdoc(roomUuid) {
         const uint8Array = new Uint8Array(bufferData.buffer, bufferData.byteOffset, bufferData.length);
         Y.applyUpdate(ydoc, uint8Array);
       } catch (err) {
-        console.error('Failed to apply ydocState:', err);
+        logger.error('Failed to apply ydocState: ' + err.message, { roomId: roomUuid });
       }
 
       // Self-healing: if legacy room has ydocState but files array is empty, initialize it on the server
@@ -311,7 +315,7 @@ async function touchRoomActivity(roomUuid) {
     );
   } catch (err) {
     // Non-fatal: a missed activity timestamp must never break user sessions
-    console.error(`❌ Error touching lastActiveAt for room ${roomUuid}:`, err.message);
+    logger.error('Error touching lastActiveAt: ' + err.message, { roomId: roomUuid });
   }
 }
 
@@ -337,9 +341,9 @@ global.updateClientRoleInMemory = (roomUuid, userId, newRole) => {
       try {
         client.send(JSON.stringify({ type: 'role_update', role: newRole }));
       } catch (err) {
-        console.error('Error sending role update to client:', err);
+        logger.error('Error sending role update to client:', { userId, roomId: roomUuid, error: err.message });
       }
-      console.log(`🔒 Updated role in memory: User ${userId} is now ${newRole} in ${roomUuid}`);
+      logger.audit('ROLE_UPDATED', { userId, roomId: roomUuid, newRole });
     }
   });
 };
@@ -393,7 +397,7 @@ global.broadcastRoomParticipants = async (roomUuid) => {
       }
     });
   } catch (err) {
-    console.error('❌ Error broadcasting participants:', err);
+    logger.error('Error broadcasting participants: ' + err.message, { roomId: roomUuid });
   }
 };
 
@@ -428,7 +432,7 @@ server.on('upgrade', async (request, socket, head) => {
 
     // Security: Reject unauthenticated upgrade attempts immediately
     if (!token) {
-      console.log('❌ Upgrade Rejected: No token provided');
+      logger.warn('Upgrade rejected: No token provided', { roomId: roomUuid });
       socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
       socket.destroy();
       return;
@@ -438,7 +442,7 @@ server.on('upgrade', async (request, socket, head) => {
     const decoded = jwt.verify(token, publicKey, { algorithms: ['RS256'] });
     const user = await User.findById(decoded.userId).select('-password');
     if (!user) {
-      console.log('❌ Upgrade Rejected: User not found');
+      logger.warn('Upgrade rejected: User not found', { userId: decoded?.userId, roomId: roomUuid });
       socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
       socket.destroy();
       return;
@@ -447,7 +451,7 @@ server.on('upgrade', async (request, socket, head) => {
     // Security: Verify room existence and membership to prevent unauthorized buffer snooping (NFR-25)
     const room = await Room.findOne({ uuid: roomUuid });
     if (!room) {
-      console.log(`❌ Upgrade Rejected: Room ${roomUuid} not found`);
+      logger.warn('Upgrade rejected: Room not found', { userId: user._id, roomId: roomUuid });
       socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
       socket.destroy();
       return;
@@ -455,7 +459,7 @@ server.on('upgrade', async (request, socket, head) => {
 
     const participant = room.participants.find(p => p.user.toString() === user._id.toString());
     if (!participant) {
-      console.log(`❌ Upgrade Rejected: User ${user.displayName} is not a member of room ${roomUuid}`);
+      logger.warn('Upgrade rejected: User is not a member of room', { userId: user._id, roomId: roomUuid });
       socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
       socket.destroy();
       return;
@@ -471,7 +475,7 @@ server.on('upgrade', async (request, socket, head) => {
       wss.emit('connection', ws, request);
     });
   } catch (error) {
-    console.log('❌ Upgrade Rejected: Invalid or expired token', error.message);
+    logger.warn('Upgrade rejected: Invalid or expired token', { roomId: roomUuid });
     socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
     socket.destroy();
   }
@@ -520,7 +524,7 @@ wss.on('connection', async (ws, req) => {
   ws.userId = user._id.toString();
   ws.role = role;
 
-  console.log(`[+] "${roomUuid}" — User "${user.displayName}" (${role}) connected`);
+  logger.info('Collaborator connected to workspace', { userId: user._id, roomId: roomUuid, role });
 
   // FR-14: record user presence
   touchRoomActivity(roomUuid);
@@ -532,7 +536,7 @@ wss.on('connection', async (ws, req) => {
   });
 
   if (roomCount > 20) {
-    console.log(`[!] Room ${roomUuid} capacity exceeded. Rejecting connection.`);
+    logger.warn('Room capacity exceeded (max 20 clients)', { userId: user._id, roomId: roomUuid });
     ws.send(JSON.stringify({ type: 'error', message: 'Room capacity exceeded (max 20 clients).' }));
     ws.close();
     return;
@@ -592,7 +596,7 @@ wss.on('connection', async (ws, req) => {
               return;
             }
           } catch (err) {
-            console.error('Error parsing Viewer write check:', err);
+            logger.error('Error parsing Viewer write check: ' + err.message, { userId: ws.userId, roomId: roomUuid });
             return; // Security fallback: drop frame on parse failure to prevent malformed binary exploits
           }
         }
@@ -626,13 +630,13 @@ wss.on('connection', async (ws, req) => {
         }
       });
     } catch (err) {
-      console.error('❌ Error processing ws message:', err);
+      logger.error('Error processing ws message: ' + err.message, { userId: ws.userId, roomId: roomUuid });
     }
   });
 
   // Handle client disconnection
   ws.on('close', () => {
-    console.log(`[-] "${roomUuid}" — User "${user.displayName}" disconnected`);
+    logger.info('Collaborator disconnected from workspace', { userId: user._id, roomId: roomUuid });
 
     // FR-14: record timestamp of departure
     touchRoomActivity(roomUuid);
@@ -645,7 +649,7 @@ wss.on('connection', async (ws, req) => {
 
     // Unload empty rooms from RAM to prevent memory leaks (NFR-38)
     if (activeCount === 0) {
-      console.log(`🧹 Room ${roomUuid} is inactive. Performing final save and unloading...`);
+      logger.info('Room is inactive. Performing final save and unloading...', { roomId: roomUuid });
       const state = activeDocs.get(roomUuid);
       if (state) {
         if (state.saveTimer) {
@@ -654,17 +658,17 @@ wss.on('connection', async (ws, req) => {
         saveRoomStateToDB(roomUuid, state.ydoc)
           .then(() => {
             activeDocs.delete(roomUuid);
-            console.log(`🧹 Unloaded room ${roomUuid} from server memory.`);
+            logger.info('Unloaded room from server memory', { roomId: roomUuid });
           })
           .catch(err => {
-            console.error(`❌ Final save error on unload for room ${roomUuid}:`, err);
+            logger.error('Final save error on unload: ' + err.message, { roomId: roomUuid });
           });
       }
     }
   });
 
   ws.on('error', (err) => {
-    console.error(`❌ WS error:`, err.message);
+    logger.error('WS error: ' + err.message, { userId: ws.userId, roomId: ws.roomUuid });
   });
 });
 
