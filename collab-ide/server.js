@@ -22,6 +22,7 @@ const express = require('express');
 const path = require('path');
 const WebSocket = require('ws');
 const cors = require('cors');
+const compression = require('compression');
 const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
 const Y = require('yjs');
@@ -88,6 +89,21 @@ app.use(cors({
   origin: true,
   credentials: true
 }));
+
+// NFR-42: Compression
+// Compresses all text-based HTTP responses (HTML, JS, CSS, JSON) above 1KB (1024 bytes)
+app.use(
+  compression({
+    threshold: 1024,
+    filter: (req, res) => {
+      if (req.headers['x-no-compression']) {
+        return false;
+      }
+      return compression.filter(req, res);
+    },
+  })
+);
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(csrfProtection);

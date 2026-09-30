@@ -20,6 +20,23 @@ RUN npm ci --prefer-offline --no-audit
 COPY frontend/ ./
 RUN npm run build
 
+# Pre-compress static assets (>1KB) into .gz for Nginx gzip_static (NFR-42)
+RUN node -e " \
+    const fs = require('fs'); \
+    const zlib = require('zlib'); \
+    const path = require('path'); \
+    function walk(dir) { \
+      for (const f of fs.readdirSync(dir, { withFileTypes: true })) { \
+        const p = path.join(dir, f.name); \
+        if (f.isDirectory()) walk(p); \
+        else if (/\\.(js|css|html|json|svg)$/i.test(f.name) && fs.statSync(p).size >= 1024) { \
+          fs.writeFileSync(p + '.gz', zlib.gzipSync(fs.readFileSync(p), { level: 9 })); \
+        } \
+      } \
+    } \
+    walk('dist'); \
+"
+
 # ------------------------------------------------------------------------------
 # Stage 2: Nginx Reverse Proxy & Static Asset Server
 # ------------------------------------------------------------------------------
