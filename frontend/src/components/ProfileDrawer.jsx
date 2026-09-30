@@ -113,6 +113,29 @@ export default function ProfileDrawer({
   const [revokingId, setRevokingId] = useState(null);
   const [viewAllSessions, setViewAllSessions] = useState(false);
 
+  // Editor Font Size State (FR-26)
+  const [fontSizeSaving, setFontSizeSaving] = useState(false);
+  const [fontSizeSuccess, setFontSizeSuccess] = useState(false);
+  const currentFontSize = user?.preferences?.fontSize || 14;
+
+  const handleFontSizeChange = async (newSize) => {
+    const clampedSize = Math.max(10, Math.min(32, Math.round(newSize)));
+    localStorage.setItem('collabide_editor_font_size', clampedSize.toString());
+    try {
+      setFontSizeSaving(true);
+      const updated = await updateProfile({
+        preferences: { fontSize: clampedSize }
+      });
+      onUserUpdate?.(updated);
+      setFontSizeSuccess(true);
+      setTimeout(() => setFontSizeSuccess(false), 2000);
+    } catch (err) {
+      console.error('Failed to update font size:', err);
+    } finally {
+      setFontSizeSaving(false);
+    }
+  };
+
   useEffect(() => {
     if (user) {
       setDisplayName(user.displayName || '');

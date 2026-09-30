@@ -103,6 +103,9 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.ht
  * @route GET /health
  */
 app.get('/health', (req, res) => {
+  if (isShuttingDown) {
+    return res.status(503).json({ status: 'shutting_down' });
+  }
   res.json({
     status: 'healthy',
     uptime: process.uptime(),
@@ -140,6 +143,12 @@ const activeDocs = new Map();
  */
 async function saveRoomStateToDB(roomUuid, ydoc) {
   try {
+    if (process.env.TEST_SIMULATE_SLOW_ROOM && roomUuid.includes(process.env.TEST_SIMULATE_SLOW_ROOM)) {
+      const delay = parseInt(process.env.TEST_PERSISTENCE_DELAY_MS, 10) || 30000;
+      console.log(`[TEST HOOK] Artificially delaying persistence of room ${roomUuid} for ${delay}ms...`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+
     const room = await Room.findOne({ uuid: roomUuid });
     if (!room) return;
 
@@ -422,6 +431,11 @@ global.broadcastRoomParticipants = async (roomUuid) => {
  *    handle its own handshake independently.
  */
 server.on('upgrade', async (request, socket, head) => {
+  if (isShuttingDown) {
+    socket.write('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n');
+    socket.destroy();
+    return;
+  }
   try {
     const parsedUrl = new URL(request.url, 'http://localhost');
     
@@ -676,9 +690,9 @@ wss.on('connection', async (ws, req) => {
   });
 });
 
-// PM2 Graceful Shutdown support (NFR-38)
-process.on('SIGTERM', gracefulShutdown);
-process.on('SIGINT', gracefulShutdown);
+// PM2 & Container Graceful Shutdown (NFR-38)
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 /**
  * Handles graceful process termination on SIGTERM/SIGINT signals (NFR-38).
@@ -695,17 +709,44 @@ async function gracefulShutdown() {
   // Persist all active documents in memory to MongoDB
   const savePromises = [];
   activeDocs.forEach((state, roomUuid) => {
-    if (state.saveTimer) clearTimeout(state.saveTimer);
-    savePromises.push(saveRoomStateToDB(roomUuid, state.ydoc));
+    if (state.saveTimer) {
+      clearTimeout(state.saveTimer);
+      state.saveTimer = null;
+    }
+    persistencePromises.push(
+      saveRoomStateToDB(roomUuid, state.ydoc)
+        .then(() => {
+          pendingRooms.delete(roomUuid);
+        })
+        .catch((err) => {
+          console.error(`❌ Error persisting room ${roomUuid} during shutdown:`, err.message);
+        })
+    );
   });
 
-  await Promise.all(savePromises);
-  console.log('💾 All active room states persisted.');
-  
-  server.close(() => {
-    console.log('🚪 Express Server closed. Exiting process.\n');
-    process.exit(0);
-  });
+  // Await persistence across all rooms (Promise.allSettled guarantees no room is abandoned)
+  await Promise.allSettled(persistencePromises);
+  console.log(`💾 Yjs persistence complete. Remaining unpersisted rooms: ${pendingRooms.size}`);
+  activeDocs.clear();
+
+  // 5. Await complete drain of any in-flight HTTP requests
+  await closeServerPromise;
+
+  // 6. Gracefully close MongoDB connection pool (NFR-40)
+  const mongoose = require('mongoose');
+  if (mongoose.connection.readyState !== 0) {
+    try {
+      await mongoose.connection.close(false);
+      console.log('🔌 MongoDB connection pool closed gracefully.');
+    } catch (err) {
+      console.error('Error closing MongoDB connection:', err.message);
+    }
+  }
+
+  // 7. Clear watchdog and exit cleanly
+  clearTimeout(watchdog);
+  console.log('✅ Graceful shutdown completed cleanly. Exiting process.\n');
+  process.exit(0);
 }
 
 if (require.main === module) {
