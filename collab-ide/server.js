@@ -28,6 +28,7 @@ const Y = require('yjs');
 const syncProtocol = require('y-protocols/sync');
 const encoding = require('lib0/encoding');
 const decoding = require('lib0/decoding');
+const { roomManager } = require('./services/roomManager');
 
 /**
  * Connects to MongoDB with connection pooling (NFR-40).
@@ -120,9 +121,12 @@ app.get('/health', (req, res) => {
     status: 'healthy',
     uptime: process.uptime(),
     memoryUsage: process.memoryUsage(),
-    activeRooms: activeDocs.size,
-    activeWebSockets: Array.from(wss.clients).filter(c => c.readyState === WebSocket.OPEN).length,
+    activeRooms: roomManager.rooms.size,
+    activeWebSockets: roomManager.getTotalActiveWebSockets(),
     maxWsPerRoom: getMaxWsPerRoom(),
+    roomIsolation: {
+      rooms: roomManager.getDiagnostics(),
+    },
     database: {
       connected: mongoose.connection.readyState === 1,
       minPoolSize: client?.options?.minPoolSize ?? 5,
@@ -147,209 +151,46 @@ function getMaxWsPerRoom() {
 }
 
 function getRoomConnectionCount(roomUuid, excludeWs = null) {
-  let count = 0;
-  wss.clients.forEach(client => {
-    if (
-      client !== excludeWs &&
-      client.roomUuid === roomUuid &&
-      (client.readyState === WebSocket.OPEN || client.readyState === WebSocket.CONNECTING)
-    ) {
-      count++;
-    }
-  });
-  return count;
+  return roomManager.getRoomConnectionCount(roomUuid, excludeWs);
 }
 
 /**
- * In-memory registry of active collaborative rooms.
- * Maps room UUID to its live Y.Doc instance and scheduled database persistence timer.
- * @type {Map<string, { ydoc: Y.Doc, saveTimer: NodeJS.Timeout|null }>}
+ * Backward-compatible activeDocs registry proxy (NFR-38, NFR-52).
+ * Transparently delegates to roomManager.rooms while exposing Map-like interface.
  */
-const activeDocs = new Map();
-
-/**
- * Persists live in-memory Yjs document state and files to MongoDB (NFR-26).
- * Extracts text contents for human-readable querying and saves the binary
- * state vector (`ydocState`) to preserve CRDT state vectors across restarts.
- *
- * @async
- * @function saveRoomStateToDB
- * @param {string} roomUuid - UUID identifier of the room to persist
- * @param {Y.Doc} ydoc - In-memory Yjs CRDT document
- * @returns {Promise<void>}
- */
-async function saveRoomStateToDB(roomUuid, ydoc) {
-  try {
-    if (process.env.TEST_SIMULATE_SLOW_ROOM && roomUuid.includes(process.env.TEST_SIMULATE_SLOW_ROOM)) {
-      const delay = parseInt(process.env.TEST_PERSISTENCE_DELAY_MS, 10) || 30000;
-      console.log(`[TEST HOOK] Artificially delaying persistence of room ${roomUuid} for ${delay}ms...`);
-      await new Promise((resolve) => setTimeout(resolve, delay));
+const activeDocs = {
+  get size() {
+    return roomManager.rooms.size;
+  },
+  has(roomUuid) {
+    return roomManager.rooms.has(roomUuid);
+  },
+  get(roomUuid) {
+    const session = roomManager.getRoom(roomUuid);
+    return session ? { ydoc: session.ydoc, saveTimer: session.saveTimer } : undefined;
+  },
+  delete(roomUuid) {
+    return roomManager.rooms.delete(roomUuid);
+  },
+  clear() {
+    return roomManager.rooms.clear();
+  },
+  forEach(callback) {
+    for (const [uuid, session] of roomManager.rooms.entries()) {
+      callback({ ydoc: session.ydoc, saveTimer: session.saveTimer }, uuid);
     }
-
-    const room = await Room.findOne({ uuid: roomUuid });
-    if (!room) return;
-
-    // Extract files list from Yjs shared files array (dynamic source of truth)
-    const yfiles = ydoc.getArray(`${roomUuid}:files`);
-    const fileNames = yfiles.length > 0 ? yfiles.toArray() : room.files.map(f => f.name);
-    // Deduplicate file names to handle legacy or race conditions
-    const uniqueFileNames = Array.from(new Set(fileNames));
-
-    const updatedFiles = uniqueFileNames.map(name => {
-      const ytext = ydoc.getText(`${roomUuid}:${name}`);
-      return {
-        name,
-        content: ytext.toString()
-      };
-    });
-
-    const ydocStateUpdate = Y.encodeStateAsUpdate(ydoc);
-    const ydocStateBuffer = Buffer.from(ydocStateUpdate);
-
-    await Room.updateOne(
-      { uuid: roomUuid },
-      { 
-        $set: { 
-          files: updatedFiles,
-          ydocState: ydocStateBuffer,
-          // FR-14: editing the document counts as user activity
-          lastActiveAt: new Date()
-        } 
-      }
-    );
-    logger.info('Persisted room state to MongoDB', { roomId: roomUuid });
-  } catch (err) {
-    logger.error('Error saving room state to DB: ' + err.message, { roomId: roomUuid });
-  }
-}
-
-/**
- * Schedules a debounced database write for a room document (NFR-26).
- * Coalesces rapid keystrokes within 2000ms into a single write operation,
- * reducing MongoDB disk I/O under concurrent multi-user editing.
- *
- * @function scheduleSave
- * @param {string} roomUuid - Target room UUID
- */
-function scheduleSave(roomUuid) {
-  const docState = activeDocs.get(roomUuid);
-  if (!docState) return;
-
-  if (docState.saveTimer) {
-    clearTimeout(docState.saveTimer);
-  }
-
-  docState.saveTimer = setTimeout(async () => {
-    await saveRoomStateToDB(roomUuid, docState.ydoc);
-  }, 2000);
-}
-
-/**
- * Retrieves an existing in-memory Y.Doc for a room or hydrates it from MongoDB.
- * If a binary snapshot (`ydocState`) exists, it is restored preserving CRDT clocks.
- *
- * @async
- * @function getOrCreateYdoc
- * @param {string} roomUuid - Unique room identifier
- * @returns {Promise<{ ydoc: Y.Doc, saveTimer: NodeJS.Timeout|null }>} Active document state
- */
-async function getOrCreateYdoc(roomUuid) {
-  if (activeDocs.has(roomUuid)) {
-    return activeDocs.get(roomUuid);
-  }
-
-  const room = await Room.findOne({ uuid: roomUuid });
-  const ydoc = new Y.Doc();
-
-  if (room) {
-    if (room.ydocState) {
-      // Restore Yjs document using binary state snapshot to preserve clocks and client IDs
-      try {
-        const bufferData = room.ydocState;
-        // MUST use byteOffset and length to avoid pulling garbage bytes from Node's shared memory pool!
-        const uint8Array = new Uint8Array(bufferData.buffer, bufferData.byteOffset, bufferData.length);
-        Y.applyUpdate(ydoc, uint8Array);
-      } catch (err) {
-        logger.error('Failed to apply ydocState: ' + err.message, { roomId: roomUuid });
-      }
-
-      // Self-healing: if legacy room has ydocState but files array is empty, initialize it on the server
-      const yfiles = ydoc.getArray(`${roomUuid}:files`);
-      if (yfiles.length === 0 && room.files && room.files.length > 0) {
-        const fileNames = Array.from(new Set(room.files.map(f => f.name)));
-        yfiles.push(fileNames);
-        
-        // Populate actual contents if ydoc was completely empty (e.g. corrupted buffer recovery)
-        room.files.forEach(file => {
-          const ytext = ydoc.getText(`${roomUuid}:${file.name}`);
-          if (ytext.toString() === '') {
-            ydoc.transact(() => {
-              ytext.insert(0, file.content || '');
-            });
-          }
-        });
-      }
-    } else if (room.files) {
-      // Fallback for first-time room load: populate via text insert
-      const yfiles = ydoc.getArray(`${roomUuid}:files`);
-      const fileNames = Array.from(new Set(room.files.map(f => f.name)));
-      yfiles.push(fileNames);
-
-      room.files.forEach(file => {
-        const ytext = ydoc.getText(`${roomUuid}:${file.name}`);
-        ydoc.transact(() => {
-          ytext.insert(0, file.content || '');
-        });
-      });
-    }
-  }
-
-  // Auto save on any document update
-  ydoc.on('update', () => {
-    scheduleSave(roomUuid);
-  });
-
-  const docState = {
-    ydoc,
-    saveTimer: null,
-  };
-
-  activeDocs.set(roomUuid, docState);
-  return docState;
-}
-
-/**
- * FR-14: Live presence snapshot for the room listing dashboard.
- *
- * Derived directly from open WebSocket connections rather than a separate
- * presence store, ensuring the count never drifts out of sync with reality.
- * Keyed by roomUuid; value is a Set of userIds, so a user with multiple tabs
- * open in the same room is counted as a single online participant.
- *
- * @function getRoomPresence
- * @returns {Map<string, Set<string>>} Map of roomUuid to Set of active userIds
- */
-global.getRoomPresence = () => {
-  const presence = new Map();
-
-  wss.clients.forEach(client => {
-    if (client.readyState !== WebSocket.OPEN) return;
-    if (!client.roomUuid || !client.userId) return;
-
-    if (!presence.has(client.roomUuid)) {
-      presence.set(client.roomUuid, new Set());
-    }
-    presence.get(client.roomUuid).add(client.userId);
-  });
-
-  return presence;
+  },
+  entries() {
+    return Array.from(roomManager.rooms.entries()).map(([uuid, session]) => [
+      uuid,
+      { ydoc: session.ydoc, saveTimer: session.saveTimer },
+    ]);
+  },
 };
 
 /**
  * FR-14: Mark a room as active right now.
  * Sets `timestamps: false` to keep this update distinct from `updatedAt`.
- * `updatedAt` tracks content/metadata modifications, while `lastActiveAt`
- * tracks real-time human presence.
  *
  * @async
  * @function touchRoomActivity
@@ -364,20 +205,24 @@ async function touchRoomActivity(roomUuid) {
       { timestamps: false }
     );
   } catch (err) {
-    // Non-fatal: a missed activity timestamp must never break user sessions
     logger.error('Error touching lastActiveAt: ' + err.message, { roomId: roomUuid });
   }
 }
 
 /**
- * Atomic in-memory synchronization of user roles across active WebSockets (NFR-19).
+ * FR-14: Live presence snapshot for the room listing dashboard.
+ * Derived directly from independent room client sets (NFR-52).
  *
- * SECURITY REASONING:
- * When a user is demoted (e.g. Editor -> Viewer) via REST API, updating MongoDB
- * alone creates a vulnerability window because their existing WebSocket connection
- * retains Editor privileges until closed. This function iterates through connected
- * WebSocket clients, immediately updates their in-memory role tag, and dispatches
- * a `role_update` message to the client, closing the privilege revocation race condition.
+ * @function getRoomPresence
+ * @returns {Map<string, Set<string>>} Map of roomUuid to Set of active userIds
+ */
+global.getRoomPresence = () => {
+  return roomManager.getPresenceMap();
+};
+
+/**
+ * Atomic in-memory synchronization of user roles across active WebSockets (NFR-19, NFR-52).
+ * Scoped strictly to the target room's client set.
  *
  * @function updateClientRoleInMemory
  * @param {string} roomUuid - Target room UUID
@@ -385,41 +230,23 @@ async function touchRoomActivity(roomUuid) {
  * @param {string} newRole - New role ('Owner' | 'Room Leader' | 'Editor' | 'Viewer')
  */
 global.updateClientRoleInMemory = (roomUuid, userId, newRole) => {
-  wss.clients.forEach(client => {
-    if (client.roomUuid === roomUuid && client.userId === userId.toString()) {
-      client.role = newRole;
-      try {
-        client.send(JSON.stringify({ type: 'role_update', role: newRole }));
-      } catch (err) {
-        logger.error('Error sending role update to client:', { userId, roomId: roomUuid, error: err.message });
-      }
-      logger.audit('ROLE_UPDATED', { userId, roomId: roomUuid, newRole });
-    }
-  });
+  roomManager.updateClientRole(roomUuid, userId, newRole);
 };
 
 /**
- * Broadcasts a raw JSON string to every open WebSocket client connected to a specific room.
- * Used by the execution route to broadcast execution results (`exec:result`) (FR-29)
- * and room closure notifications (FR-42).
- *
- * SECURITY REASONING:
- * Strictly filters by `client.roomUuid === roomUuid` to guarantee cross-room isolation (NFR-52).
+ * Broadcasts a raw JSON string to every open WebSocket client connected to a specific room (FR-29, NFR-52).
+ * Scoped strictly to the target room's client set.
  *
  * @function broadcastToRoom
  * @param {string} roomUuid - Destination room UUID
  * @param {string} message - JSON-serialized message payload
  */
 global.broadcastToRoom = (roomUuid, message) => {
-  wss.clients.forEach(client => {
-    if (client.roomUuid === roomUuid && client.readyState === WebSocket.OPEN) {
-      client.send(message);
-    }
-  });
+  roomManager.broadcastToRoom(roomUuid, message);
 };
 
 /**
- * Broadcasts updated participant list with current roles and avatar colors to all room clients (FR-44).
+ * Broadcasts updated participant list to all room clients (FR-44, NFR-52).
  *
  * @async
  * @function broadcastRoomParticipants
@@ -427,28 +254,7 @@ global.broadcastToRoom = (roomUuid, message) => {
  * @returns {Promise<void>}
  */
 global.broadcastRoomParticipants = async (roomUuid) => {
-  try {
-    const room = await Room.findOne({ uuid: roomUuid }).populate('participants.user', 'displayName email avatarColor');
-    if (!room) return;
-
-    const payload = JSON.stringify({
-      type: 'participants_update',
-      participants: room.participants.map(p => ({
-        userId: p.user._id,
-        displayName: p.user.displayName,
-        avatarColor: p.user.avatarColor,
-        role: p.role,
-      })),
-    });
-
-    wss.clients.forEach(client => {
-      if (client.roomUuid === roomUuid && client.readyState === WebSocket.OPEN) {
-        client.send(payload);
-      }
-    });
-  } catch (err) {
-    logger.error('Error broadcasting participants: ' + err.message, { roomId: roomUuid });
-  }
+  await roomManager.broadcastRoomParticipants(roomUuid);
 };
 
 /**
@@ -575,27 +381,28 @@ wss.on('connection', async (ws, req) => {
   const user = req.user;
   const role = req.role;
 
-  // Max room capacity check (NFR-36)
+  // Max room capacity check (NFR-36, NFR-52)
   const maxLimit = getMaxWsPerRoom();
-  const currentRoomConnections = getRoomConnectionCount(roomUuid, ws);
+  const currentRoomConnections = roomManager.getRoomConnectionCount(roomUuid, ws);
 
   if (currentRoomConnections >= maxLimit) {
     const errorMsg = `Room capacity exceeded (maximum ${maxLimit} connections per room).`;
-    console.log(`[!] Room ${roomUuid} capacity exceeded (${currentRoomConnections}/${maxLimit}). Rejecting connection for user "${user.displayName}".`);
+    logger.warn(`Room ${roomUuid} capacity exceeded (${currentRoomConnections}/${maxLimit}). Rejecting connection for user "${user.displayName}".`);
 
-    // Ensure ws is not tagged as occupying a room slot
     ws.roomUuid = null;
     ws.userId = null;
     ws.role = null;
 
     try {
-      ws.send(JSON.stringify({
-        type: 'error',
-        code: 'ROOM_CAPACITY_EXCEEDED',
-        message: errorMsg,
-        limit: maxLimit,
-        current: currentRoomConnections,
-      }));
+      ws.send(
+        JSON.stringify({
+          type: 'error',
+          code: 'ROOM_CAPACITY_EXCEEDED',
+          message: errorMsg,
+          limit: maxLimit,
+          current: currentRoomConnections,
+        })
+      );
     } catch (err) {
       // Socket already closed
     }
@@ -605,152 +412,44 @@ wss.on('connection', async (ws, req) => {
     return;
   }
 
-  ws.roomUuid = roomUuid;
-  ws.userId = user._id.toString();
-  ws.role = role;
+  // NFR-52: Get or create isolated RoomSession (encapsulates Y.Doc, client set, rate limits)
+  const roomSession = await roomManager.getOrCreateRoom(roomUuid);
+
+  // Register client in room's isolated client set (NFR-52)
+  roomSession.addClient(ws, user, role);
 
   logger.info('Collaborator connected to workspace', { userId: user._id, roomId: roomUuid, role });
 
   // FR-14: record user presence
   touchRoomActivity(roomUuid);
 
-  // Security: Max room capacity check prevents socket exhaustion attacks (NFR-36)
-  let roomCount = 0;
-  wss.clients.forEach(client => {
-    if (client.roomUuid === roomUuid) roomCount++;
-  });
-
-  if (roomCount > 20) {
-    logger.warn('Room capacity exceeded (max 20 clients)', { userId: user._id, roomId: roomUuid });
-    ws.send(JSON.stringify({ type: 'error', message: 'Room capacity exceeded (max 20 clients).' }));
-    ws.close();
-    return;
-  }
-
-  // Load / Initialize Y.Doc
-  const docState = await getOrCreateYdoc(roomUuid);
-  const ydoc = docState.ydoc;
-
   // Protocol: Emit Sync Step 1 to trigger state synchronization with the joining client
   const encoder = encoding.createEncoder();
   encoding.writeVarUint(encoder, 0); // messageSync = 0
-  syncProtocol.writeSyncStep1(encoder, ydoc);
-  ws.send(encoding.toUint8Array(encoder));
+  syncProtocol.writeSyncStep1(encoder, roomSession.ydoc);
+  roomSession.safeSend(ws, encoding.toUint8Array(encoder), true);
 
-  // Handle incoming WebSocket messages
+  // Route incoming WebSocket messages directly into isolated room error boundary (NFR-52)
   ws.on('message', (data, isBinary) => {
-    try {
-      if (!isBinary) {
-        // Text control frames reserved for future extensions
-        return;
-      }
-
-      // Isolate clean Uint8Array to avoid Node.js Buffer memory pool offset alignment corruption
-      const cleanData = new Uint8Array(data.length);
-      cleanData.set(data);
-
-      // ─── ROLE ENFORCEMENT & WRITE BARRIER (NFR-18) ──────────────────────────
-      // Security: Intercept and inspect binary updates if the sender is a Viewer
-      if (ws.role === 'Viewer') {
-        const isWrite = cleanData && cleanData.length > 1 && cleanData[0] === 0 && (cleanData[1] === 1 || cleanData[1] === 2);
-        if (isWrite) {
-          try {
-            const decoding = require('lib0/decoding');
-            const Y = require('yjs');
-            const decoder = decoding.createDecoder(cleanData);
-            decoding.readVarUint(decoder); // skip messageSync (0)
-            const msgType = decoding.readVarUint(decoder);
-            
-            // Check if frame contains document updates (Step 2 or incremental Update)
-            if (msgType === 1 || msgType === 2) {
-              const extractedUpdate = decoding.readVarUint8Array(decoder);
-              const decoded = Y.decodeUpdate(extractedUpdate);
-              
-              // Security: Check if any CRDT operation modifies code file text (anything not ending with ':chat')
-              const isEditingFile = decoded.structs.some(struct => {
-                const parent = struct.parent;
-                return typeof parent === 'string' && !parent.endsWith(':chat');
-              });
-              
-              if (isEditingFile) {
-                // Security: Drop file mutation updates silently. Viewers are forbidden from modifying files!
-                return;
-              }
-            } else {
-              // Security: Drop all other sync write subtypes for Viewers
-              return;
-            }
-          } catch (err) {
-            logger.error('Error parsing Viewer write check: ' + err.message, { userId: ws.userId, roomId: roomUuid });
-            return; // Security fallback: drop frame on parse failure to prevent malformed binary exploits
-          }
-        }
-      }
-
-      // Protocol: Apply Yjs updates to server-side document
-      if (cleanData[0] === 0) {
-        const decoder = decoding.createDecoder(cleanData);
-        decoding.readVarUint(decoder); // skip messageSync (0)
-        
-        const encoder = encoding.createEncoder();
-        encoding.writeVarUint(encoder, 0);
-        
-        // This triggers debounced database persistence via the 'update' event
-        syncProtocol.readSyncMessage(decoder, encoder, ydoc, ws);
-        
-        // If the server produced a sync response (e.g. Step 2 update), send it back to the client
-        if (encoding.length(encoder) > 1) {
-          ws.send(encoding.toUint8Array(encoder));
-        }
-      }
-
-      // Protocol & Security: Relay binary frame strictly to other clients in the same room (NFR-52)
-      wss.clients.forEach(client => {
-        if (
-          client !== ws &&
-          client.roomUuid === roomUuid &&
-          client.readyState === WebSocket.OPEN
-        ) {
-          client.send(data, { binary: isBinary });
-        }
-      });
-    } catch (err) {
-      logger.error('Error processing ws message: ' + err.message, { userId: ws.userId, roomId: roomUuid });
-    }
+    roomSession.handleMessage(ws, data, isBinary);
   });
 
   // Handle client disconnection
-  ws.on('close', () => {
+  ws.on('close', async () => {
     logger.info('Collaborator disconnected from workspace', { userId: user._id, roomId: roomUuid });
-
-    // FR-14: record timestamp of departure
     touchRoomActivity(roomUuid);
 
-    // Check if room is empty (NFR-36 / NFR-37)
-    const activeCount = getRoomConnectionCount(roomUuid, ws);
+    const remaining = roomSession.removeClient(ws);
 
-    // Unload empty rooms from RAM to prevent memory leaks (NFR-38)
-    if (activeCount === 0) {
-      logger.info('Room is inactive. Performing final save and unloading...', { roomId: roomUuid });
-      const state = activeDocs.get(roomUuid);
-      if (state) {
-        if (state.saveTimer) {
-          clearTimeout(state.saveTimer);
-        }
-        saveRoomStateToDB(roomUuid, state.ydoc)
-          .then(() => {
-            activeDocs.delete(roomUuid);
-            logger.info('Unloaded room from server memory', { roomId: roomUuid });
-          })
-          .catch(err => {
-            logger.error('Final save error on unload: ' + err.message, { roomId: roomUuid });
-          });
-      }
+    // Unload empty rooms from RAM to prevent memory leaks (NFR-38, NFR-52)
+    if (remaining === 0) {
+      await roomManager.unloadRoom(roomUuid);
     }
   });
 
   ws.on('error', (err) => {
     logger.error('WS error: ' + err.message, { userId: ws.userId, roomId: ws.roomUuid });
+    roomSession.removeClient(ws);
   });
 });
 
@@ -765,53 +464,50 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
  *
  * @async
  * @function gracefulShutdown
+ * @param {string} [signal='SIGTERM'] - Signal received
  * @returns {Promise<void>}
  */
-async function gracefulShutdown() {
+async function gracefulShutdown(signal = 'SIGTERM') {
+  if (isShuttingDown) return;
   isShuttingDown = true;
-  console.log('\n🛑 SIGTERM/SIGINT received. Commencing graceful shutdown...');
-  
-  // Persist all active documents in memory to MongoDB
-  const savePromises = [];
-  activeDocs.forEach((state, roomUuid) => {
-    if (state.saveTimer) {
-      clearTimeout(state.saveTimer);
-      state.saveTimer = null;
+  console.log(`\n🛑 ${signal} received. Commencing graceful shutdown...`);
+
+  // 10s watchdog timer to force exit if persistence hangs (NFR-38)
+  const watchdog = setTimeout(() => {
+    console.error('⚠️ Watchdog timeout: Graceful shutdown exceeded 10s. Forcing exit.');
+    process.exit(1);
+  }, 10000);
+  if (watchdog.unref) watchdog.unref();
+
+  try {
+    // 1. Close WebSocket server to reject new connections
+    wss.close();
+
+    // 2. Persist all active room documents to MongoDB (NFR-38, NFR-52)
+    await roomManager.persistAllRooms();
+    console.log(`💾 Yjs persistence complete. Remaining active rooms: ${roomManager.rooms.size}`);
+
+    // 3. Close HTTP server
+    await new Promise((resolve) => server.close(resolve));
+
+    // 4. Gracefully close MongoDB connection pool (NFR-40)
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState !== 0) {
+      try {
+        await mongoose.connection.close(false);
+        console.log('🔌 MongoDB connection pool closed gracefully.');
+      } catch (err) {
+        console.error('Error closing MongoDB connection:', err.message);
+      }
     }
-    persistencePromises.push(
-      saveRoomStateToDB(roomUuid, state.ydoc)
-        .then(() => {
-          pendingRooms.delete(roomUuid);
-        })
-        .catch((err) => {
-          console.error(`❌ Error persisting room ${roomUuid} during shutdown:`, err.message);
-        })
-    );
-  });
 
-  // Await persistence across all rooms (Promise.allSettled guarantees no room is abandoned)
-  await Promise.allSettled(persistencePromises);
-  console.log(`💾 Yjs persistence complete. Remaining unpersisted rooms: ${pendingRooms.size}`);
-  activeDocs.clear();
-
-  // 5. Await complete drain of any in-flight HTTP requests
-  await closeServerPromise;
-
-  // 6. Gracefully close MongoDB connection pool (NFR-40)
-  const mongoose = require('mongoose');
-  if (mongoose.connection.readyState !== 0) {
-    try {
-      await mongoose.connection.close(false);
-      console.log('🔌 MongoDB connection pool closed gracefully.');
-    } catch (err) {
-      console.error('Error closing MongoDB connection:', err.message);
-    }
+    clearTimeout(watchdog);
+    console.log('✅ Graceful shutdown completed cleanly. Exiting process.\n');
+    process.exit(0);
+  } catch (err) {
+    console.error('Error during graceful shutdown:', err);
+    process.exit(1);
   }
-
-  // 7. Clear watchdog and exit cleanly
-  clearTimeout(watchdog);
-  console.log('✅ Graceful shutdown completed cleanly. Exiting process.\n');
-  process.exit(0);
 }
 
 if (require.main === module) {

@@ -146,6 +146,7 @@ async function runTestSuite() {
   process.env.PORT = testPort;
   const { server } = require('../server');
   if (!server.listening) {
+    server.listen(testPort);
     await new Promise((resolve) => server.once('listening', resolve));
   }
   const baseUrl = `http://localhost:${testPort}`;
