@@ -19,6 +19,7 @@ const express = require('express');
 const crypto  = require('crypto');
 const { protect } = require('../middleware/auth');
 const { apiLimiter } = require('../middleware/rateLimiter');
+const { sendPlainEnglishError } = require('../middleware/errorHandler');
 const Room = require('../models/Room');
 const { voiceRooms } = require('../socket/voice');
 const logger = require('../utils/logger');
@@ -46,13 +47,13 @@ router.get('/:uuid/credentials', protect, apiLimiter, async (req, res) => {
 
     // Security: Verify room membership before issuing expensive relay credentials (NFR-25)
     const room = await Room.findOne({ uuid }, 'participants');
-    if (!room) return res.status(404).json({ message: 'Room not found.' });
+    if (!room) return res.status(404).json({ message: 'The specified room could not be found.' });
 
     const isMember = room.participants.some(p => {
       const pId = p.user._id ? p.user._id.toString() : p.user.toString();
       return pId === req.user._id.toString();
     });
-    if (!isMember) return res.status(403).json({ message: 'Access denied.' });
+    if (!isMember) return res.status(403).json({ message: 'You do not have access to voice chat in this room.' });
 
     // ── HMAC-SHA1 TURN credentials (NFR-30, coturn REST API spec) ─────────────
     // username format: <expiryTimestamp>:<userId>
@@ -101,8 +102,7 @@ router.get('/:uuid/credentials', protect, apiLimiter, async (req, res) => {
       },
     });
   } catch (err) {
-    logger.error('Error generating TURN credentials: ' + err.message, { userId: req.user?._id, roomId: req.params?.uuid });
-    return res.status(500).json({ message: 'Failed to generate credentials.' });
+    return sendPlainEnglishError(res, err, 'An error occurred while generating voice credentials. Please try again.');
   }
 });
 
@@ -123,13 +123,13 @@ router.get('/:uuid/participants', protect, apiLimiter, async (req, res) => {
 
     // Security: Validate room membership
     const room = await Room.findOne({ uuid }, 'participants');
-    if (!room) return res.status(404).json({ message: 'Room not found.' });
+    if (!room) return res.status(404).json({ message: 'The specified room could not be found.' });
 
     const isMember = room.participants.some(p => {
       const pId = p.user._id ? p.user._id.toString() : p.user.toString();
       return pId === req.user._id.toString();
     });
-    if (!isMember) return res.status(403).json({ message: 'Access denied.' });
+    if (!isMember) return res.status(403).json({ message: 'You do not have access to voice chat in this room.' });
 
     const voiceRoom = voiceRooms.get(uuid);
     const participants = voiceRoom
@@ -149,8 +149,7 @@ router.get('/:uuid/participants', protect, apiLimiter, async (req, res) => {
       editorOnlyMode: voiceRoom?.editorOnlyMode || false,
     });
   } catch (err) {
-    logger.error('Error fetching voice participants: ' + err.message, { userId: req.user?._id, roomId: req.params?.uuid });
-    return res.status(500).json({ message: 'Failed to fetch participants.' });
+    return sendPlainEnglishError(res, err, 'An error occurred while fetching voice participants. Please try again.');
   }
 });
 

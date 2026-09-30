@@ -11,7 +11,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   updateProfile, requestEmailChange, cancelEmailChange,
-  getSessions, revokeSession, revokeAllOtherSessions
+  getSessions, revokeSession, revokeAllOtherSessions, formatErrorMessage
 } from '../services/api';
 
 const CURATED_COLORS = [
@@ -209,7 +209,7 @@ export default function ProfileDrawer({
       onUserUpdate?.(updated);
       setIsEditingName(false);
     } catch (err) {
-      setNameError(err.message || 'Failed to update display name');
+      setNameError(formatErrorMessage(err, 'Failed to update display name. Please try again.'));
     } finally {
       setNameSaving(false);
     }
@@ -254,7 +254,7 @@ export default function ProfileDrawer({
       setNewEmail('');
       setShowEmailForm(false);
     } catch (err) {
-      setEmailError(err.message || 'Failed to request email change');
+      setEmailError(formatErrorMessage(err, 'Failed to request email change. Please try again.'));
     } finally {
       setEmailLoading(false);
     }
@@ -270,7 +270,7 @@ export default function ProfileDrawer({
       setEmailSuccessMsg('Pending email change was cancelled.');
       setTimeout(() => setEmailSuccessMsg(''), 4000);
     } catch (err) {
-      setEmailError(err.message || 'Failed to cancel email change');
+      setEmailError(formatErrorMessage(err, 'Failed to cancel email change. Please try again.'));
     } finally {
       setCancelLoading(false);
     }

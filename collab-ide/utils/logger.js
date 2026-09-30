@@ -99,7 +99,7 @@ const REGEX_JWT = /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]+/g;
 const REGEX_BEARER = /Bearer\s+[A-Za-z0-9._~+/-]+=*/gi;
 const REGEX_HEX_TOKEN = /\b[0-9a-f]{80}\b/gi;
 const REGEX_URL_PARAMS = /(?:token|tokenHash|resetToken|verificationToken|pendingEmailToken|refreshToken|password|newPassword|pass|pwd)=([^&\s;#]+)/gi;
-const REGEX_PASSWORD_KV = /(?:["']?)(password|newpassword|currentpassword|confirmpassword|secret|passwd|pass|pwd)(?:["']?)\s*[:=]\s*(?!\[REDACTED)("[^"]*"|'[^']*'|`[^`]*`|[^\s,;{}]+)/gi;
+const REGEX_PASSWORD_KV = /(?:["']?)\b(password|newpassword|currentpassword|confirmpassword|secret|passwd|pwd)\b(?:["']?)\s*[:=]\s*(?!\[REDACTED)("[^"]*"|'[^']*'|`[^`]*`|[^\s,;{}]+)/gi;
 const REGEX_TOKEN_KV = /(?:["']?)(refreshToken|accessToken|verificationToken|resetPasswordToken|pendingEmailToken|resetToken|token)(?:["']?)\s*[:=]\s*(?!\[REDACTED)("[^"]*"|'[^']*'|`[^`]*`|[^\s,;{}]+)/gi;
 const REGEX_CODE_KV = /(?:["']?)(source_code|sourcecode|code|content|stdin|ydocState)(?:["']?)\s*[:=]\s*(?!\[REDACTED)("[^"]*"|'[^']*'|`[^`]*`|[^\r\n,{}]+)/gi;
 const REGEX_CODE_BLOCK = /(?:```|~~~)[\s\S]*?(?:```|~~~)/g;

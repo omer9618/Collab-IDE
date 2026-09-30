@@ -38,6 +38,7 @@ import {
   openRoom,
   deleteRoom,
   updateProfile,
+  formatErrorMessage,
 } from '../services/api';
 import ProfileDrawer from './ProfileDrawer';
 import {
@@ -973,7 +974,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     } catch (err) {
       setOutputLines((prev) => [
         ...prev,
-        { text: `Error: ${err.message}`, type: 'err' },
+        { text: `Error: ${formatErrorMessage(err, 'Code execution failed. Please try again.')}`, type: 'err' },
         { text: '----------------------------------------', type: 'info' },
       ]);
     } finally {
@@ -1558,11 +1559,11 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
       });
 
       socket.on('voice:error', ({ message }) => {
-        showToast(message, 'error');
+        showToast(formatErrorMessage({ message }, 'A voice error occurred.'), 'error');
       });
 
     } catch (err) {
-      showToast(`Could not access microphone: ${err.message}`, 'error');
+      showToast(`Could not access microphone: ${formatErrorMessage(err, 'Permission was denied or microphone is not available.')}`, 'error');
     }
   };
 
@@ -1728,7 +1729,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
       setRoom(details.room);
     } catch (err) {
       console.error('Failed to change role:', err.message);
-      showToast(`Failed to change role: ${err.message}`, 'error');
+      showToast(formatErrorMessage(err, 'Failed to update member role.'), 'error');
     }
   };
 
@@ -2956,7 +2957,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                       }
                       setShowSettingsModal(false);
                     } catch (err) {
-                      setSettingsError(err.message);
+                      setSettingsError(formatErrorMessage(err, 'Failed to update room status.'));
                     }
                   }}
                 >
@@ -2991,7 +2992,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                           }
                           setShowSettingsModal(false);
                         } catch (err) {
-                          setSettingsError(err.message);
+                          setSettingsError(formatErrorMessage(err, 'Failed to update room status.'));
                         }
                       }}
                     >
@@ -3037,7 +3038,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                           await deleteRoom(roomUuid);
                           setShowSettingsModal(false);
                         } catch (err) {
-                          setSettingsError(err.message);
+                          setSettingsError(formatErrorMessage(err, 'Failed to delete room.'));
                         }
                       }}
                     >

@@ -25,6 +25,7 @@ const IpBlock = require('../models/IpBlock');
 const { privateKey } = require('../utils/keys');
 const { protect } = require('../middleware/auth');
 const { validatePasswordPolicy } = require('../utils/passwordPolicy');
+const { sendPlainEnglishError } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
 
 const router = express.Router();
@@ -84,13 +85,13 @@ router.post('/register', authLimiter, async (req, res) => {
     const { email, password, displayName, avatarColor } = req.body;
 
     if (!email || !password || !displayName) {
-      return res.status(400).json({ message: 'All fields are required' });
+      return res.status(400).json({ message: 'All required fields must be provided (email, password, display name).' });
     }
 
     // Check if user already exists
     const userExists = await User.findOne({ email });
     if (userExists) {
-      return res.status(400).json({ message: 'Email already registered' });
+      return res.status(409).json({ message: 'An account with this email address already exists. Please log in or use a different email.' });
     }
 
     // Validate password complexity and breach status via HaveIBeenPwned k-anonymity API (NFR-16)
@@ -126,8 +127,7 @@ router.post('/register', authLimiter, async (req, res) => {
       verificationToken: process.env.NODE_ENV !== 'production' ? verificationToken : undefined,
     });
   } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while creating your account. Please try again.');
   }
 });
 
@@ -138,12 +138,12 @@ router.get('/verify', async (req, res) => {
   try {
     const { token } = req.query;
     if (!token) {
-      return res.status(400).json({ message: 'Verification token is required' });
+      return res.status(400).json({ message: 'The verification token is required.' });
     }
 
     const user = await User.findOne({ verificationToken: token });
     if (!user) {
-      return res.status(400).json({ message: 'Invalid or expired verification token' });
+      return res.status(400).json({ message: 'The verification link is invalid or has expired. Please request a new verification link.' });
     }
 
     user.isVerified = true;
@@ -158,8 +158,7 @@ router.get('/verify', async (req, res) => {
       </div>
     `);
   } catch (error) {
-    console.error('Verification error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while verifying your email. Please try again.');
   }
 });
 
@@ -243,7 +242,7 @@ router.post('/login', authLimiter, ipBruteForceLimiter, async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
+      return res.status(400).json({ message: 'Please enter both your email address and password.' });
     }
 
     // Pre-fetch IP block doc to track failed attempts
@@ -252,7 +251,7 @@ router.post('/login', authLimiter, ipBruteForceLimiter, async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) {
       await handleFailedLogin(req, null, ipBlockDoc);
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'Incorrect email address or password. Please try again.' });
     }
 
     // Check if account is locked
@@ -264,11 +263,11 @@ router.post('/login', authLimiter, ipBruteForceLimiter, async (req, res) => {
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       await handleFailedLogin(req, user, ipBlockDoc);
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'Incorrect email address or password. Please try again.' });
     }
 
     if (!user.isVerified) {
-      return res.status(403).json({ message: 'Please verify your email address first' });
+      return res.status(403).json({ message: 'Please verify your email address to log in.' });
     }
 
     // Reset login attempts on successful login
@@ -307,8 +306,7 @@ router.post('/login', authLimiter, ipBruteForceLimiter, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while logging in. Please try again.');
   }
 });
 
@@ -319,23 +317,23 @@ router.post('/refresh', async (req, res) => {
   try {
     const tokenCookie = req.cookies.refreshToken;
     if (!tokenCookie) {
-      return res.status(401).json({ message: 'No refresh token provided' });
+      return res.status(401).json({ message: 'Your session has expired. Please log in again.' });
     }
 
     const [tokenId, tokenSecret] = tokenCookie.split('.');
     if (!tokenId || !tokenSecret) {
-      return res.status(401).json({ message: 'Invalid refresh token format' });
+      return res.status(401).json({ message: 'Your session token is invalid. Please log in again.' });
     }
 
     const storedToken = await RefreshToken.findById(tokenId);
 
     if (!storedToken) {
-      return res.status(401).json({ message: 'Invalid refresh token' });
+      return res.status(401).json({ message: 'Your session is invalid. Please log in again.' });
     }
 
     const isMatch = await bcrypt.compare(tokenSecret, storedToken.token);
     if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid refresh token signature' });
+      return res.status(401).json({ message: 'Your session is invalid. Please log in again.' });
     }
 
     // Replay attack check: If token is already marked as rotated, reject and invalidate family
@@ -343,14 +341,14 @@ router.post('/refresh', async (req, res) => {
       logger.warn('Token replay attack detected; family invalidated', { userId: storedToken.user });
       await RefreshToken.deleteMany({ familyId: storedToken.familyId });
       res.clearCookie('refreshToken');
-      return res.status(403).json({ message: 'Access denied. Refresh token reuse detected.' });
+      return res.status(403).json({ message: 'Session reuse detected. For your security, please log in again.' });
     }
 
     // Expiry check
     if (storedToken.expiresAt < new Date()) {
       await storedToken.deleteOne();
       res.clearCookie('refreshToken');
-      return res.status(401).json({ message: 'Refresh token expired' });
+      return res.status(401).json({ message: 'Your session has expired. Please log in again.' });
     }
 
     // Mark current token as rotated
@@ -375,8 +373,7 @@ router.post('/refresh', async (req, res) => {
 
     res.json({ accessToken });
   } catch (error) {
-    console.error('Refresh error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while refreshing your session. Please log in again.');
   }
 });
 
@@ -396,8 +393,7 @@ router.post('/logout', async (req, res) => {
     res.clearCookie('refreshToken');
     res.json({ message: 'Successfully logged out' });
   } catch (error) {
-    console.error('Logout error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while logging out.');
   }
 });
 
@@ -410,8 +406,7 @@ router.post('/logout-all', protect, async (req, res) => {
     res.clearCookie('refreshToken');
     res.json({ message: 'Successfully logged out from all devices' });
   } catch (error) {
-    console.error('Logout all error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while logging out of all devices.');
   }
 });
 
@@ -424,7 +419,7 @@ router.post('/reset-password-request', authLimiter, async (req, res) => {
   try {
     const { email } = req.body;
     if (!email || typeof email !== 'string') {
-      return res.status(400).json({ message: 'Email is required' });
+      return res.status(400).json({ message: 'Please provide a valid email address.' });
     }
 
     const normalizedEmail = email.trim().toLowerCase();
@@ -460,8 +455,7 @@ router.post('/reset-password-request', authLimiter, async (req, res) => {
 
     res.json(successMsg);
   } catch (error) {
-    console.error('Password reset request error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while processing your password reset request. Please try again.');
   }
 });
 
@@ -472,7 +466,7 @@ router.get('/reset-password/validate', authLimiter, async (req, res) => {
   try {
     const { token } = req.query;
     if (!token || typeof token !== 'string') {
-      return res.status(400).json({ valid: false, message: 'Reset token is required' });
+      return res.status(400).json({ valid: false, message: 'The password reset link is invalid or missing.' });
     }
 
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
@@ -487,8 +481,7 @@ router.get('/reset-password/validate', authLimiter, async (req, res) => {
 
     res.json({ valid: true, email: user.email });
   } catch (error) {
-    console.error('Validate reset token error:', error);
-    res.status(500).json({ valid: false, message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while validating the reset link. Please try again.');
   }
 });
 
@@ -499,7 +492,7 @@ router.post('/reset-password', authLimiter, async (req, res) => {
   try {
     const { token, newPassword } = req.body;
     if (!token || !newPassword) {
-      return res.status(400).json({ message: 'Token and new password are required' });
+      return res.status(400).json({ message: 'Please provide both the reset token and your new password.' });
     }
 
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
@@ -544,8 +537,7 @@ router.post('/reset-password', authLimiter, async (req, res) => {
 
     res.json({ message: 'Password has been reset successfully. All active sessions have been revoked.' });
   } catch (error) {
-    console.error('Password reset execution error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while resetting your password. Please try again.');
   }
 });
 
@@ -565,8 +557,8 @@ router.post('/validate-password', authLimiter, async (req, res) => {
     if (!password || typeof password !== 'string') {
       return res.status(400).json({
         isValid: false,
-        message: 'Password string is required.',
-        errors: ['Password string is required.'],
+        message: 'Please provide a password to validate.',
+        errors: ['Please provide a password to validate.'],
         isPwned: false,
         breachCount: 0,
       });
@@ -575,8 +567,7 @@ router.post('/validate-password', authLimiter, async (req, res) => {
     const result = await validatePasswordPolicy(password);
     return res.json(result);
   } catch (error) {
-    console.error('Password validation endpoint error:', error);
-    return res.status(500).json({ message: 'Internal server error validating password.' });
+    return sendPlainEnglishError(res, error, 'An error occurred while validating password requirements. Please try again.');
   }
 });
 
@@ -594,17 +585,17 @@ router.post('/change-password', protect, authLimiter, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
     if (!currentPassword || !newPassword) {
-      return res.status(400).json({ message: 'Current password and new password are required.' });
+      return res.status(400).json({ message: 'Both your current password and new password are required.' });
     }
 
     const user = await User.findById(req.user._id);
     if (!user || !user.password) {
-      return res.status(400).json({ message: 'Account does not have a local password configured.' });
+      return res.status(400).json({ message: 'This account was registered through Google and does not have a local password configured.' });
     }
 
     const isMatch = await user.comparePassword(currentPassword);
     if (!isMatch) {
-      return res.status(400).json({ message: 'Current password does not match.' });
+      return res.status(400).json({ message: 'The current password you entered is incorrect. Please try again.' });
     }
 
     const policyResult = await validatePasswordPolicy(newPassword);
@@ -628,8 +619,7 @@ router.post('/change-password', protect, authLimiter, async (req, res) => {
 
     return res.json({ message: 'Password updated successfully. Please sign in again with your new password.' });
   } catch (error) {
-    console.error('Change password error:', error);
-    return res.status(500).json({ message: 'Server error updating password.' });
+    return sendPlainEnglishError(res, error, 'An error occurred while updating your password. Please try again.');
   }
 });
 
@@ -642,7 +632,7 @@ router.get('/me', protect, async (req, res) => {
       '-password -verificationToken -resetPasswordToken -resetPasswordExpires -pendingEmailToken'
     );
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: 'User profile could not be found. Please log in again.' });
     }
     res.json({
       user: {
@@ -658,8 +648,7 @@ router.get('/me', protect, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Get profile error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while loading your profile. Please try again.');
   }
 });
 
@@ -671,15 +660,15 @@ router.put('/profile', protect, async (req, res) => {
     const { displayName, avatarColor, theme } = req.body;
     const user = await User.findById(req.user._id);
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: 'User profile could not be found. Please log in again.' });
     }
 
     if (displayName !== undefined) {
       if (typeof displayName !== 'string' || !displayName.trim()) {
-        return res.status(400).json({ message: 'Display name cannot be empty' });
+        return res.status(400).json({ message: 'Display name cannot be empty.' });
       }
       if (displayName.trim().length > 50) {
-        return res.status(400).json({ message: 'Display name must be 50 characters or less' });
+        return res.status(400).json({ message: 'Display name must be 50 characters or less.' });
       }
       user.displayName = displayName.trim();
     }
@@ -687,14 +676,14 @@ router.put('/profile', protect, async (req, res) => {
     if (avatarColor !== undefined) {
       const HEX_COLOR_REGEX = /^#([0-9A-Fa-f]{6})$/;
       if (typeof avatarColor !== 'string' || !HEX_COLOR_REGEX.test(avatarColor)) {
-        return res.status(400).json({ message: 'Avatar color must be a valid 6-digit hex code (e.g. #1a73e8)' });
+        return res.status(400).json({ message: 'Avatar color must be a valid 6-digit hex color code (e.g. #1a73e8).' });
       }
       user.avatarColor = avatarColor;
     }
 
     if (theme !== undefined) {
       if (!['vs-dark', 'light'].includes(theme)) {
-        return res.status(400).json({ message: 'Invalid theme. Supported themes: "vs-dark", "light"' });
+        return res.status(400).json({ message: 'Please select either dark or light theme.' });
       }
       user.theme = theme;
     }
@@ -715,8 +704,7 @@ router.put('/profile', protect, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Update profile error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while updating your profile. Please try again.');
   }
 });
 
@@ -731,22 +719,22 @@ router.post('/change-email', protect, authLimiter, async (req, res) => {
     const { newEmail } = req.body;
 
     if (!newEmail || typeof newEmail !== 'string') {
-      return res.status(400).json({ message: 'New email address is required' });
+      return res.status(400).json({ message: 'Please provide a new email address.' });
     }
 
     const normalizedEmail = newEmail.trim().toLowerCase();
 
     if (!EMAIL_REGEX.test(normalizedEmail)) {
-      return res.status(400).json({ message: 'Invalid email address format' });
+      return res.status(400).json({ message: 'Please provide a valid email address format.' });
     }
 
     const user = await User.findById(req.user._id);
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: 'User profile could not be found.' });
     }
 
     if (user.email.toLowerCase() === normalizedEmail) {
-      return res.status(400).json({ message: 'New email must be different from current email' });
+      return res.status(400).json({ message: 'The new email address must be different from your current email address.' });
     }
 
     // Check if new email is already registered to another user (case-normalized)
@@ -755,7 +743,7 @@ router.post('/change-email', protect, authLimiter, async (req, res) => {
       _id: { $ne: user._id },
     });
     if (existingUser) {
-      return res.status(400).json({ message: 'This email address is already registered to another account' });
+      return res.status(400).json({ message: 'An account with this email address already exists. Please use a different email.' });
     }
 
     // Check if new email is pending verification for another user
@@ -765,7 +753,7 @@ router.post('/change-email', protect, authLimiter, async (req, res) => {
       pendingEmailExpires: { $gt: new Date() },
     });
     if (existingPending) {
-      return res.status(400).json({ message: 'This email address is already pending verification for another account' });
+      return res.status(400).json({ message: 'This email address is already pending verification. Please check your inbox or use a different email.' });
     }
 
     // Generate secure random token and SHA-256 hash at rest
@@ -787,8 +775,7 @@ router.post('/change-email', protect, authLimiter, async (req, res) => {
       debugVerificationToken: process.env.NODE_ENV !== 'production' ? plaintextToken : undefined,
     });
   } catch (error) {
-    console.error('Change email error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while requesting an email change. Please try again.');
   }
 });
 
@@ -802,7 +789,7 @@ router.get('/verify-email-change', verifyLimiter, async (req, res) => {
       return res.status(400).send(`
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; margin-top: 60px; background: #0d0e0f; color: #e3e2e2; padding: 40px; border-radius: 12px; max-width: 500px; margin-left: auto; margin-right: auto; border: 1px solid #2b2b2b;">
           <h1 style="color: #f44336; margin-bottom: 12px; font-size: 20px;">Invalid Verification Link</h1>
-          <p style="color: #8a919d; font-size: 14px;">Verification token is missing.</p>
+          <p style="color: #8a919d; font-size: 14px;">The verification token is missing. Please check your email link.</p>
         </div>
       `);
     }
@@ -878,8 +865,7 @@ router.get('/verify-email-change', verifyLimiter, async (req, res) => {
       </html>
     `);
   } catch (error) {
-    console.error('Verify email change error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while confirming your email change. Please try again.');
   }
 });
 
@@ -890,7 +876,7 @@ router.post('/cancel-email-change', protect, async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: 'User profile could not be found.' });
     }
 
     user.pendingEmail = undefined;
@@ -910,8 +896,7 @@ router.post('/cancel-email-change', protect, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Cancel email change error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while cancelling your email change. Please try again.');
   }
 });
 
@@ -920,18 +905,18 @@ router.get('/verify-mock', async (req, res) => {
   try {
     const { email } = req.query;
     if (!email) {
-      return res.status(400).json({ message: 'Email is required' });
+      return res.status(400).json({ message: 'Email address is required.' });
     }
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: 'User profile could not be found.' });
     }
     user.isVerified = true;
     user.verificationToken = undefined;
     await user.save();
     res.json({ message: `Mock email verification successful for ${email}` });
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred during mock verification. Please try again.');
   }
 });
 
@@ -951,7 +936,7 @@ router.get('/check-email', authLimiter, async (req, res) => {
   try {
     const { email } = req.query;
     if (!email) {
-      return res.status(400).json({ message: 'Email is required' });
+      return res.status(400).json({ message: 'Please provide an email address to check.' });
     }
     const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user) {
@@ -963,8 +948,7 @@ router.get('/check-email', authLimiter, async (req, res) => {
       isLocalUser: !!user.password
     });
   } catch (error) {
-    console.error('Check email error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while checking email registration. Please try again.');
   }
 });
 
@@ -975,7 +959,7 @@ router.post('/google-login', authLimiter, async (req, res) => {
   try {
     const { accessToken } = req.body;
     if (!accessToken) {
-      return res.status(400).json({ message: 'Access token is required' });
+      return res.status(400).json({ message: 'Google authentication token is required.' });
     }
 
     // Fetch user profile info from Google
@@ -987,15 +971,15 @@ router.post('/google-login', authLimiter, async (req, res) => {
 
     if (!googleRes.ok) {
       const errorText = await googleRes.text();
-      console.error('Google profile fetch failed:', errorText);
-      return res.status(401).json({ message: 'Invalid Google access token' });
+      logger.warn('Google profile fetch failed', { details: errorText });
+      return res.status(401).json({ message: 'The Google authentication token is invalid or has expired. Please try signing in again.' });
     }
 
     const googleUser = await googleRes.json();
     const { email, name, sub: googleId } = googleUser;
 
     if (!email) {
-      return res.status(400).json({ message: 'Google account is missing an email address' });
+      return res.status(400).json({ message: 'Your Google account does not have an associated email address.' });
     }
 
     const normalizedEmail = email.toLowerCase().trim();
@@ -1059,8 +1043,7 @@ router.post('/google-login', authLimiter, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Google login error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred during Google sign in. Please try again.');
   }
 });
 
@@ -1088,8 +1071,7 @@ router.get('/sessions', protect, async (req, res) => {
 
     res.json({ sessions });
   } catch (error) {
-    console.error('Get sessions error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while loading active sessions. Please try again.');
   }
 });
 
@@ -1100,14 +1082,13 @@ router.delete('/sessions/:id', protect, async (req, res) => {
   try {
     const tokenDoc = await RefreshToken.findOne({ _id: req.params.id, user: req.user._id });
     if (!tokenDoc) {
-      return res.status(404).json({ message: 'Session not found' });
+      return res.status(404).json({ message: 'The specified session could not be found or has already expired.' });
     }
     
     await RefreshToken.deleteOne({ _id: req.params.id });
     res.json({ message: 'Session revoked' });
   } catch (error) {
-    console.error('Revoke session error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while revoking the session. Please try again.');
   }
 });
 
@@ -1118,7 +1099,7 @@ router.delete('/sessions', protect, async (req, res) => {
   try {
     const { refreshToken } = req.cookies;
     if (!refreshToken) {
-      return res.status(401).json({ message: 'Not authenticated' });
+      return res.status(401).json({ message: 'You must be logged in to revoke sessions.' });
     }
     
     const hashedToken = crypto.createHash('sha256').update(refreshToken).digest('hex');
@@ -1131,8 +1112,7 @@ router.delete('/sessions', protect, async (req, res) => {
     
     res.json({ message: 'All other sessions revoked' });
   } catch (error) {
-    console.error('Revoke all sessions error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendPlainEnglishError(res, error, 'An error occurred while revoking other sessions. Please try again.');
   }
 });
 

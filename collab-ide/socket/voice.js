@@ -132,20 +132,20 @@ function initVoiceSignalling(io) {
   voiceNs.use(async (socket, next) => {
     try {
       const token = socket.handshake.auth?.token;
-      if (!token) return next(new Error('AUTH_REQUIRED'));
+      if (!token) return next(new Error('Authentication required. Please log in to join voice chat.'));
 
       // Security: Validate RS256 signature against public key to prevent token tampering
       const decoded = jwt.verify(token, publicKey, { algorithms: ['RS256'] });
       const user = await User.findById(decoded.userId).select('-password');
 
-      if (!user) return next(new Error('USER_NOT_FOUND'));
+      if (!user) return next(new Error('User account could not be found. Please log in again.'));
       // Security: Enforce email verification check for voice channel participants
-      if (!user.isVerified) return next(new Error('UNVERIFIED'));
+      if (!user.isVerified) return next(new Error('Please verify your email address to use voice chat.'));
 
       socket.user = user;
       next();
     } catch (err) {
-      next(new Error('AUTH_FAILED'));
+      next(new Error('Authentication failed. Please log in again.'));
     }
   });
 
@@ -160,7 +160,7 @@ function initVoiceSignalling(io) {
     // Enrolls user into a voice room after verifying room membership and role eligibility
     socket.on('voice:join', async ({ roomUuid } = {}) => {
       try {
-        if (!roomUuid) return socket.emit('voice:error', { message: 'roomUuid is required.' });
+        if (!roomUuid) return socket.emit('voice:error', { message: 'Room identifier is required.' });
 
         // Security: Authoritative check verifying the user is a registered member of the room
         const room = await Room.findOne({ uuid: roomUuid }).populate('participants.user', 'displayName email');

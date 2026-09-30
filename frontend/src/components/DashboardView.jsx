@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { createRoom, joinRoom, logoutUser, logoutAllDevices, getRooms, getRoomsPresence, closeRoom, openRoom, deleteRoom, updateProfile } from '../services/api';
+import { createRoom, joinRoom, logoutUser, logoutAllDevices, getRooms, getRoomsPresence, closeRoom, openRoom, deleteRoom, updateProfile, formatErrorMessage } from '../services/api';
 import ProfileDrawer from './ProfileDrawer';
 import { MoreVertical } from 'lucide-react';
 
@@ -143,7 +143,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
           setAllRooms(data);
         }
       } catch (err) {
-        if (mounted) setError(err.message);
+        if (mounted) setError(formatErrorMessage(err, 'Failed to load rooms. Please try again.'));
       } finally {
         if (mounted) setFetchingRooms(false);
       }
@@ -220,7 +220,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
       const data = await getRooms();
       setAllRooms(data);
     } catch (err) {
-      setError(err.message);
+      setError(formatErrorMessage(err, 'Failed to refresh rooms. Please try again.'));
     } finally {
       setRefreshing(false);
     }
@@ -237,7 +237,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
       }
       handleRefresh();
     } catch (err) {
-      setError(err.message);
+      setError(formatErrorMessage(err, 'Failed to update room status. Please try again.'));
     }
   };
 
@@ -252,7 +252,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
       await deleteRoom(deleteConfirmRoom);
       handleRefresh();
     } catch (err) {
-      setError(err.message);
+      setError(formatErrorMessage(err, 'Failed to delete room. Please try again.'));
     } finally {
       setDeleteConfirmRoom(null);
     }
@@ -274,7 +274,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
       const room = await createRoom(roomName.trim());
       onRoomSelect(room.uuid);
     } catch (err) {
-      setError(err.message);
+      setError(formatErrorMessage(err, 'Failed to create room. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -289,7 +289,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
       await joinRoom(joinUuid.trim());
       onRoomSelect(joinUuid.trim());
     } catch (err) {
-      setError(err.message);
+      setError(formatErrorMessage(err, 'Failed to join room. Please check the room code and try again.'));
     } finally {
       setLoading(false);
     }

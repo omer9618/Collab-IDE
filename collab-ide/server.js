@@ -60,6 +60,7 @@ const authRoutes      = require('./routes/auth');
 const roomRoutes      = require('./routes/rooms');
 const executionRoutes = require('./routes/execution');
 const voiceRoutes     = require('./routes/voice');
+const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -75,9 +76,6 @@ const io = new Server(server, {
 });
 const { initVoiceSignalling } = require('./socket/voice');
 initVoiceSignalling(io);
-
-// Connect to Database
-connectDB();
 
 // Global Middlewares
 app.use(cors({
@@ -112,6 +110,12 @@ app.get('/health', (req, res) => {
     activeRooms: activeDocs.size,
   });
 });
+
+// 404 Handler for Unmatched API Endpoints (NFR-47)
+app.use('/api', notFoundHandler);
+
+// Centralized Plain-English Error Sanitizer Middleware (NFR-47)
+app.use(errorHandler);
 
 // Initialize WebSocket Server
 const wss = new WebSocket.Server({ noServer: true });
@@ -704,8 +708,14 @@ async function gracefulShutdown() {
   });
 }
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`\n✅  Collide Backend → http://localhost:${PORT}`);
-  console.log(`⚡  JWT Asymmetric signatures initialized.\n`);
-});
+if (require.main === module) {
+  connectDB();
+  const PORT = process.env.PORT || 3000;
+  server.listen(PORT, () => {
+    console.log(`\n✅  Collide Backend → http://localhost:${PORT}`);
+    console.log(`⚡  JWT Asymmetric signatures initialized.\n`);
+  });
+}
+
+module.exports = { app, server, connectDB };
+

@@ -18,6 +18,7 @@ import {
   validateResetToken,
   resetPassword,
   validatePasswordApi,
+  formatErrorMessage,
 } from '../services/api';
 import { Eye, EyeOff, Check, X, ArrowLeft, Lock, Mail, KeyRound, ShieldAlert, ShieldCheck, Loader2 } from 'lucide-react';
 
@@ -117,7 +118,7 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
       }
     } catch (err) {
       setTokenValid(false);
-      setError(err.message || 'Invalid or expired reset link. Reset links expire after 30 minutes.');
+      setError(formatErrorMessage(err, 'Invalid or expired reset link. Reset links expire after 30 minutes.'));
     } finally {
       setTokenValidating(false);
     }
@@ -146,19 +147,23 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
               const data = await googleLogin(tokenResponse.access_token);
               onAuthSuccess(data.user);
             } catch (err) {
-              setError(err.message || 'Google authentication failed');
+              setError(formatErrorMessage(err, 'Google authentication failed. Please try again.'));
             } finally {
               setLoading(false);
             }
           }
         },
         error_callback: (err) => {
-          setError('Google popup error: ' + (err.message || err.error));
+          if (err && (err.type === 'popup_closed' || err.error === 'popup_closed_by_user')) {
+            setError('Google sign-in window was closed. Please try again.');
+          } else {
+            setError('Unable to sign in with Google. Please try again.');
+          }
         },
       });
       client.requestAccessToken();
     } catch (err) {
-      setError('Failed to initialize Google login: ' + err.message);
+      setError('Unable to initialize Google sign-in. Please try again.');
     }
   };
 
@@ -174,7 +179,7 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
         const data = await loginUser({ email, password });
         onAuthSuccess(data.user);
       } catch (err) {
-        setError(err.message || 'Authentication failed');
+        setError(formatErrorMessage(err, 'Authentication failed. Please check your credentials and try again.'));
       } finally {
         setLoading(false);
       }
@@ -205,7 +210,7 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
         setConfirmPassword('');
         setBreachCheck({ checking: false, isPwned: false, breachCount: 0, checked: false, message: '' });
       } catch (err) {
-        setError(err.message || 'Registration failed');
+        setError(formatErrorMessage(err, 'Registration failed. Please try again.'));
       } finally {
         setLoading(false);
       }
@@ -231,7 +236,7 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
           'If the email matches a registered account, a password reset link has been dispatched (and logged in the backend console).'
       );
     } catch (err) {
-      setError(err.message || 'Failed to request password reset');
+      setError(formatErrorMessage(err, 'Failed to request password reset. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -279,7 +284,7 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
       setConfirmPassword('');
       setResetBreachCheck({ checking: false, isPwned: false, breachCount: 0, checked: false, message: '' });
     } catch (err) {
-      setError(err.message || 'Failed to reset password. The link may have expired or already been used.');
+      setError(formatErrorMessage(err, 'Failed to reset password. The link may have expired or already been used.'));
     } finally {
       setLoading(false);
     }
