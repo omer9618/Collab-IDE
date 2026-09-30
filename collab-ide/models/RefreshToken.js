@@ -52,6 +52,10 @@ const refreshTokenSchema = new mongoose.Schema(
   }
 );
 
+// TTL index to automatically purge expired refresh tokens after 7 days
+refreshTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
+
 /**
  * Pre-save middleware: Encrypts session metadata using AES-256-GCM before writing to MongoDB (NFR-22).
  */
@@ -127,7 +131,8 @@ refreshTokenSchema.statics.generate = async function (userId, familyId = null, d
   });
 
   await tokenDoc.save();
-  return { plaintext, doc: tokenDoc, tokenDoc };
+  const tokenString = `${tokenDoc._id}.${plaintext}`;
+  return { plaintext: tokenString, doc: tokenDoc, tokenDoc, rawSecret: plaintext };
 };
 
 const RefreshToken = mongoose.model('RefreshToken', refreshTokenSchema);

@@ -78,6 +78,39 @@ function generateAccessToken(userId) {
   });
 }
 
+/**
+ * Sets the Refresh Token HttpOnly cookie with strict security flags (FR-02, NFR-12).
+ *
+ * @function setRefreshTokenCookie
+ * @param {import('express').Response} res - Express response
+ * @param {string} tokenValue - Refresh token string (<tokenId>.<secret>)
+ */
+function setRefreshTokenCookie(res, tokenValue) {
+  res.cookie('refreshToken', tokenValue, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: '/',
+  });
+}
+
+/**
+ * Clears the Refresh Token HttpOnly cookie using identical path and flags.
+ *
+ * @function clearRefreshTokenCookie
+ * @param {import('express').Response} res - Express response
+ */
+function clearRefreshTokenCookie(res) {
+  res.clearCookie('refreshToken', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/',
+  });
+}
+
+
 // @route   GET /api/auth/csrf-token
 // @desc    Retrieve or rotate CSRF token (NFR-15)
 // @access  Public
@@ -294,17 +327,10 @@ router.post('/login', authLimiter, ipBruteForceLimiter, async (req, res) => {
     const deviceInfo = `${req.ip} - ${req.headers['user-agent'] || 'Unknown Device'}`;
     
     // Generate refresh token (returns plaintext + tokenDoc instance)
-    const { plaintext, tokenDoc } = await RefreshToken.generate(user._id, null, deviceInfo);
-    await tokenDoc.save();
+    const { plaintext } = await RefreshToken.generate(user._id, null, deviceInfo);
 
     // Set HttpOnly cookie (FR-02 & NFR-12)
-    res.cookie('refreshToken', plaintext, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      path: '/',
-    });
+    setRefreshTokenCookie(res, plaintext);
 
     // Issue fresh CSRF token cookie (NFR-15)
     const csrfToken = generateCsrfToken();
@@ -327,66 +353,103 @@ router.post('/login', authLimiter, ipBruteForceLimiter, async (req, res) => {
 });
 
 // @route   POST /api/auth/refresh
-// @desc    Rotate and issue new tokens
+// @desc    Rotate and issue new tokens (NFR-13)
 // @access  Public (uses cookie)
 router.post('/refresh', async (req, res) => {
   try {
-    const tokenCookie = req.cookies.refreshToken;
+    const tokenCookie = req.cookies?.refreshToken;
     if (!tokenCookie) {
       return res.status(401).json({ message: 'Your session has expired. Please log in again.' });
     }
 
     const [tokenId, tokenSecret] = tokenCookie.split('.');
     if (!tokenId || !tokenSecret) {
+      clearRefreshTokenCookie(res);
+      clearCsrfCookie(res);
       return res.status(401).json({ message: 'Your session token is invalid. Please log in again.' });
     }
 
     const storedToken = await RefreshToken.findById(tokenId);
 
     if (!storedToken) {
+      clearRefreshTokenCookie(res);
+      clearCsrfCookie(res);
       return res.status(401).json({ message: 'Your session is invalid. Please log in again.' });
     }
 
     const isMatch = await bcrypt.compare(tokenSecret, storedToken.token);
     if (!isMatch) {
+      clearRefreshTokenCookie(res);
+      clearCsrfCookie(res);
       return res.status(401).json({ message: 'Your session is invalid. Please log in again.' });
     }
 
-    // Replay attack check: If token is already marked as rotated, reject and invalidate family
+    // NFR-13: Replay attack check: If token is already marked as rotated, invalidate entire family!
     if (storedToken.isRotated) {
-      logger.warn('Token replay attack detected; family invalidated', { userId: storedToken.user });
+      logger.warn('Token replay attack detected; family invalidated', { 
+        userId: storedToken.user,
+        familyId: storedToken.familyId,
+      });
       await RefreshToken.deleteMany({ familyId: storedToken.familyId });
-      res.clearCookie('refreshToken');
+      clearRefreshTokenCookie(res);
+      clearCsrfCookie(res);
       return res.status(403).json({ message: 'Session reuse detected. For your security, please log in again.' });
     }
 
     // Expiry check
     if (storedToken.expiresAt < new Date()) {
-      await storedToken.deleteOne();
-      res.clearCookie('refreshToken');
+      await RefreshToken.deleteMany({ familyId: storedToken.familyId });
+      clearRefreshTokenCookie(res);
+      clearCsrfCookie(res);
       return res.status(401).json({ message: 'Your session has expired. Please log in again.' });
     }
 
-    // Mark current token as rotated
-    storedToken.isRotated = true;
-    await storedToken.save();
+    // NFR-13: Atomic rotation to prevent race conditions / concurrent refresh exploitation.
+    // Atomically find the token if and only if isRotated is still false, and set isRotated to true.
+    const rotatedToken = await RefreshToken.findOneAndUpdate(
+      { _id: storedToken._id, isRotated: false },
+      { $set: { isRotated: true } },
+      { returnDocument: 'after' }
+    );
 
-    // Generate new refresh token in same family
-    const deviceInfo = `${req.ip} - ${req.headers['user-agent'] || 'Unknown Device'}`;
-    const { plaintext, tokenDoc } = await RefreshToken.generate(storedToken.user, storedToken.familyId, deviceInfo);
-    await tokenDoc.save();
+    // If another concurrent request rotated it in the fraction of a second between find and update,
+    // rotatedToken will be null. This is concurrent token reuse!
+    if (!rotatedToken) {
+      logger.warn('Concurrent token reuse detected; family invalidated', {
+        userId: storedToken.user,
+        familyId: storedToken.familyId,
+      });
+      await RefreshToken.deleteMany({ familyId: storedToken.familyId });
+      clearRefreshTokenCookie(res);
+      clearCsrfCookie(res);
+      return res.status(403).json({ message: 'Session reuse detected. For your security, please log in again.' });
+    }
+
+    // Generate new refresh token within the same family
+    const userAgent = req.headers['user-agent'];
+    const deviceInfo = userAgent
+      ? `${req.ip} - ${userAgent}`
+      : (storedToken.deviceInfo || `${req.ip} - Unknown Device`);
+    const { plaintext } = await RefreshToken.generate(storedToken.user, storedToken.familyId, deviceInfo);
+
+    // Concurrency defense: verify family wasn't concurrently wiped during Bcrypt generation
+    const familyStillActive = await RefreshToken.exists({ _id: storedToken._id });
+    if (!familyStillActive) {
+      logger.warn('Concurrent token reuse detected during generation; family invalidated', {
+        userId: storedToken.user,
+        familyId: storedToken.familyId,
+      });
+      await RefreshToken.deleteMany({ familyId: storedToken.familyId });
+      clearRefreshTokenCookie(res);
+      clearCsrfCookie(res);
+      return res.status(403).json({ message: 'Session reuse detected. For your security, please log in again.' });
+    }
 
     // Generate new access token
     const accessToken = generateAccessToken(storedToken.user);
 
-    // Update cookie
-    res.cookie('refreshToken', plaintext, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/',
-    });
+    // Update cookie with rotated token
+    setRefreshTokenCookie(res, plaintext);
 
     // Rotate CSRF token (NFR-15)
     const newCsrfToken = generateCsrfToken();
@@ -399,24 +462,22 @@ router.post('/refresh', async (req, res) => {
 });
 
 // @route   POST /api/auth/logout
-// @desc    Logout and revoke active session
+// @desc    Logout and revoke active session family (NFR-13)
 // @access  Public (authenticated via cookie)
 router.post('/logout', async (req, res) => {
   try {
-    const tokenCookie = req.cookies.refreshToken;
+    const tokenCookie = req.cookies?.refreshToken;
     if (tokenCookie) {
       const [tokenId] = tokenCookie.split('.');
       if (tokenId) {
-        await RefreshToken.findByIdAndDelete(tokenId);
+        const storedToken = await RefreshToken.findById(tokenId);
+        if (storedToken) {
+          await RefreshToken.deleteMany({ familyId: storedToken.familyId });
+        }
       }
     }
     
-    res.clearCookie('refreshToken', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      path: '/',
-    });
+    clearRefreshTokenCookie(res);
     clearCsrfCookie(res);
     res.json({ message: 'Successfully logged out' });
   } catch (error) {
@@ -430,16 +491,12 @@ router.post('/logout', async (req, res) => {
 router.post('/logout-all', protect, async (req, res) => {
   try {
     await RefreshToken.deleteMany({ user: req.user._id });
-    res.clearCookie('refreshToken', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      path: '/',
-    });
+    clearRefreshTokenCookie(res);
     clearCsrfCookie(res);
     res.json({ message: 'Successfully logged out from all devices' });
   } catch (error) {
     return sendPlainEnglishError(res, error, 'An error occurred while logging out of all devices.');
+
   }
 });
 
@@ -564,7 +621,8 @@ router.post('/reset-password', authLimiter, async (req, res) => {
 
     // Revoke all active sessions upon password reset (FR-09)
     await RefreshToken.deleteMany({ user: user._id });
-    res.clearCookie('refreshToken');
+    clearRefreshTokenCookie(res);
+    clearCsrfCookie(res);
 
     logger.audit('PASSWORD_RESET_COMPLETED', { userId: user._id });
 
@@ -646,7 +704,8 @@ router.post('/change-password', protect, authLimiter, async (req, res) => {
 
     // Revoke all active sessions upon password change (NFR-13)
     await RefreshToken.deleteMany({ user: user._id });
-    res.clearCookie('refreshToken');
+    clearRefreshTokenCookie(res);
+    clearCsrfCookie(res);
 
     logger.audit('PASSWORD_CHANGED', { userId: user._id });
 
@@ -1054,17 +1113,10 @@ router.post('/google-login', authLimiter, async (req, res) => {
     const deviceInfo = `${req.ip} - ${req.headers['user-agent'] || 'Unknown Device'}`;
 
     // Generate refresh token
-    const { plaintext, tokenDoc } = await RefreshToken.generate(user._id, null, deviceInfo);
-    await tokenDoc.save();
+    const { plaintext } = await RefreshToken.generate(user._id, null, deviceInfo);
 
     // Set HttpOnly cookie (NFR-12 & NFR-15)
-    res.cookie('refreshToken', plaintext, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      path: '/',
-    });
+    setRefreshTokenCookie(res, plaintext);
 
     // Issue fresh CSRF token cookie (NFR-15)
     const csrfToken = generateCsrfToken();
@@ -1087,25 +1139,32 @@ router.post('/google-login', authLimiter, async (req, res) => {
 });
 
 // @route   GET /api/auth/sessions
-// @desc    Get all active sessions for current user (FR-07)
+// @desc    Get all active sessions for current user (FR-07, NFR-13)
 // @access  Private
 router.get('/sessions', protect, async (req, res) => {
   try {
+    // Only return active, non-rotated tokens representing active session families
     const tokens = await RefreshToken.find({ user: req.user._id, isRotated: false })
-      .select('_id deviceInfo updatedAt token')
+      .select('_id deviceInfo updatedAt familyId')
       .sort({ updatedAt: -1 });
 
-    const { refreshToken } = req.cookies;
-    let hashedToken = null;
-    if (refreshToken) {
-      hashedToken = crypto.createHash('sha256').update(refreshToken).digest('hex');
+    const tokenCookie = req.cookies?.refreshToken;
+    let currentFamilyId = null;
+    if (tokenCookie) {
+      const [tokenId] = tokenCookie.split('.');
+      if (tokenId) {
+        const currentDoc = await RefreshToken.findById(tokenId);
+        if (currentDoc) {
+          currentFamilyId = currentDoc.familyId;
+        }
+      }
     }
 
-    const sessions = tokens.map(t => ({
+    const sessions = tokens.map((t) => ({
       _id: t._id,
       deviceInfo: t.deviceInfo || 'Unknown Device',
       lastActive: t.updatedAt,
-      isCurrent: hashedToken === t.token
+      isCurrent: currentFamilyId ? t.familyId === currentFamilyId : false,
     }));
 
     res.json({ sessions });
@@ -1115,7 +1174,7 @@ router.get('/sessions', protect, async (req, res) => {
 });
 
 // @route   DELETE /api/auth/sessions/:id
-// @desc    Revoke a specific session (FR-07)
+// @desc    Revoke a specific session family (FR-07, NFR-13)
 // @access  Private
 router.delete('/sessions/:id', protect, async (req, res) => {
   try {
@@ -1124,7 +1183,8 @@ router.delete('/sessions/:id', protect, async (req, res) => {
       return res.status(404).json({ message: 'The specified session could not be found or has already expired.' });
     }
     
-    await RefreshToken.deleteOne({ _id: req.params.id });
+    // Revoke the entire session family for this device
+    await RefreshToken.deleteMany({ familyId: tokenDoc.familyId });
     res.json({ message: 'Session revoked' });
   } catch (error) {
     return sendPlainEnglishError(res, error, 'An error occurred while revoking the session. Please try again.');
@@ -1132,21 +1192,29 @@ router.delete('/sessions/:id', protect, async (req, res) => {
 });
 
 // @route   DELETE /api/auth/sessions
-// @desc    Revoke all OTHER sessions (FR-07)
+// @desc    Revoke all OTHER session families (FR-07, NFR-13)
 // @access  Private
 router.delete('/sessions', protect, async (req, res) => {
   try {
-    const { refreshToken } = req.cookies;
-    if (!refreshToken) {
+    const tokenCookie = req.cookies?.refreshToken;
+    if (!tokenCookie) {
       return res.status(401).json({ message: 'You must be logged in to revoke sessions.' });
     }
     
-    const hashedToken = crypto.createHash('sha256').update(refreshToken).digest('hex');
+    const [tokenId] = tokenCookie.split('.');
+    if (!tokenId) {
+      return res.status(401).json({ message: 'Your session token is invalid.' });
+    }
+
+    const currentDoc = await RefreshToken.findById(tokenId);
+    if (!currentDoc) {
+      return res.status(401).json({ message: 'Your current session could not be verified.' });
+    }
     
-    // Delete all tokens for this user that are NOT the current one
+    // Delete all session families for this user except the current session family
     await RefreshToken.deleteMany({ 
       user: req.user._id, 
-      token: { $ne: hashedToken } 
+      familyId: { $ne: currentDoc.familyId },
     });
     
     res.json({ message: 'All other sessions revoked' });
