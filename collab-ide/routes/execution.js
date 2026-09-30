@@ -22,6 +22,7 @@ const express  = require('express');
 const rateLimit = require('express-rate-limit');
 const { protect } = require('../middleware/auth');
 const Room = require('../models/Room');
+const logger = require('../utils/logger');
 
 const router = express.Router({ mergeParams: true });
 
@@ -330,11 +331,11 @@ router.post('/:uuid/run', protect, execLimiter, async (req, res) => {
       global.broadcastToRoom(uuid, JSON.stringify({ type: 'exec:result', payload: result }));
     }
 
-    console.log(`▶  Execution in room ${uuid} by ${result.triggeredBy} [${result.language}] — ${result.status} (${isMock ? 'MOCK' : 'REAL'})`);
+    logger.info(`Execution in room [${result.language}] — ${result.status} (${isMock ? 'MOCK' : 'REAL'})`, { userId: req.user._id, roomId: uuid });
 
     return res.status(200).json({ result });
   } catch (err) {
-    console.error('❌ Execution error:', err.message);
+    logger.error('Execution error: ' + err.message, { userId: req.user?._id, roomId: uuid });
     return res.status(500).json({ message: 'Execution failed. Please try again.' });
   }
 });
@@ -368,7 +369,7 @@ router.get('/:uuid/history', protect, async (req, res) => {
 
     return res.status(200).json({ history: room.executionHistory });
   } catch (err) {
-    console.error('❌ Error fetching execution history:', err.message);
+    logger.error('Error fetching execution history: ' + err.message, { userId: req.user?._id, roomId: req.params?.uuid });
     return res.status(500).json({ message: 'Failed to fetch execution history.' });
   }
 });

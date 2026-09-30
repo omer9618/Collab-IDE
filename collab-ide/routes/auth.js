@@ -25,6 +25,7 @@ const IpBlock = require('../models/IpBlock');
 const { privateKey } = require('../utils/keys');
 const { protect } = require('../middleware/auth');
 const { validatePasswordPolicy } = require('../utils/passwordPolicy');
+const logger = require('../utils/logger');
 
 const router = express.Router();
 
@@ -117,14 +118,12 @@ router.post('/register', authLimiter, async (req, res) => {
 
     await user.save();
 
-    // Print verification email content to console (FR-01 mock fallback)
-    const verificationLink = `${req.protocol}://${req.get('host')}/api/auth/verify?token=${verificationToken}`;
-    console.log('\n✉️  [MOCK EMAIL] Verification email sent:');
-    console.log(`    To: ${email}`);
-    console.log(`    Link: ${verificationLink}\n`);
+    logger.audit('USER_REGISTERED', { userId: user._id });
+    logger.info('Verification token generated and dispatched for user', { userId: user._id });
 
     res.status(201).json({
-      message: 'Registration successful. Please verify your email to activate your account. Verification link has been logged to the server console.',
+      message: 'Registration successful. Please verify your email to activate your account.',
+      verificationToken: process.env.NODE_ENV !== 'production' ? verificationToken : undefined,
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -230,10 +229,7 @@ const handleFailedLogin = async (req, user, ipBlockDoc) => {
     if (user.loginAttempts >= 5) {
       user.lockUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
       
-      // Send mock email
-      console.log('\n🚨  [MOCK EMAIL] Account Temporarily Locked:');
-      console.log(`    To: ${user.email}`);
-      console.log(`    Message: Your account has been locked for 15 minutes due to 5 consecutive failed login attempts.\n`);
+      logger.warn('Account temporarily locked due to consecutive failed login attempts', { userId: user._id });
     }
     await user.save();
   }
@@ -344,7 +340,7 @@ router.post('/refresh', async (req, res) => {
 
     // Replay attack check: If token is already marked as rotated, reject and invalidate family
     if (storedToken.isRotated) {
-      console.warn(`🚨 Replay attack detected! Invaliding token family: ${storedToken.familyId}`);
+      logger.warn('Token replay attack detected; family invalidated', { userId: storedToken.user });
       await RefreshToken.deleteMany({ familyId: storedToken.familyId });
       res.clearCookie('refreshToken');
       return res.status(403).json({ message: 'Access denied. Refresh token reuse detected.' });
@@ -455,10 +451,12 @@ router.post('/reset-password-request', authLimiter, async (req, res) => {
     const frontendBase = process.env.FRONTEND_URL || (req.get('origin') ? req.get('origin') : 'http://localhost:5173');
     const resetLink = `${frontendBase}/?resetToken=${rawResetToken}`;
 
-    console.log('\n🔑  [MOCK EMAIL] Password Reset Link:');
-    console.log(`    To: ${normalizedEmail}`);
-    console.log(`    Link: ${resetLink}`);
-    console.log(`    Expires: 30 minutes (Single-use)\n`);
+    logger.audit('PASSWORD_RESET_REQUESTED', { userId: user._id });
+    logger.info('Password reset dispatched for user', { userId: user._id });
+
+    if (process.env.NODE_ENV !== 'production') {
+      successMsg.debugResetToken = rawResetToken;
+    }
 
     res.json(successMsg);
   } catch (error) {
@@ -542,7 +540,7 @@ router.post('/reset-password', authLimiter, async (req, res) => {
     await RefreshToken.deleteMany({ user: user._id });
     res.clearCookie('refreshToken');
 
-    console.log(`\n🔒 [PASSWORD RESET] Password successfully reset for user ${user.email}. All refresh tokens revoked.\n`);
+    logger.audit('PASSWORD_RESET_COMPLETED', { userId: user._id });
 
     res.json({ message: 'Password has been reset successfully. All active sessions have been revoked.' });
   } catch (error) {
@@ -626,7 +624,7 @@ router.post('/change-password', protect, authLimiter, async (req, res) => {
     await RefreshToken.deleteMany({ user: user._id });
     res.clearCookie('refreshToken');
 
-    console.log(`\n🔒 [PASSWORD CHANGE] Password successfully changed for user ${user.email}. All sessions revoked.\n`);
+    logger.audit('PASSWORD_CHANGED', { userId: user._id });
 
     return res.json({ message: 'Password updated successfully. Please sign in again with your new password.' });
   } catch (error) {
@@ -779,21 +777,14 @@ router.post('/change-email', protect, authLimiter, async (req, res) => {
     user.pendingEmailExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
     await user.save();
 
-    // Security Alert to current email
-    console.log('\n🛡️  [SECURITY ALERT] Email Change Requested:');
-    console.log(`    To (Current Account Email): ${user.email}`);
-    console.log(`    Notice: A request was made to change your CollabIDE account email to "${normalizedEmail}". If you did not make this request, please secure your account immediately.\n`);
-
-    // Verification link for new email
-    const verificationLink = `${req.protocol}://${req.get('host')}/api/auth/verify-email-change?token=${plaintextToken}`;
-    console.log('✉️  [MOCK EMAIL] Verification Link for New Email:');
-    console.log(`    To (New Email): ${normalizedEmail}`);
-    console.log(`    Link: ${verificationLink}\n`);
+    logger.audit('EMAIL_CHANGE_REQUESTED', { userId: user._id });
+    logger.info('Email change verification token dispatched for user', { userId: user._id });
 
     res.json({
-      message: 'Verification link sent to new email address. Please check your inbox (or server console) to confirm.',
+      message: 'Verification link sent to new email address. Please check your inbox to confirm.',
       pendingEmail: normalizedEmail,
       pendingEmailExpires: user.pendingEmailExpires,
+      debugVerificationToken: process.env.NODE_ENV !== 'production' ? plaintextToken : undefined,
     });
   } catch (error) {
     console.error('Change email error:', error);
@@ -858,7 +849,7 @@ router.get('/verify-email-change', verifyLimiter, async (req, res) => {
     user.pendingEmailExpires = undefined;
     await user.save();
 
-    console.log(`\n✅ [EMAIL CHANGED] User ${user._id} email updated from ${oldEmail} to ${newEmail}.\n`);
+    logger.audit('EMAIL_CHANGE_COMPLETED', { userId: user._id });
 
     res.send(`
       <!DOCTYPE html>

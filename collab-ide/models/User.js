@@ -5,6 +5,8 @@
  * 
  * Features:
  * - Email and password credentials with Bcrypt (cost factor 12) pre-save hashing (FR-01, NFR-16)
+ * - Sensitive field encryption at rest: `email` and `pendingEmail` are encrypted using AES-256-GCM (NFR-22)
+ * - Deterministic HMAC-SHA256 blind indexing (`emailHash`, `pendingEmailHash`) for fast, O(1) indexed queries
  * - Email verification state and token tracking
  * - Dual-layer brute force lockout state (`loginAttempts`, `lockUntil`) (NFR-14)
  * - Password reset tokens and expiry tracking (FR-09)
@@ -15,16 +17,22 @@
 
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
+const { encrypt, decrypt, isEncrypted, hashBlindIndex } = require('../utils/encryption');
 
 const userSchema = new mongoose.Schema(
   {
+    // NFR-22: Email address encrypted at rest using AES-256-GCM
     email: {
       type: String,
       required: true,
-      unique: true,
       trim: true,
-      lowercase: true,
+    },
+    // NFR-22: HMAC-SHA256 blind index for exact-match equality searches without decrypting
+    emailHash: {
+      type: String,
+      unique: true,
       index: true,
+      sparse: true,
     },
     password: {
       type: String,
@@ -62,10 +70,16 @@ const userSchema = new mongoose.Schema(
     resetPasswordExpires: {
       type: Date,
     },
+    // NFR-22: Staged new email encrypted at rest using AES-256-GCM
     pendingEmail: {
       type: String,
       trim: true,
-      lowercase: true,
+    },
+    // NFR-22: Blind index for pending email address uniqueness checks
+    pendingEmailHash: {
+      type: String,
+      index: true,
+      sparse: true,
     },
     pendingEmailToken: {
       type: String,
@@ -88,15 +102,146 @@ const userSchema = new mongoose.Schema(
 );
 
 /**
- * Pre-save middleware to hash modified passwords using Bcrypt with salt cost 12 (FR-01, NFR-16).
+ * Pre-validation middleware to normalize plaintext emails and compute blind indexes.
+ */
+userSchema.pre('validate', function () {
+  if (this.email && typeof this.email === 'string' && !isEncrypted(this.email)) {
+    this.email = this.email.toLowerCase().trim();
+    this.emailHash = hashBlindIndex(this.email);
+  }
+  if (this.pendingEmail && typeof this.pendingEmail === 'string' && !isEncrypted(this.pendingEmail)) {
+    this.pendingEmail = this.pendingEmail.toLowerCase().trim();
+    this.pendingEmailHash = hashBlindIndex(this.pendingEmail);
+  }
+});
+
+/**
+ * Pre-save middleware:
+ * 1. Hashes modified passwords using Bcrypt with salt cost 12 (FR-01, NFR-16).
+ * 2. Encrypts sensitive email fields using AES-256-GCM before writing to MongoDB (NFR-22).
  */
 userSchema.pre('save', async function () {
   const user = this;
-  if (!user.isModified('password') || !user.password) return;
 
-  const salt = await bcrypt.genSalt(12); // cost factor 12 per FR-01
-  user.password = await bcrypt.hash(user.password, salt);
+  // Password hashing (FR-01, NFR-16)
+  if (user.isModified('password') && user.password) {
+    const salt = await bcrypt.genSalt(12);
+    user.password = await bcrypt.hash(user.password, salt);
+  }
+
+  // NFR-22: Email address encryption at rest using AES-256-GCM
+  if (user.isModified('email') && user.email) {
+    if (!isEncrypted(user.email)) {
+      user.emailHash = hashBlindIndex(user.email);
+      user.email = encrypt(user.email);
+    } else if (!user.emailHash) {
+      user.emailHash = hashBlindIndex(decrypt(user.email));
+    }
+  }
+
+  // NFR-22: Pending email address encryption at rest using AES-256-GCM
+  if (user.isModified('pendingEmail')) {
+    if (user.pendingEmail && !isEncrypted(user.pendingEmail)) {
+      user.pendingEmailHash = hashBlindIndex(user.pendingEmail);
+      user.pendingEmail = encrypt(user.pendingEmail);
+    } else if (!user.pendingEmail) {
+      user.pendingEmailHash = undefined;
+    }
+  }
 });
+
+/**
+ * Post-save hook: Decrypts fields in-memory so subsequent controller operations work seamlessly.
+ */
+userSchema.post('save', function () {
+  if (this.email && isEncrypted(this.email)) {
+    this.email = decrypt(this.email);
+  }
+  if (this.pendingEmail && isEncrypted(this.pendingEmail)) {
+    this.pendingEmail = decrypt(this.pendingEmail);
+  }
+});
+
+/**
+ * Post-init hook: Decrypts AES-256-GCM fields upon document hydration from MongoDB.
+ */
+userSchema.post('init', function () {
+  if (this.email && isEncrypted(this.email)) {
+    this.email = decrypt(this.email);
+  }
+  if (this.pendingEmail && isEncrypted(this.pendingEmail)) {
+    this.pendingEmail = decrypt(this.pendingEmail);
+  }
+});
+
+/**
+ * Pre-query hook: Automatically rewrites equality queries on `email` and `pendingEmail`
+ * to leverage the HMAC-SHA256 blind index for O(1) indexed lookups (NFR-22).
+ */
+function transformUserQuery() {
+  const filter = this.getFilter();
+  if (!filter) return;
+
+  if (filter.email !== undefined && typeof filter.email === 'string') {
+    const rawEmail = filter.email;
+    if (!isEncrypted(rawEmail)) {
+      const emailH = hashBlindIndex(rawEmail);
+      delete filter.email;
+      const condition = {
+        $or: [
+          { emailHash: emailH },
+          { email: rawEmail.toLowerCase().trim() },
+        ],
+      };
+      if (!filter.$or && !filter.$and) {
+        filter.$or = condition.$or;
+      } else {
+        filter.$and = filter.$and || [];
+        filter.$and.push(condition);
+      }
+    }
+  }
+
+  if (filter.pendingEmail !== undefined && typeof filter.pendingEmail === 'string') {
+    const rawPending = filter.pendingEmail;
+    if (!isEncrypted(rawPending)) {
+      const pendingH = hashBlindIndex(rawPending);
+      delete filter.pendingEmail;
+      const condition = {
+        $or: [
+          { pendingEmailHash: pendingH },
+          { pendingEmail: rawPending.toLowerCase().trim() },
+        ],
+      };
+      if (!filter.$or && !filter.$and) {
+        filter.$or = condition.$or;
+      } else {
+        filter.$and = filter.$and || [];
+        filter.$and.push(condition);
+      }
+    }
+  }
+}
+
+userSchema.pre(['find', 'findOne', 'findOneAndUpdate', 'countDocuments'], transformUserQuery);
+
+userSchema.statics.transformQuery = transformUserQuery;
+
+/**
+ * Static lookup helper to retrieve a user document by plaintext email address.
+ *
+ * @function findByEmail
+ * @memberof module:models/User
+ * @param {string} email - Plaintext email address to look up
+ * @returns {Promise<import('./User').UserDocument|null>} Matching user document or null
+ */
+userSchema.statics.findByEmail = function (email) {
+  if (!email) return null;
+  const emailH = hashBlindIndex(email);
+  return this.findOne({
+    $or: [{ emailHash: emailH }, { email: email.toLowerCase().trim() }],
+  });
+};
 
 /**
  * Compares a plain text candidate password with the stored Bcrypt hash.

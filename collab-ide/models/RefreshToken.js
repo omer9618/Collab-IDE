@@ -7,12 +7,14 @@
  * - 7-day refresh token lifecycle with cryptographic random hex generation (FR-02)
  * - Token family grouping (`familyId`) for automatic token reuse detection (NFR-12, NFR-13)
  * - Bcrypt hashing of stored refresh tokens to prevent token compromise on database exposure
+ * - Sensitive session metadata (`deviceInfo`) encrypted at rest using AES-256-GCM (NFR-22)
  * - Device metadata tracking for remote session revocation (FR-07)
  */
 
 const mongoose = require('mongoose');
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
+const { encrypt, decrypt, isEncrypted } = require('../utils/encryption');
 
 const refreshTokenSchema = new mongoose.Schema(
   {
@@ -40,6 +42,7 @@ const refreshTokenSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // NFR-22: Session metadata (IP and User-Agent) encrypted at rest using AES-256-GCM
     deviceInfo: {
       type: String,
     },
@@ -48,6 +51,35 @@ const refreshTokenSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+/**
+ * Pre-save middleware: Encrypts session metadata using AES-256-GCM before writing to MongoDB (NFR-22).
+ */
+refreshTokenSchema.pre('save', function () {
+  if (this.isModified('deviceInfo') && this.deviceInfo) {
+    if (!isEncrypted(this.deviceInfo)) {
+      this.deviceInfo = encrypt(this.deviceInfo);
+    }
+  }
+});
+
+/**
+ * Post-save hook: Decrypts session metadata in-memory after persistence.
+ */
+refreshTokenSchema.post('save', function () {
+  if (this.deviceInfo && isEncrypted(this.deviceInfo)) {
+    this.deviceInfo = decrypt(this.deviceInfo);
+  }
+});
+
+/**
+ * Post-init hook: Decrypts session metadata upon document hydration from MongoDB.
+ */
+refreshTokenSchema.post('init', function () {
+  if (this.deviceInfo && isEncrypted(this.deviceInfo)) {
+    this.deviceInfo = decrypt(this.deviceInfo);
+  }
+});
 
 /**
  * SHA-256 token hashing helper for backward compatibility.
@@ -63,10 +95,11 @@ refreshTokenSchema.statics.hashToken = function (tokenStr) {
 /**
  * Generates an opaque, cryptographically random refresh token (7-day validity) and hashes it with Bcrypt.
  *
- * SECURITY REASONING (NFR-12, NFR-13):
+ * SECURITY REASONING (NFR-12, NFR-13, NFR-22):
  * Generates 40 bytes of secure cryptographic entropy. The token string is hashed before
  * database storage, ensuring stolen database backups cannot be leveraged to hijack active sessions.
  * Maintains token family association to invalidate all sibling tokens if reuse is detected.
+ * Encrypts device metadata with AES-256-GCM to prevent exposure of client IPs and user-agent strings.
  *
  * @async
  * @function generate
