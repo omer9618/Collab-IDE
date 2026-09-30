@@ -174,6 +174,8 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
   const [settingsTab, setSettingsTab] = useState('editor'); // 'editor' | 'room'
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showRoomDeletedModal, setShowRoomDeletedModal] = useState(false);
+  const [showCapacityModal, setShowCapacityModal] = useState(false);
+  const [capacityErrorMessage, setCapacityErrorMessage] = useState('');
   const [settingsError, setSettingsError] = useState('');
   const [consoleTab, setConsoleTab] = useState('output'); // output, terminal, problems
 
@@ -356,7 +358,13 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
           try {
             if (typeof event.data === 'string') {
               const data = JSON.parse(event.data);
-              if (data.type === 'role_update') {
+              if (data.type === 'error' && (data.code === 'ROOM_CAPACITY_EXCEEDED' || (typeof data.message === 'string' && data.message.includes('capacity')))) {
+                console.warn('[WS] Room capacity exceeded:', data.message);
+                providerInstance.shouldConnect = false;
+                providerInstance.disconnect();
+                setCapacityErrorMessage(data.message || 'Room capacity exceeded (maximum 20 connections per room).');
+                setShowCapacityModal(true);
+              } else if (data.type === 'role_update') {
                 console.log('[WS] Received role_update:', data.role);
                 setRole(data.role);
               } else if (data.type === 'room_closed') {
@@ -377,6 +385,17 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
         });
       }
     });
+
+    const handleConnectionClose = ([event]) => {
+      if (event && (event.code === 1008 || (typeof event.reason === 'string' && (event.reason.includes('capacity') || event.reason.includes('limit'))))) {
+        console.warn('[WS] Connection closed due to room capacity:', event.reason);
+        providerInstance.shouldConnect = false;
+        providerInstance.disconnect();
+        setCapacityErrorMessage(event.reason || 'Room capacity exceeded (maximum 20 connections per room).');
+        setShowCapacityModal(true);
+      }
+    };
+    providerInstance.on('connection-close', handleConnectionClose);
 
     providerInstance.awareness.on('change', () => {
       const states = providerInstance.awareness.getStates();
@@ -404,6 +423,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
         monacoBindingRef.current = null;
       }
       yfilesInstance.unobserve(updateFilesFromYjs);
+      providerInstance.off('connection-close', handleConnectionClose);
       providerInstance.destroy();
       yDocInstance.destroy();
       setYdoc(null);

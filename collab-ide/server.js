@@ -114,6 +114,8 @@ app.get('/health', (req, res) => {
     uptime: process.uptime(),
     memoryUsage: process.memoryUsage(),
     activeRooms: activeDocs.size,
+    activeWebSockets: Array.from(wss.clients).filter(c => c.readyState === WebSocket.OPEN).length,
+    maxWsPerRoom: getMaxWsPerRoom(),
     database: {
       connected: mongoose.connection.readyState === 1,
       minPoolSize: client?.options?.minPoolSize ?? 5,
@@ -547,6 +549,36 @@ wss.on('connection', async (ws, req) => {
   const user = req.user;
   const role = req.role;
 
+  // Max room capacity check (NFR-36)
+  const maxLimit = getMaxWsPerRoom();
+  const currentRoomConnections = getRoomConnectionCount(roomUuid, ws);
+
+  if (currentRoomConnections >= maxLimit) {
+    const errorMsg = `Room capacity exceeded (maximum ${maxLimit} connections per room).`;
+    console.log(`[!] Room ${roomUuid} capacity exceeded (${currentRoomConnections}/${maxLimit}). Rejecting connection for user "${user.displayName}".`);
+
+    // Ensure ws is not tagged as occupying a room slot
+    ws.roomUuid = null;
+    ws.userId = null;
+    ws.role = null;
+
+    try {
+      ws.send(JSON.stringify({
+        type: 'error',
+        code: 'ROOM_CAPACITY_EXCEEDED',
+        message: errorMsg,
+        limit: maxLimit,
+        current: currentRoomConnections,
+      }));
+    } catch (err) {
+      // Socket already closed
+    }
+
+    // RFC 6455 Close Code 1008: Policy Violation
+    ws.close(1008, errorMsg);
+    return;
+  }
+
   ws.roomUuid = roomUuid;
   ws.userId = user._id.toString();
   ws.role = role;
@@ -668,11 +700,8 @@ wss.on('connection', async (ws, req) => {
     // FR-14: record timestamp of departure
     touchRoomActivity(roomUuid);
 
-    // Check if room is empty
-    let activeCount = 0;
-    wss.clients.forEach(client => {
-      if (client.roomUuid === roomUuid) activeCount++;
-    });
+    // Check if room is empty (NFR-36 / NFR-37)
+    const activeCount = getRoomConnectionCount(roomUuid, ws);
 
     // Unload empty rooms from RAM to prevent memory leaks (NFR-38)
     if (activeCount === 0) {
