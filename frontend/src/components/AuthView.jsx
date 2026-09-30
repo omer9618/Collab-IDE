@@ -435,7 +435,7 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
           )}
         </button>
 
-        <div className="w-full max-w-[440px] bg-[#1b1c1c] border border-[#404751] rounded-lg p-10 shadow-xl overflow-y-auto max-h-screen">
+        <div className="w-full max-w-[440px] bg-[#1b1c1c] border border-[#404751] rounded-lg p-10 shadow-xl overflow-y-auto max-h-[92vh]">
           {/* Logo */}
           <div
             className="flex items-center justify-center space-x-2 mb-8 cursor-pointer select-none"
