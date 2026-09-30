@@ -84,6 +84,7 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(cookieParser());
+app.use(csrfProtection);
 
 // Static Client Files
 app.use(express.static(path.join(__dirname, 'public')));
@@ -106,11 +107,19 @@ app.get('/health', (req, res) => {
   if (isShuttingDown) {
     return res.status(503).json({ status: 'shutting_down' });
   }
+  const mongoose = require('mongoose');
+  const client = mongoose.connection.getClient ? mongoose.connection.getClient() : null;
   res.json({
     status: 'healthy',
     uptime: process.uptime(),
     memoryUsage: process.memoryUsage(),
     activeRooms: activeDocs.size,
+    database: {
+      connected: mongoose.connection.readyState === 1,
+      minPoolSize: client?.options?.minPoolSize ?? 5,
+      maxPoolSize: client?.options?.maxPoolSize ?? 20,
+      maxIdleTimeMS: client?.options?.maxIdleTimeMS ?? 30000,
+    },
   });
 });
 

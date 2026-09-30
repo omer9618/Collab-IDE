@@ -77,6 +77,15 @@ function generateAccessToken(userId) {
   });
 }
 
+// @route   GET /api/auth/csrf-token
+// @desc    Retrieve or rotate CSRF token (NFR-15)
+// @access  Public
+router.get('/csrf-token', (req, res) => {
+  const token = (req.cookies && req.cookies['XSRF-TOKEN']) || generateCsrfToken();
+  setCsrfCookie(res, token);
+  res.json({ csrfToken: token });
+});
+
 // @route   POST /api/auth/register
 // @desc    Register a new user
 // @access  Public
@@ -293,10 +302,16 @@ router.post('/login', authLimiter, ipBruteForceLimiter, async (req, res) => {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/',
     });
+
+    // Issue fresh CSRF token cookie (NFR-15)
+    const csrfToken = generateCsrfToken();
+    setCsrfCookie(res, csrfToken);
 
     res.json({
       accessToken,
+      csrfToken,
       user: {
         id: user._id,
         email: user.email,
@@ -369,9 +384,14 @@ router.post('/refresh', async (req, res) => {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
     });
 
-    res.json({ accessToken });
+    // Rotate CSRF token (NFR-15)
+    const newCsrfToken = generateCsrfToken();
+    setCsrfCookie(res, newCsrfToken);
+
+    res.json({ accessToken, csrfToken: newCsrfToken });
   } catch (error) {
     return sendPlainEnglishError(res, error, 'An error occurred while refreshing your session. Please log in again.');
   }
@@ -390,7 +410,13 @@ router.post('/logout', async (req, res) => {
       }
     }
     
-    res.clearCookie('refreshToken');
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
+    });
+    clearCsrfCookie(res);
     res.json({ message: 'Successfully logged out' });
   } catch (error) {
     return sendPlainEnglishError(res, error, 'An error occurred while logging out.');
@@ -403,7 +429,13 @@ router.post('/logout', async (req, res) => {
 router.post('/logout-all', protect, async (req, res) => {
   try {
     await RefreshToken.deleteMany({ user: req.user._id });
-    res.clearCookie('refreshToken');
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
+    });
+    clearCsrfCookie(res);
     res.json({ message: 'Successfully logged out from all devices' });
   } catch (error) {
     return sendPlainEnglishError(res, error, 'An error occurred while logging out of all devices.');
@@ -1024,16 +1056,22 @@ router.post('/google-login', authLimiter, async (req, res) => {
     const { plaintext, tokenDoc } = await RefreshToken.generate(user._id, null, deviceInfo);
     await tokenDoc.save();
 
-    // Set HttpOnly cookie
+    // Set HttpOnly cookie (NFR-12 & NFR-15)
     res.cookie('refreshToken', plaintext, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/',
     });
+
+    // Issue fresh CSRF token cookie (NFR-15)
+    const csrfToken = generateCsrfToken();
+    setCsrfCookie(res, csrfToken);
 
     res.json({
       accessToken: newAccessToken,
+      csrfToken,
       user: {
         id: user._id,
         email: user.email,
