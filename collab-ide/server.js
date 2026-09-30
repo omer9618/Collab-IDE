@@ -102,6 +102,8 @@ app.use('/api/voice',     voiceRoutes);
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
+let isShuttingDown = false;
+
 /**
  * Health Check Endpoint (NFR-39).
  * Returns system health, process uptime, memory allocations, and active collaborative room count.
@@ -138,6 +140,25 @@ app.use(errorHandler);
 
 // Initialize WebSocket Server
 const wss = new WebSocket.Server({ noServer: true });
+
+function getMaxWsPerRoom() {
+  const envVal = parseInt(process.env.MAX_WS_PER_ROOM || process.env.ROOM_WS_LIMIT, 10);
+  return Number.isFinite(envVal) && envVal > 0 ? envVal : 20;
+}
+
+function getRoomConnectionCount(roomUuid, excludeWs = null) {
+  let count = 0;
+  wss.clients.forEach(client => {
+    if (
+      client !== excludeWs &&
+      client.roomUuid === roomUuid &&
+      (client.readyState === WebSocket.OPEN || client.readyState === WebSocket.CONNECTING)
+    ) {
+      count++;
+    }
+  });
+  return count;
+}
 
 /**
  * In-memory registry of active collaborative rooms.
@@ -747,6 +768,7 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
  * @returns {Promise<void>}
  */
 async function gracefulShutdown() {
+  isShuttingDown = true;
   console.log('\n🛑 SIGTERM/SIGINT received. Commencing graceful shutdown...');
   
   // Persist all active documents in memory to MongoDB
