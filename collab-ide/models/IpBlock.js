@@ -1,3 +1,14 @@
+/**
+ * @file models/IpBlock.js
+ * @module models/IpBlock
+ * @description Mongoose model for IP address brute-force tracking and temporary banning (NFR-14).
+ * 
+ * Tracks:
+ * - Client IP addresses and consecutive failed authentication attempts
+ * - Temporary block window (`blockUntil`)
+ * - MongoDB TTL index expiring entries automatically after 1 hour (3600s) of inactivity
+ */
+
 const mongoose = require('mongoose');
 
 const ipBlockSchema = new mongoose.Schema(

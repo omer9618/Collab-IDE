@@ -1,3 +1,17 @@
+/**
+ * @file server.js
+ * @module server
+ * @description Core HTTP, WebSocket, and WebRTC signalling server for CollabIDE.
+ * 
+ * Provides:
+ * - Express REST API router integration (Auth, Rooms, Execution, Voice)
+ * - Yjs real-time collaborative document synchronization over WebSockets (FR-15 – FR-22)
+ * - Asymmetric RS256 token verification at the HTTP Upgrade boundary (NFR-17, NFR-25)
+ * - Server-side role enforcement preventing Viewer unauthorized file mutation (NFR-18)
+ * - Dynamic room presence tracking and debounced MongoDB persistence (FR-14, NFR-26)
+ * - Graceful process termination and buffer flushing (NFR-38)
+ */
+
 require('dotenv').config();
 const http = require('http');
 const express = require('express');
@@ -11,6 +25,14 @@ const syncProtocol = require('y-protocols/sync');
 const encoding = require('lib0/encoding');
 const decoding = require('lib0/decoding');
 
+/**
+ * Connects to MongoDB with connection pooling (NFR-40).
+ * Configures pool bounds based on environment or production defaults.
+ * 
+ * @async
+ * @function connectDB
+ * @returns {Promise<void>}
+ */
 const connectDB = async () => {
   const connUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/collabide';
   const mongoose = require('mongoose');
@@ -39,7 +61,7 @@ const app = express();
 app.set('trust proxy', 1);
 const server = http.createServer(app);
 
-// Initialize Socket.IO Server for Voice Signalling
+// Initialize Socket.IO Server for Voice Signalling (FR-45 – FR-53)
 const { Server } = require('socket.io');
 const io = new Server(server, {
   cors: {
@@ -72,7 +94,12 @@ app.use('/api/voice',     voiceRoutes);
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-// Health Check Endpoint (NFR-39)
+/**
+ * Health Check Endpoint (NFR-39).
+ * Returns system health, process uptime, memory allocations, and active collaborative room count.
+ * 
+ * @route GET /health
+ */
 app.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
@@ -85,10 +112,24 @@ app.get('/health', (req, res) => {
 // Initialize WebSocket Server
 const wss = new WebSocket.Server({ noServer: true });
 
-// roomUuid -> { ydoc: Y.Doc, saveTimer: Timeout }
+/**
+ * In-memory registry of active collaborative rooms.
+ * Maps room UUID to its live Y.Doc instance and scheduled database persistence timer.
+ * @type {Map<string, { ydoc: Y.Doc, saveTimer: NodeJS.Timeout|null }>}
+ */
 const activeDocs = new Map();
 
-// Save room document state to MongoDB
+/**
+ * Persists live in-memory Yjs document state and files to MongoDB (NFR-26).
+ * Extracts text contents for human-readable querying and saves the binary
+ * state vector (`ydocState`) to preserve CRDT state vectors across restarts.
+ *
+ * @async
+ * @function saveRoomStateToDB
+ * @param {string} roomUuid - UUID identifier of the room to persist
+ * @param {Y.Doc} ydoc - In-memory Yjs CRDT document
+ * @returns {Promise<void>}
+ */
 async function saveRoomStateToDB(roomUuid, ydoc) {
   try {
     const room = await Room.findOne({ uuid: roomUuid });
@@ -117,7 +158,7 @@ async function saveRoomStateToDB(roomUuid, ydoc) {
         $set: { 
           files: updatedFiles,
           ydocState: ydocStateBuffer,
-          // FR-14: editing the document is activity
+          // FR-14: editing the document counts as user activity
           lastActiveAt: new Date()
         } 
       }
@@ -128,7 +169,14 @@ async function saveRoomStateToDB(roomUuid, ydoc) {
   }
 }
 
-// Debounce schedule save (NFR-26)
+/**
+ * Schedules a debounced database write for a room document (NFR-26).
+ * Coalesces rapid keystrokes within 2000ms into a single write operation,
+ * reducing MongoDB disk I/O under concurrent multi-user editing.
+ *
+ * @function scheduleSave
+ * @param {string} roomUuid - Target room UUID
+ */
 function scheduleSave(roomUuid) {
   const docState = activeDocs.get(roomUuid);
   if (!docState) return;
@@ -142,7 +190,15 @@ function scheduleSave(roomUuid) {
   }, 2000);
 }
 
-// Retrieve or load Y.Doc state
+/**
+ * Retrieves an existing in-memory Y.Doc for a room or hydrates it from MongoDB.
+ * If a binary snapshot (`ydocState`) exists, it is restored preserving CRDT clocks.
+ *
+ * @async
+ * @function getOrCreateYdoc
+ * @param {string} roomUuid - Unique room identifier
+ * @returns {Promise<{ ydoc: Y.Doc, saveTimer: NodeJS.Timeout|null }>} Active document state
+ */
 async function getOrCreateYdoc(roomUuid) {
   if (activeDocs.has(roomUuid)) {
     return activeDocs.get(roomUuid);
@@ -153,7 +209,7 @@ async function getOrCreateYdoc(roomUuid) {
 
   if (room) {
     if (room.ydocState) {
-      // Restore Yjs document using the binary state update snapshot to preserve clocks and client IDs
+      // Restore Yjs document using binary state snapshot to preserve clocks and client IDs
       try {
         const bufferData = room.ydocState;
         // MUST use byteOffset and length to avoid pulling garbage bytes from Node's shared memory pool!
@@ -169,7 +225,7 @@ async function getOrCreateYdoc(roomUuid) {
         const fileNames = Array.from(new Set(room.files.map(f => f.name)));
         yfiles.push(fileNames);
         
-        // Populate actual contents if ydoc was completely empty (e.g., corrupted buffer failure)
+        // Populate actual contents if ydoc was completely empty (e.g. corrupted buffer recovery)
         room.files.forEach(file => {
           const ytext = ydoc.getText(`${roomUuid}:${file.name}`);
           if (ytext.toString() === '') {
@@ -180,7 +236,7 @@ async function getOrCreateYdoc(roomUuid) {
         });
       }
     } else if (room.files) {
-      // Fallback for legacy rooms or first-time load: populate via text insert
+      // Fallback for first-time room load: populate via text insert
       const yfiles = ydoc.getArray(`${roomUuid}:files`);
       const fileNames = Array.from(new Set(room.files.map(f => f.name)));
       yfiles.push(fileNames);
@@ -211,12 +267,13 @@ async function getOrCreateYdoc(roomUuid) {
 /**
  * FR-14: Live presence snapshot for the room listing dashboard.
  *
- * Derived directly from the open WebSocket connections rather than a separate
- * presence store, so the count can never drift out of sync with reality.
- * Keyed by roomUuid; the value is a Set of userIds, so a user with two tabs
- * open in the same room still counts as one online participant.
+ * Derived directly from open WebSocket connections rather than a separate
+ * presence store, ensuring the count never drifts out of sync with reality.
+ * Keyed by roomUuid; value is a Set of userIds, so a user with multiple tabs
+ * open in the same room is counted as a single online participant.
  *
- * @returns {Map<string, Set<string>>}
+ * @function getRoomPresence
+ * @returns {Map<string, Set<string>>} Map of roomUuid to Set of active userIds
  */
 global.getRoomPresence = () => {
   const presence = new Map();
@@ -236,9 +293,14 @@ global.getRoomPresence = () => {
 
 /**
  * FR-14: Mark a room as active right now.
- * `timestamps: false` keeps this out of `updatedAt` so the two fields stay
- * independent — `updatedAt` tracks content/metadata writes, `lastActiveAt`
- * tracks human presence.
+ * Sets `timestamps: false` to keep this update distinct from `updatedAt`.
+ * `updatedAt` tracks content/metadata modifications, while `lastActiveAt`
+ * tracks real-time human presence.
+ *
+ * @async
+ * @function touchRoomActivity
+ * @param {string} roomUuid - Target room UUID
+ * @returns {Promise<void>}
  */
 async function touchRoomActivity(roomUuid) {
   try {
@@ -248,12 +310,26 @@ async function touchRoomActivity(roomUuid) {
       { timestamps: false }
     );
   } catch (err) {
-    // Non-fatal: a missed activity timestamp must never break the session.
+    // Non-fatal: a missed activity timestamp must never break user sessions
     console.error(`❌ Error touching lastActiveAt for room ${roomUuid}:`, err.message);
   }
 }
 
-// Atomic update of user roles in memory (NFR-19)
+/**
+ * Atomic in-memory synchronization of user roles across active WebSockets (NFR-19).
+ *
+ * SECURITY REASONING:
+ * When a user is demoted (e.g. Editor -> Viewer) via REST API, updating MongoDB
+ * alone creates a vulnerability window because their existing WebSocket connection
+ * retains Editor privileges until closed. This function iterates through connected
+ * WebSocket clients, immediately updates their in-memory role tag, and dispatches
+ * a `role_update` message to the client, closing the privilege revocation race condition.
+ *
+ * @function updateClientRoleInMemory
+ * @param {string} roomUuid - Target room UUID
+ * @param {string} userId - User ID whose role changed
+ * @param {string} newRole - New role ('Owner' | 'Room Leader' | 'Editor' | 'Viewer')
+ */
 global.updateClientRoleInMemory = (roomUuid, userId, newRole) => {
   wss.clients.forEach(client => {
     if (client.roomUuid === roomUuid && client.userId === userId.toString()) {
@@ -269,10 +345,16 @@ global.updateClientRoleInMemory = (roomUuid, userId, newRole) => {
 };
 
 /**
- * Broadcast a raw text JSON string to every open WebSocket in a given room.
- * Used by the execution route to push exec:result frames (FR-29).
- * @param {string} roomUuid
- * @param {string} message - JSON string
+ * Broadcasts a raw JSON string to every open WebSocket client connected to a specific room.
+ * Used by the execution route to broadcast execution results (`exec:result`) (FR-29)
+ * and room closure notifications (FR-42).
+ *
+ * SECURITY REASONING:
+ * Strictly filters by `client.roomUuid === roomUuid` to guarantee cross-room isolation (NFR-52).
+ *
+ * @function broadcastToRoom
+ * @param {string} roomUuid - Destination room UUID
+ * @param {string} message - JSON-serialized message payload
  */
 global.broadcastToRoom = (roomUuid, message) => {
   wss.clients.forEach(client => {
@@ -282,7 +364,14 @@ global.broadcastToRoom = (roomUuid, message) => {
   });
 };
 
-// Broadcast participants list update (FR-44)
+/**
+ * Broadcasts updated participant list with current roles and avatar colors to all room clients (FR-44).
+ *
+ * @async
+ * @function broadcastRoomParticipants
+ * @param {string} roomUuid - Target room UUID
+ * @returns {Promise<void>}
+ */
 global.broadcastRoomParticipants = async (roomUuid) => {
   try {
     const room = await Room.findOne({ uuid: roomUuid }).populate('participants.user', 'displayName email avatarColor');
@@ -308,12 +397,27 @@ global.broadcastRoomParticipants = async (roomUuid) => {
   }
 };
 
-// HTTP Upgrade Handshake Auth Enforcer (NFR-17 / NFR-25)
+/**
+ * HTTP Upgrade Handshake Auth Enforcer (NFR-17, NFR-25).
+ *
+ * SECURITY REASONING & PROTOCOL SPECIFICATION:
+ * 1. Pre-Upgrade Authentication: Intercepts HTTP 101 Switching Protocols upgrade
+ *    requests BEFORE completing the WebSocket handshake. If credentials or permissions
+ *    are invalid, responds with raw HTTP 401/403/404 headers and destroys the TCP socket.
+ *    This protects the event loop from unauthenticated WebSocket connection pooling attacks.
+ * 2. RS256 Asymmetric Verification: Validates JWT access token extracted from query params
+ *    against the server's public key, preventing token spoofing or algorithm confusion.
+ * 3. Authoritative Role Binding: Looks up the room and verifies the user is an enrolled
+ *    member. The user's role (`Viewer`, `Editor`, `Room Leader`, `Owner`) is attached directly
+ *    to the internal `request` object. Clients CANNOT declare or modify their own role over WS.
+ * 4. Namespace Isolation: Ignores `/socket.io` paths so Socket.IO voice signalling can
+ *    handle its own handshake independently.
+ */
 server.on('upgrade', async (request, socket, head) => {
   try {
     const parsedUrl = new URL(request.url, 'http://localhost');
     
-    // Ignore socket.io upgrade requests to prevent conflicts (let socket.io handle its own upgrades)
+    // Ignore socket.io upgrade requests to prevent conflicts (delegated to Socket.IO engine)
     if (parsedUrl.pathname.startsWith('/socket.io')) {
       return;
     }
@@ -322,6 +426,7 @@ server.on('upgrade', async (request, socket, head) => {
     const roomUuid = cleanPath.slice(1);
     const token = parsedUrl.searchParams.get('token');
 
+    // Security: Reject unauthenticated upgrade attempts immediately
     if (!token) {
       console.log('❌ Upgrade Rejected: No token provided');
       socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
@@ -329,7 +434,7 @@ server.on('upgrade', async (request, socket, head) => {
       return;
     }
 
-    // Verify JWT
+    // Security: RS256 signature verification guarantees authenticity and tamper-proofing
     const decoded = jwt.verify(token, publicKey, { algorithms: ['RS256'] });
     const user = await User.findById(decoded.userId).select('-password');
     if (!user) {
@@ -339,7 +444,7 @@ server.on('upgrade', async (request, socket, head) => {
       return;
     }
 
-    // Verify Room & Membership
+    // Security: Verify room existence and membership to prevent unauthorized buffer snooping (NFR-25)
     const room = await Room.findOne({ uuid: roomUuid });
     if (!room) {
       console.log(`❌ Upgrade Rejected: Room ${roomUuid} not found`);
@@ -356,12 +461,12 @@ server.on('upgrade', async (request, socket, head) => {
       return;
     }
 
-    // Inject metadata into request object for WebSocket connection handling
+    // Security: Inject authoritative server-verified metadata onto request context
     request.user = user;
     request.role = participant.role;
     request.roomUuid = roomUuid;
 
-    // Proceed to establish WebSocket connection
+    // Proceed with WebSocket protocol upgrade
     wss.handleUpgrade(request, socket, head, (ws) => {
       wss.emit('connection', ws, request);
     });
@@ -372,6 +477,40 @@ server.on('upgrade', async (request, socket, head) => {
   }
 });
 
+/**
+ * WebSocket Connection Handler — Yjs CRDT Synchronization & Server Role Enforcer (FR-15 – FR-22).
+ *
+ * WEBSOCKET MESSAGE PROTOCOL & ROLE ENFORCEMENT SECURITY REASONING:
+ * -----------------------------------------------------------------------------
+ * 1. Protocol Framing:
+ *    - Binary Frames: Yjs protocol frames encoded with `lib0/encoding`.
+ *      - Byte 0: Message family (`0` = syncProtocol, `1` = awarenessProtocol, `2` = authProtocol).
+ *      - Sync Message Subtypes (following byte 0):
+ *        - `0` (SyncStep1): Initial handshake; client or server announces state vector.
+ *        - `1` (SyncStep2): Response payload containing missing document updates.
+ *        - `2` (Update): Incremental CRDT insertion or deletion delta.
+ *    - JSON Text Frames: Used for server control signals (`role_update`, `room_closed`, `exec:result`).
+ *
+ * 2. Role Enforcement Logic (NFR-18):
+ *    - Client-side read-only flags (e.g. Monaco `readOnly: true`) are cosmetic and can be bypassed
+ *      by an attacker emitting raw WebSocket binary frames or running browser scripts.
+ *    - Server-side Gate: When `ws.role === 'Viewer'`, every incoming binary update (`cleanData[0] === 0`
+ *      and `msgType === 1 || msgType === 2`) is parsed and deeply inspected.
+ *    - Inspection Mechanics: The server decodes the binary update struct array (`Y.decodeUpdate`)
+ *      and checks the `struct.parent` of each operation.
+ *    - Selective Write Barrier:
+ *      - Operations targeting `:chat` (group chat) are ALLOWED for Viewers (satisfying FR-34).
+ *      - Operations targeting any code file (e.g. `${roomUuid}:main.js`) are DROPPED SILENTLY.
+ *    - This guarantees that Viewers cannot corrupt or modify project source files, maintaining
+ *      authoritative document integrity on the server.
+ *
+ * 3. Cross-Room Isolation (NFR-52):
+ *    - Relay loop strictly checks `client.roomUuid === ws.roomUuid`. Messages are never broadcast
+ *      outside the sender's authenticated room context.
+ *
+ * 4. Room Capacity Ceiling (NFR-36):
+ *    - Hard ceiling of 20 concurrent connections per room prevents resource starvation.
+ */
 wss.on('connection', async (ws, req) => {
   const roomUuid = req.roomUuid;
   const user = req.user;
@@ -383,10 +522,10 @@ wss.on('connection', async (ws, req) => {
 
   console.log(`[+] "${roomUuid}" — User "${user.displayName}" (${role}) connected`);
 
-  // FR-14: someone is present in the room right now
+  // FR-14: record user presence
   touchRoomActivity(roomUuid);
 
-  // Max room capacity check (NFR-36)
+  // Security: Max room capacity check prevents socket exhaustion attacks (NFR-36)
   let roomCount = 0;
   wss.clients.forEach(client => {
     if (client.roomUuid === roomUuid) roomCount++;
@@ -403,24 +542,26 @@ wss.on('connection', async (ws, req) => {
   const docState = await getOrCreateYdoc(roomUuid);
   const ydoc = docState.ydoc;
 
-  // Send Sync Step 1
+  // Protocol: Emit Sync Step 1 to trigger state synchronization with the joining client
   const encoder = encoding.createEncoder();
   encoding.writeVarUint(encoder, 0); // messageSync = 0
   syncProtocol.writeSyncStep1(encoder, ydoc);
   ws.send(encoding.toUint8Array(encoder));
 
+  // Handle incoming WebSocket messages
   ws.on('message', (data, isBinary) => {
     try {
       if (!isBinary) {
-        // Handle text message if needed
+        // Text control frames reserved for future extensions
         return;
       }
 
-      // Convert Node Buffer to a clean, isolated Uint8Array to avoid lib0 DataView offset alignment bugs
+      // Isolate clean Uint8Array to avoid Node.js Buffer memory pool offset alignment corruption
       const cleanData = new Uint8Array(data.length);
       cleanData.set(data);
 
-      // Check Viewer role write block (NFR-18)
+      // ─── ROLE ENFORCEMENT & WRITE BARRIER (NFR-18) ──────────────────────────
+      // Security: Intercept and inspect binary updates if the sender is a Viewer
       if (ws.role === 'Viewer') {
         const isWrite = cleanData && cleanData.length > 1 && cleanData[0] === 0 && (cleanData[1] === 1 || cleanData[1] === 2);
         if (isWrite) {
@@ -430,32 +571,34 @@ wss.on('connection', async (ws, req) => {
             const decoder = decoding.createDecoder(cleanData);
             decoding.readVarUint(decoder); // skip messageSync (0)
             const msgType = decoding.readVarUint(decoder);
+            
+            // Check if frame contains document updates (Step 2 or incremental Update)
             if (msgType === 1 || msgType === 2) {
               const extractedUpdate = decoding.readVarUint8Array(decoder);
               const decoded = Y.decodeUpdate(extractedUpdate);
               
-              // Check if any struct in the update is modifying a text document (anything not ending with ':chat')
+              // Security: Check if any CRDT operation modifies code file text (anything not ending with ':chat')
               const isEditingFile = decoded.structs.some(struct => {
                 const parent = struct.parent;
                 return typeof parent === 'string' && !parent.endsWith(':chat');
               });
               
               if (isEditingFile) {
-                // Drop file edits silently, but allow chat messages!
+                // Security: Drop file mutation updates silently. Viewers are forbidden from modifying files!
                 return;
               }
             } else {
-              // Drop other sync write types for Viewers
+              // Security: Drop all other sync write subtypes for Viewers
               return;
             }
           } catch (err) {
             console.error('Error parsing Viewer write check:', err);
-            return; // Safety fallback: block on error
+            return; // Security fallback: drop frame on parse failure to prevent malformed binary exploits
           }
         }
       }
 
-      // Apply Yjs updates to server-side document
+      // Protocol: Apply Yjs updates to server-side document
       if (cleanData[0] === 0) {
         const decoder = decoding.createDecoder(cleanData);
         decoding.readVarUint(decoder); // skip messageSync (0)
@@ -463,15 +606,16 @@ wss.on('connection', async (ws, req) => {
         const encoder = encoding.createEncoder();
         encoding.writeVarUint(encoder, 0);
         
-        // This will trigger database update debounced via the 'update' event
+        // This triggers debounced database persistence via the 'update' event
         syncProtocol.readSyncMessage(decoder, encoder, ydoc, ws);
         
+        // If the server produced a sync response (e.g. Step 2 update), send it back to the client
         if (encoding.length(encoder) > 1) {
           ws.send(encoding.toUint8Array(encoder));
         }
       }
 
-      // Relay binary frame to all other connections in the same room
+      // Protocol & Security: Relay binary frame strictly to other clients in the same room (NFR-52)
       wss.clients.forEach(client => {
         if (
           client !== ws &&
@@ -486,11 +630,11 @@ wss.on('connection', async (ws, req) => {
     }
   });
 
+  // Handle client disconnection
   ws.on('close', () => {
     console.log(`[-] "${roomUuid}" — User "${user.displayName}" disconnected`);
 
-    // FR-14: record the moment the user left, so "last active" reflects the
-    // end of the session rather than the last keystroke.
+    // FR-14: record timestamp of departure
     touchRoomActivity(roomUuid);
 
     // Check if room is empty
@@ -499,6 +643,7 @@ wss.on('connection', async (ws, req) => {
       if (client.roomUuid === roomUuid) activeCount++;
     });
 
+    // Unload empty rooms from RAM to prevent memory leaks (NFR-38)
     if (activeCount === 0) {
       console.log(`🧹 Room ${roomUuid} is inactive. Performing final save and unloading...`);
       const state = activeDocs.get(roomUuid);
@@ -527,6 +672,15 @@ wss.on('connection', async (ws, req) => {
 process.on('SIGTERM', gracefulShutdown);
 process.on('SIGINT', gracefulShutdown);
 
+/**
+ * Handles graceful process termination on SIGTERM/SIGINT signals (NFR-38).
+ * Flushes all pending in-memory Yjs documents to MongoDB before terminating
+ * Express and WebSocket servers, preventing data loss during rolling deployments.
+ *
+ * @async
+ * @function gracefulShutdown
+ * @returns {Promise<void>}
+ */
 async function gracefulShutdown() {
   console.log('\n🛑 SIGTERM/SIGINT received. Commencing graceful shutdown...');
   

@@ -1,3 +1,9 @@
+/**
+ * @file utils/keys.js
+ * @module utils/keys
+ * @description Cryptographic RSA keypair generator and loader for RS256 JWT signatures.
+ */
+
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
@@ -6,7 +12,17 @@ const keysDir = path.join(__dirname, '..', '.keys');
 const privateKeyPath = path.join(keysDir, 'private.pem');
 const publicKeyPath = path.join(keysDir, 'public.pem');
 
-// Initialize keys
+/**
+ * Initializes or loads existing 2048-bit RSA keypair for asymmetric JWT authentication.
+ *
+ * SECURITY REASONING:
+ * Generates PKCS#8 private and SPKI public PEM keys. Asymmetric signing allows the private
+ * key to remain guarded by authentication services while public keys can be safely shared
+ * with reverse proxies or microservices for signature verification without risking forgery.
+ *
+ * @function initKeys
+ * @returns {{ privateKey: string, publicKey: string }} Loaded or newly generated PEM strings
+ */
 function initKeys() {
   if (fs.existsSync(privateKeyPath) && fs.existsSync(publicKeyPath)) {
     return {

@@ -1,11 +1,27 @@
+/**
+ * @fileoverview Speech Visualizer Component (SpeechVisualizer.jsx).
+ *
+ * Renders an animated visual speaking ring indicator using Web Audio API volume
+ * analysis when an audio stream is active, or fallback CSS pulse animations.
+ *
+ * @module components/SpeechVisualizer
+ */
+
 import React, { useEffect, useRef } from 'react';
 
 /**
- * SpeechVisualizer
+ * SpeechVisualizer Component.
  *
- * Renders an animated visual speaking ring or indicator.
- * If stream is provided, it uses the Web Audio API to detect volume levels
- * and pulse in real-time. If volume exceeds threshold, it triggers setSpeaking(true).
+ * Attaches a Web Audio API AnalyserNode to the incoming media stream to extract
+ * real-time frequency/volume amplitudes and render an animated canvas glow ring.
+ *
+ * @param {Object} props - Component properties.
+ * @param {MediaStream} [props.stream] - Active audio MediaStream from local mic or remote peer.
+ * @param {boolean} [props.isSpeaking] - Fallback boolean indicator when stream analyser is inactive.
+ * @param {number} [props.size=32] - Diameter of the inner avatar in pixels.
+ * @param {string} [props.avatarText] - User avatar initials text.
+ * @param {string} [props.color] - Background color of the avatar.
+ * @returns {React.ReactElement} Visualizer canvas and avatar container.
  */
 export default function SpeechVisualizer({ stream, isSpeaking, size = 32, avatarText, color }) {
   const canvasRef = useRef(null);

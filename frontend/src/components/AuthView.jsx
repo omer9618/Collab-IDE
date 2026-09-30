@@ -1,3 +1,13 @@
+/**
+ * @fileoverview Authentication View Component (AuthView.jsx).
+ *
+ * Implements user authentication workflows including email/password sign-in,
+ * registration with avatar color selection, Google OAuth 2.0 federation,
+ * password reset requests, and secure token validation.
+ *
+ * @module components/AuthView
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   loginUser,
@@ -12,6 +22,15 @@ import { Eye, EyeOff, Check, X, ArrowLeft, Lock, Mail, KeyRound } from 'lucide-r
 
 const USER_COLORS = ['#1a73e8', '#1e8e3e', '#f9ab00', '#a142f4', '#e52592'];
 
+/**
+ * Authentication View component.
+ *
+ * @param {Object} props - Component properties.
+ * @param {Function} props.onAuthSuccess - Callback invoked upon successful authentication.
+ * @param {string} [props.initialResetToken] - Token parsed from query parameter for password reset.
+ * @param {Function} [props.onClearResetToken] - Callback invoked to reset password reset state.
+ * @returns {React.ReactElement} Authentication form container.
+ */
 export default function AuthView({ onAuthSuccess, initialResetToken, onClearResetToken }) {
   // Tabs: 'signin' | 'signup' | 'forgot' | 'reset'
   const [activeTab, setActiveTab] = useState(initialResetToken ? 'reset' : 'signin');

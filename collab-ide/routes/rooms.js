@@ -1,3 +1,15 @@
+/**
+ * @file routes/rooms.js
+ * @module routes/rooms
+ * @description Room management, collaboration membership, and role-based access control (RBAC).
+ * 
+ * Implements:
+ * - Room creation, listing, search, and presence querying (FR-10, FR-14)
+ * - Collaborative role hierarchy enforcement: Owner > Room Leader > Editor > Viewer (FR-39 – FR-43)
+ * - Atomic role updates synchronized with active WebSocket sessions (NFR-19, NFR-25)
+ * - Room lifecycle controls (Close, Reopen, Delete) (FR-42, FR-43)
+ */
+
 const express = require('express');
 const crypto = require('crypto');
 const Room = require('../models/Room');
@@ -7,7 +19,18 @@ const { apiLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
 
-// Helper to check user membership and get their role in the room
+/**
+ * Resolves a user's collaborative role within a specific room.
+ *
+ * SECURITY REASONING:
+ * Inspects the authoritative `participants` subdocument on the MongoDB Room model.
+ * Client-reported roles in request bodies or query params are NEVER trusted.
+ *
+ * @function getMemberRole
+ * @param {import('../models/Room').RoomDocument} room - Mongoose room document
+ * @param {string|import('mongoose').Types.ObjectId} userId - User ID to look up
+ * @returns {string|null} Resolved role ('Owner' | 'Room Leader' | 'Editor' | 'Viewer' | null)
+ */
 function getMemberRole(room, userId) {
   const member = room.participants.find(p => {
     const pUserId = (p.user && p.user._id) ? p.user._id.toString() : (p.user ? p.user.toString() : '');
@@ -16,9 +39,28 @@ function getMemberRole(room, userId) {
   return member ? member.role : null;
 }
 
-// @route   POST /api/rooms
-// @desc    Create a new room
-// @access  Private
+/**
+ * Resolves set of online user IDs currently connected to a room via WebSockets (FR-14).
+ *
+ * @function getOnlineUserIds
+ * @param {string} roomUuid - Target room UUID
+ * @param {Map<string, Set<string>>|null} presenceMap - In-memory presence map from server.js
+ * @returns {Set<string>} Set of online user IDs
+ */
+function getOnlineUserIds(roomUuid, presenceMap) {
+  if (!presenceMap) return new Set();
+  return presenceMap.get(roomUuid) || new Set();
+}
+
+/**
+ * @route   POST /api/rooms
+ * @desc    Create a new collaborative room. Creator is automatically designated as Owner.
+ * @access  Private (Authenticated users only)
+ * 
+ * SECURITY REASONING:
+ * Automatically seeds the creator with the 'Owner' role, giving them exclusive administrative
+ * sovereignty over lifecycle controls (room closure, room deletion, leader appointment).
+ */
 router.post('/', protect, apiLimiter, async (req, res) => {
   try {
     const { name } = req.body;
@@ -57,17 +99,15 @@ router.post('/', protect, apiLimiter, async (req, res) => {
   }
 });
 
-// Helper: live online userIds for a room, sourced from the WebSocket server (FR-14).
-// Returns an empty Set when the WS layer has not registered its hook yet, so the
-// dashboard degrades to "0 online" rather than failing.
-function getOnlineUserIds(roomUuid, presenceMap) {
-  if (!presenceMap) return new Set();
-  return presenceMap.get(roomUuid) || new Set();
-}
-
-// @route   GET /api/rooms
-// @desc    List all rooms the user has joined or created (FR-14)
-// @access  Private
+/**
+ * @route   GET /api/rooms
+ * @desc    List all rooms the authenticated user has joined or created (FR-14).
+ * @access  Private
+ * 
+ * SECURITY REASONING:
+ * Scoped strictly to rooms where `participants.user` contains `req.user._id`. Users cannot
+ * enumerate or discover rooms they have not been explicitly invited or joined to.
+ */
 router.get('/', protect, apiLimiter, async (req, res) => {
   try {
     const { search } = req.query;
@@ -75,6 +115,7 @@ router.get('/', protect, apiLimiter, async (req, res) => {
       'participants.user': req.user._id,
     };
 
+    // Security: Sanitize user search input to prevent ReDoS (Regular Expression Denial of Service)
     if (search && search.trim()) {
       const sanitized = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       query.$or = [
@@ -105,9 +146,7 @@ router.get('/', protect, apiLimiter, async (req, res) => {
         owner: room.owner,
         myRole: role,
         participantCount: room.participants.length,
-        // FR-14: how many members are connected right now, not how many joined
         onlineCount: onlineUserIds.size,
-        // Legacy rooms predate lastActiveAt — fall back to updatedAt
         lastActiveAt: room.lastActiveAt || room.updatedAt,
         updatedAt: room.updatedAt,
         files: room.files ? room.files.map(f => f.name) : [],
@@ -130,13 +169,11 @@ router.get('/', protect, apiLimiter, async (req, res) => {
   }
 });
 
-// @route   GET /api/rooms/presence
-// @desc    Lightweight online-count poll for the dashboard (FR-14).
-//          Returns only counts, so the client can refresh presence every few
-//          seconds without re-fetching full room payloads.
-// @access  Private
-// NOTE: must stay declared above GET /:uuid, otherwise Express matches
-//       "presence" as a room UUID.
+/**
+ * @route   GET /api/rooms/presence
+ * @desc    Lightweight online-count poll for the dashboard (FR-14).
+ * @access  Private
+ */
 router.get('/presence', protect, apiLimiter, async (req, res) => {
   try {
     const rooms = await Room.find({ 'participants.user': req.user._id })
@@ -160,9 +197,16 @@ router.get('/presence', protect, apiLimiter, async (req, res) => {
   }
 });
 
-// @route   GET /api/rooms/:uuid
-// @desc    Get details of a specific room (must be a member)
-// @access  Private
+/**
+ * @route   GET /api/rooms/:uuid
+ * @desc    Retrieve details and files of a specific room.
+ * @access  Private
+ * 
+ * SECURITY REASONING & ROLE ENFORCEMENT (NFR-25):
+ * Membership Guard: Queries the database and evaluates `getMemberRole`. If the requesting
+ * user is not an active participant in `room.participants`, access is denied with HTTP 403 Forbidden.
+ * This prevents unauthorized token holders from accessing room source code or metadata.
+ */
 router.get('/:uuid', protect, apiLimiter, async (req, res) => {
   try {
     const room = await Room.findOne({ uuid: req.params.uuid })
@@ -173,7 +217,7 @@ router.get('/:uuid', protect, apiLimiter, async (req, res) => {
       return res.status(404).json({ message: 'Room not found' });
     }
 
-    // NFR-25 check: Verify the user is a participant of the room
+    // Security: Verify user is a member of the room before returning project files
     const myRole = getMemberRole(room, req.user._id);
     if (!myRole) {
       return res.status(403).json({ message: 'Access denied. You are not a member of this room.' });
@@ -189,9 +233,17 @@ router.get('/:uuid', protect, apiLimiter, async (req, res) => {
   }
 });
 
-// @route   POST /api/rooms/:uuid/join
-// @desc    Join a room via share link
-// @access  Private
+/**
+ * @route   POST /api/rooms/:uuid/join
+ * @desc    Join a room via UUID invite link (FR-11).
+ * @access  Private
+ * 
+ * SECURITY REASONING & ROLE ENFORCEMENT:
+ * 1. Closed Room Barrier: If `room.isClosed` is true, joining is blocked with HTTP 400.
+ * 2. Default Least-Privilege (FR-11): New participants are enrolled strictly with the
+ *    'Viewer' role. They cannot modify files or execute code until promoted by an Owner/Leader.
+ * 3. Idempotency: Existing members retain their current role without duplication.
+ */
 router.post('/:uuid/join', protect, apiLimiter, async (req, res) => {
   try {
     const room = await Room.findOne({ uuid: req.params.uuid });
@@ -200,6 +252,7 @@ router.post('/:uuid/join', protect, apiLimiter, async (req, res) => {
       return res.status(404).json({ message: 'Room not found' });
     }
 
+    // Security: Prevent joining archived or closed rooms
     if (room.isClosed) {
       return res.status(400).json({ message: 'Room is closed and cannot be joined.' });
     }
@@ -210,7 +263,7 @@ router.post('/:uuid/join', protect, apiLimiter, async (req, res) => {
       return res.json({ message: 'Already a member', role: existingRole });
     }
 
-    // Add as Viewer by default (FR-11)
+    // Security: Default new joiners to Viewer to prevent immediate tampering (least privilege)
     room.participants.push({
       user: req.user._id,
       role: 'Viewer',
@@ -218,7 +271,7 @@ router.post('/:uuid/join', protect, apiLimiter, async (req, res) => {
 
     await room.save();
 
-    // Trigger role broadcast if the WebSocket server logic has hooks for it
+    // Broadcast participant list update to active room connections
     if (global.broadcastRoomParticipants) {
       global.broadcastRoomParticipants(room.uuid);
     }
@@ -230,9 +283,22 @@ router.post('/:uuid/join', protect, apiLimiter, async (req, res) => {
   }
 });
 
-// @route   PUT /api/rooms/:uuid/roles
-// @desc    Update a participant's role (Owner or Room Leader only)
-// @access  Private
+/**
+ * @route   PUT /api/rooms/:uuid/roles
+ * @desc    Update a participant's collaborative role (FR-39 – FR-43).
+ * @access  Private (Owner or Room Leader only)
+ * 
+ * SECURITY REASONING & HIERARCHICAL ROLE GOVERNANCE:
+ * 1. Authority Hierarchy: Only an Owner or designated Room Leader can modify participant roles.
+ * 2. Leader Protection: Only the Owner can designate a new Room Leader. A Room Leader CANNOT
+ *    appoint other Room Leaders, preventing unauthorized lateral privilege escalation.
+ * 3. Single Leader Invariant: Only one active Room Leader can exist at a time. Promoting a user
+ *    to Room Leader automatically demotes the previous Room Leader to Editor.
+ * 4. Owner Immutability: An Owner's role cannot be demoted, revoked, or reassigned by a Room Leader.
+ * 5. Atomic In-Memory Sync (NFR-19): When a participant is demoted (e.g. Editor -> Viewer),
+ *    `global.updateClientRoleInMemory` immediately updates their active WebSocket session state,
+ *    preventing window-of-vulnerability file edits through established TCP sockets.
+ */
 router.put('/:uuid/roles', protect, apiLimiter, async (req, res) => {
   try {
     const { targetUserId, newRole } = req.body;
@@ -259,11 +325,12 @@ router.put('/:uuid/roles', protect, apiLimiter, async (req, res) => {
     const isOwner = requesterRole === 'Owner';
     const isRoomLeader = requesterRole === 'Room Leader';
 
+    // Security: Only Owner and Room Leader possess role administrative capabilities
     if (!isOwner && !isRoomLeader) {
       return res.status(403).json({ message: 'Unauthorized. Only the Owner or Room Leader can manage roles.' });
     }
 
-    // 1. Only Owner can assign or remove Room Leader
+    // Security Rule 1: Only the Owner can appoint or reassign the Room Leader
     if (newRole === 'Room Leader' && !isOwner) {
       return res.status(403).json({ message: 'Unauthorized. Only the Owner can designate a Room Leader.' });
     }
@@ -274,16 +341,16 @@ router.put('/:uuid/roles', protect, apiLimiter, async (req, res) => {
       return res.status(400).json({ message: 'Target user is not a participant in this room' });
     }
 
-    // 2. Prevent modifying Owner's role
+    // Security Rule 2: Prevent modifying Owner's role to prevent room hijacking
     if (targetParticipant.role === 'Owner') {
       return res.status(400).json({ message: 'Owner role cannot be changed' });
     }
 
-    // If changing Room Leader, demote the previous Room Leader (only one allowed at a time)
+    // Security Rule 3: Single Leader Invariant — demote former Room Leader when a new one is selected
     if (newRole === 'Room Leader') {
       room.participants.forEach(p => {
         if (p.role === 'Room Leader') {
-          p.role = 'Editor'; // Demote to Editor or Viewer (using Editor as default fallback)
+          p.role = 'Editor'; // Demote previous leader back to Editor
         }
       });
     }
@@ -292,12 +359,12 @@ router.put('/:uuid/roles', protect, apiLimiter, async (req, res) => {
     targetParticipant.role = newRole;
     await room.save();
 
-    // Propagate role changes to in-memory session store atomically (NFR-19)
+    // Security: Atomic in-memory synchronization prevents race conditions on open WebSockets (NFR-19)
     if (global.updateClientRoleInMemory) {
       global.updateClientRoleInMemory(room.uuid, targetUserId, newRole);
     }
 
-    // Broadcast update to all room clients
+    // Broadcast updated roster to all connected room clients
     if (global.broadcastRoomParticipants) {
       global.broadcastRoomParticipants(room.uuid);
     }
@@ -309,9 +376,15 @@ router.put('/:uuid/roles', protect, apiLimiter, async (req, res) => {
   }
 });
 
-// @route   POST /api/rooms/:uuid/roles/grant-all
-// @desc    Grant editor access to all current viewers (Room Leader/Owner only)
-// @access  Private
+/**
+ * @route   POST /api/rooms/:uuid/roles/grant-all
+ * @desc    Grant editor access to all current viewers in the room (FR-40).
+ * @access  Private (Owner or Room Leader only)
+ * 
+ * SECURITY REASONING:
+ * Batch operation restricted to Owner and Room Leader. Synchronizes changes directly
+ * to active WebSocket sessions in memory to allow immediate collaborative editing.
+ */
 router.post('/:uuid/roles/grant-all', protect, apiLimiter, async (req, res) => {
   try {
     const room = await Room.findOne({ uuid: req.params.uuid });
@@ -332,7 +405,7 @@ router.post('/:uuid/roles/grant-all', protect, apiLimiter, async (req, res) => {
       if (p.role === 'Viewer') {
         p.role = 'Editor';
         
-        // Update in-memory session store
+        // Security: Synchronize in-memory WebSocket permissions immediately (NFR-19)
         if (global.updateClientRoleInMemory) {
           global.updateClientRoleInMemory(room.uuid, p.user.toString(), 'Editor');
         }
@@ -352,9 +425,15 @@ router.post('/:uuid/roles/grant-all', protect, apiLimiter, async (req, res) => {
   }
 });
 
-// @route   POST /api/rooms/:uuid/roles/revoke-all
-// @desc    Revoke editor access from all editors (Room Leader/Owner only)
-// @access  Private
+/**
+ * @route   POST /api/rooms/:uuid/roles/revoke-all
+ * @desc    Revoke editor access from all current editors (FR-41).
+ * @access  Private (Owner or Room Leader only)
+ * 
+ * SECURITY REASONING:
+ * Demotes Editors back to Viewers, but preserves Owner and Room Leader roles intact.
+ * Instantly shuts off editing capabilities on active WebSockets via `updateClientRoleInMemory`.
+ */
 router.post('/:uuid/roles/revoke-all', protect, apiLimiter, async (req, res) => {
   try {
     const room = await Room.findOne({ uuid: req.params.uuid });
@@ -370,12 +449,12 @@ router.post('/:uuid/roles/revoke-all', protect, apiLimiter, async (req, res) => 
       return res.status(403).json({ message: 'Unauthorized. Only Owner or Room Leader can revoke editor access.' });
     }
 
-    // Demote all Editors (except Owner and Room Leader themselves) back to Viewer
+    // Demote all Editors back to Viewer (preserving Owner and Room Leader)
     room.participants.forEach(p => {
       if (p.role === 'Editor') {
         p.role = 'Viewer';
         
-        // Update in-memory session store
+        // Security: Revoke write permissions immediately across active WebSockets
         if (global.updateClientRoleInMemory) {
           global.updateClientRoleInMemory(room.uuid, p.user.toString(), 'Viewer');
         }
@@ -395,14 +474,21 @@ router.post('/:uuid/roles/revoke-all', protect, apiLimiter, async (req, res) => 
   }
 });
 
-// @route   POST /api/rooms/:uuid/close
-// @desc    Close room (read-only) (Owner only)
-// @access  Private
+/**
+ * @route   POST /api/rooms/:uuid/close
+ * @desc    Close room to make it read-only for all participants (FR-42).
+ * @access  Private (Owner only)
+ * 
+ * SECURITY REASONING:
+ * Restricting room closure strictly to the room Owner prevents malicious collaborators or
+ * temporary leaders from freezing project progress. Emits `room_closed` event to all clients.
+ */
 router.post('/:uuid/close', protect, apiLimiter, async (req, res) => {
   try {
     const room = await Room.findOne({ uuid: req.params.uuid });
     if (!room) return res.status(404).json({ message: 'Room not found' });
     
+    // Security: Only Owner can close the room
     if (room.owner.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Unauthorized. Only the Owner can close the room.' });
     }
@@ -410,6 +496,7 @@ router.post('/:uuid/close', protect, apiLimiter, async (req, res) => {
     room.isClosed = true;
     await room.save();
 
+    // Broadcast room_closed signal to all active room clients
     if (global.broadcastToRoom) {
       global.broadcastToRoom(room.uuid, JSON.stringify({ type: 'room_closed' }));
     }
@@ -421,14 +508,20 @@ router.post('/:uuid/close', protect, apiLimiter, async (req, res) => {
   }
 });
 
-// @route   POST /api/rooms/:uuid/open
-// @desc    Re-open room (Owner only)
-// @access  Private
+/**
+ * @route   POST /api/rooms/:uuid/open
+ * @desc    Re-open a closed room to resume collaborative editing (FR-42).
+ * @access  Private (Owner only)
+ * 
+ * SECURITY REASONING:
+ * Strictly restricted to Owner. Emits `room_opened` broadcast allowing editors to resume editing.
+ */
 router.post('/:uuid/open', protect, apiLimiter, async (req, res) => {
   try {
     const room = await Room.findOne({ uuid: req.params.uuid });
     if (!room) return res.status(404).json({ message: 'Room not found' });
     
+    // Security: Only Owner can reopen the room
     if (room.owner.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Unauthorized. Only the Owner can re-open the room.' });
     }
@@ -447,19 +540,27 @@ router.post('/:uuid/open', protect, apiLimiter, async (req, res) => {
   }
 });
 
-// @route   DELETE /api/rooms/:uuid
-// @desc    Permanently delete room (Owner only)
-// @access  Private
+/**
+ * @route   DELETE /api/rooms/:uuid
+ * @desc    Permanently delete a room and its document history (FR-43).
+ * @access  Private (Owner only)
+ * 
+ * SECURITY REASONING:
+ * Permanent destructive deletion is reserved exclusively for the Owner. Dispatches a `room_deleted`
+ * broadcast to all connected WebSocket clients before database removal so peer browsers clean up
+ * their editor state and navigate back to the dashboard immediately.
+ */
 router.delete('/:uuid', protect, apiLimiter, async (req, res) => {
   try {
     const room = await Room.findOne({ uuid: req.params.uuid });
     if (!room) return res.status(404).json({ message: 'Room not found' });
     
+    // Security: Only Owner can delete the room
     if (room.owner.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Unauthorized. Only the Owner can delete the room.' });
     }
 
-    // Broadcast deletion before actually removing it
+    // Security: Broadcast deletion notice before database removal to terminate open peer sessions
     if (global.broadcastToRoom) {
       global.broadcastToRoom(room.uuid, JSON.stringify({ type: 'room_deleted' }));
     }

@@ -1,9 +1,27 @@
+/**
+ * @fileoverview Main Application Root Component (App.jsx).
+ *
+ * Coordinates top-level authentication bootstrapping, session refresh listeners (NFR-13),
+ * global route state (AuthView, DashboardView, WorkspaceView), URL parameter deep-linking,
+ * global error notifications, and document theme synchronization (FR-24).
+ *
+ * @module App
+ */
+
 import React, { useState, useEffect } from 'react';
 import AuthView from './components/AuthView';
 import DashboardView from './components/DashboardView';
 import WorkspaceView from './components/WorkspaceView';
 import { getProfile, getToken, setToken, refreshSession } from './services/api';
 
+/**
+ * Root React component for CollabIDE.
+ *
+ * Manages user authentication lifecycle, view transitions between login,
+ * dashboard, and workspace views, and document-level theme classes.
+ *
+ * @returns {React.ReactElement} The active view hierarchy.
+ */
 export default function App() {
   const [user, setUser] = useState(null);
   const [roomUuid, setRoomUuid] = useState(null);
@@ -82,10 +100,21 @@ export default function App() {
     }
   }, [user?.theme]);
 
+  /**
+   * Sets authenticated user in root state upon successful login or registration.
+   *
+   * @param {Object} authenticatedUser - Authenticated user profile.
+   */
   const handleAuthSuccess = (authenticatedUser) => {
     setUser(authenticatedUser);
   };
 
+  /**
+   * Navigates the application into the specified room workspace.
+   * Synchronizes URL query parameters to support link sharing and page reloads.
+   *
+   * @param {string} uuid - Room UUID identifier.
+   */
   const handleRoomSelect = (uuid) => {
     setRoomUuid(uuid);
     // Sync room ID to URL parameters so page refreshes persist the room workspace session
@@ -93,6 +122,9 @@ export default function App() {
     window.history.pushState({ path: newUrl }, '', newUrl);
   };
 
+  /**
+   * Navigates back from a room workspace to the main dashboard and clears URL params.
+   */
   const handleBackToDashboard = () => {
     setRoomUuid(null);
     // Clear URL parameters
@@ -100,10 +132,18 @@ export default function App() {
     window.history.pushState({ path: cleanUrl }, '', cleanUrl);
   };
 
+  /**
+   * Merges partial profile updates into active user state.
+   *
+   * @param {Object} updatedUser - Updated user properties.
+   */
   const handleUserUpdate = (updatedUser) => {
     setUser((prev) => (prev ? { ...prev, ...updatedUser } : updatedUser));
   };
 
+  /**
+   * Clears user session and navigates to the login screen.
+   */
   const handleLogout = () => {
     setUser(null);
     setRoomUuid(null);

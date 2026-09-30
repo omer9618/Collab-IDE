@@ -1,5 +1,22 @@
+/**
+ * @file models/Room.js
+ * @module models/Room
+ * @description Mongoose model for collaborative workspace rooms.
+ * 
+ * Stores:
+ * - Room metadata (name, unique UUID, owner reference)
+ * - Collaborative participants with assigned roles: Owner, Room Leader, Editor, Viewer (FR-39)
+ * - Source file tree with contents
+ * - Binary Yjs document state snapshot (`ydocState`) preserving CRDT vectors across server restarts
+ * - Capped history of code execution runs (FR-35, NFR-37)
+ * - Human presence tracking (`lastActiveAt`) for dashboard sorting (FR-14)
+ */
+
 const mongoose = require('mongoose');
 
+/**
+ * Subdocument schema representing an enrolled room participant and their collaborative role.
+ */
 const participantSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
@@ -13,6 +30,9 @@ const participantSchema = new mongoose.Schema({
   },
 });
 
+/**
+ * Subdocument schema representing an individual project file within a room workspace.
+ */
 const fileSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -40,6 +60,9 @@ const executionResultSchema = new mongoose.Schema({
   ranAt:       { type: Date,   default: Date.now },
 });
 
+/**
+ * Root Room schema definition.
+ */
 const roomSchema = new mongoose.Schema(
   {
     name: {

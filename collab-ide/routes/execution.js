@@ -1,18 +1,21 @@
 /**
- * routes/execution.js
- *
- * Code Execution Module — FR-27 to FR-33, NFR-35, NFR-43, NFR-48
- *
- * POST /api/execution/:uuid/run
- *   - Authenticated Editors and Owners can submit code for execution.
- *   - Proxies to Judge0 CE API with hard resource limits (NFR-43).
- *   - Broadcasts exec:result to all room WebSocket connections (FR-29).
- *   - Persists last 20 results in Room.executionHistory (FR-35).
- *   - Rate limited: 10 req/min/user (NFR-35).
- *
- * When EXECUTION_MOCK_MODE=true (default), returns realistic mock responses
- * without calling Judge0, so the full API surface is testable pre-key.
- * Set EXECUTION_MOCK_MODE=false and provide JUDGE0_API_KEY to enable real execution.
+ * @file routes/execution.js
+ * @module routes/execution
+ * @description Code Execution Module (FR-27 – FR-33, NFR-35, NFR-43, NFR-48).
+ * 
+ * Proxies compilation and execution requests to the remote Judge0 CE sandbox API.
+ * Broadcasts execution results live across room WebSocket connections and persists
+ * the last 20 outcomes in MongoDB.
+ * 
+ * SECURITY REASONING & ROLE ENFORCEMENT:
+ * - Viewer Role Execution Guard (FR-27): Only Editors and Owners may trigger code execution.
+ *   Viewers are strictly halted with HTTP 403 Forbidden to prevent compute resource abuse,
+ *   unauthorized quota consumption, and denial-of-service against the room's rate limits.
+ * - Resource Caps (NFR-43): Enforces strict CPU, wall time, memory, and output size caps
+ *   on every submission to neutralize infinite loops, fork bombs, and memory exhaustion.
+ * - Strict Rate Limiting (NFR-35): Capped at 10 runs per minute per user.
+ * - Room Isolation (NFR-52): Submissions and execution broadcasts are scoped strictly to
+ *   the room where the code was executed.
  */
 
 const express  = require('express');
@@ -24,7 +27,14 @@ const router = express.Router({ mergeParams: true });
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-/** Judge0 language ID map (FR-23, FR-28) */
+/**
+ * Judge0 Language ID Map (FR-23, FR-28).
+ * Maps internal language keys to their official Judge0 CE runtime IDs and descriptions.
+ * HTML/CSS uses id: null because it executes client-side in a sandboxed browser iframe (FR-33).
+ * 
+ * @constant
+ * @type {Record<string, { id: number|null, name: string }>}
+ */
 const LANGUAGE_MAP = {
   javascript: { id: 63, name: 'JavaScript (Node.js 12.14.0)' },
   python:     { id: 71, name: 'Python (3.8.1)' },
@@ -34,18 +44,40 @@ const LANGUAGE_MAP = {
   html:       { id: null, name: 'HTML/CSS (Web Browser)' },
 };
 
-/** Hard resource limits applied on every Judge0 submission (NFR-43) */
+/**
+ * Hard resource limits applied on every Judge0 submission (NFR-43).
+ * Neutralizes denial-of-service attacks, infinite loops, and memory bloat.
+ * 
+ * @constant
+ * @type {{ cpu_time_limit: number, wall_time_limit: number, memory_limit: number, max_file_size: number }}
+ */
 const JUDGE0_LIMITS = {
-  cpu_time_limit:       10,      // seconds
-  wall_time_limit:      12,      // seconds
-  memory_limit:         128000,  // KB  (128 MB)
-  max_file_size:        64,      // KB  (64 KB stdout cap)
+  cpu_time_limit:       10,      // Max 10 CPU seconds per run
+  wall_time_limit:      12,      // Max 12 wall-clock seconds before timeout kill
+  memory_limit:         128000,  // Max 128 MB RAM allocation
+  max_file_size:        64,      // Max 64 KB stdout/stderr buffer to prevent memory exhaustion
 };
 
-/** Max persisted execution results per room (NFR-37) */
+/**
+ * Maximum persisted execution results per room (NFR-37).
+ * Capped to preserve MongoDB document size limits.
+ * 
+ * @constant
+ * @type {number}
+ */
 const MAX_EXEC_HISTORY = 20;
 
 // ─── Rate Limiter (NFR-35: 10 req/min/user) ───────────────────────────────────
+
+/**
+ * Code Execution Rate Limiter — 10 runs per minute per user (NFR-35).
+ * 
+ * SECURITY REASONING:
+ * Keyed strictly per authenticated user (`req.user.userId`). This prevents malicious
+ * scripts from exhausting Judge0 API monthly quotas or tying up server thread pools.
+ * 
+ * @type {import('express').RequestHandler}
+ */
 const execLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
@@ -62,11 +94,22 @@ const execLimiter = rateLimit({
 // ─── Judge0 Submission (real mode) ────────────────────────────────────────────
 
 /**
- * Submit code to Judge0 CE synchronously using Base64 encoding.
- * Uses the /submissions endpoint with wait=true to bypass polling queue limits
- * and base64_encoded=true to support Unicode characters/emojis (FR-28, NFR-43).
+ * Submits source code to the remote Judge0 CE sandbox API synchronously using Base64 encoding.
+ * 
+ * SECURITY REASONING:
+ * 1. Base64 Encoding: Transmits source code and stdin via Base64 to support Unicode,
+ *    emojis, and non-ASCII character sets without JSON escaping errors or command injection.
+ * 2. Strict Limits Injection: Applies `JUDGE0_LIMITS` unconditionally on every API call.
+ * 3. Sanitized Decoding: Safely decodes stdout/stderr from Base64 buffers.
+ *
+ * @async
+ * @function submitToJudge0
  * @param {object} params
- * @returns {Promise<object>} Judge0 result object
+ * @param {number} params.languageId - Target Judge0 runtime ID
+ * @param {string} params.sourceCode - Raw source code string
+ * @param {string} [params.stdin=''] - Optional standard input stream
+ * @returns {Promise<{ stdout: string, stderr: string, status: object, time: string|null, memory: number|null }>}
+ * @throws {Error} When Judge0 API rejects the request or fails
  */
 async function submitToJudge0({ languageId, sourceCode, stdin }) {
   const apiUrl  = process.env.JUDGE0_API_URL;
@@ -116,11 +159,13 @@ async function submitToJudge0({ languageId, sourceCode, stdin }) {
 // ─── Mock Executor (mock mode) ────────────────────────────────────────────────
 
 /**
- * Returns a realistic mock Judge0 result without hitting the API.
- * Used when EXECUTION_MOCK_MODE=true.
- * @param {string} languageKey
- * @param {string} sourceCode
- * @returns {object} Simulated Judge0 result
+ * Generates realistic simulated Judge0 execution outcomes without hitting external APIs.
+ * Active when `EXECUTION_MOCK_MODE=true` to enable complete API testing without consuming API credits.
+ *
+ * @function getMockResult
+ * @param {string} languageKey - Language identifier
+ * @param {string} sourceCode - Submitted code
+ * @returns {{ stdout: string, stderr: string, status: { description: string }, time: string|null, memory: number|null }}
  */
 function getMockResult(languageKey, sourceCode) {
   // Simulate a timeout for code containing 'while True' or 'for(;;)'
@@ -167,10 +212,19 @@ function getMockResult(languageKey, sourceCode) {
 // ─── POST /api/execution/:uuid/run ────────────────────────────────────────────
 
 /**
- * @route  POST /api/execution/:uuid/run
- * @desc   Execute code in a specific room. Must be Editor or Owner.
- *         Broadcasts result to all room participants via WebSocket (FR-29).
- * @access Private
+ * @route   POST /api/execution/:uuid/run
+ * @desc    Execute code in a specific room. Broadcasts results via WebSocket (FR-27 – FR-33).
+ * @access  Private (Editors and Owners only)
+ * 
+ * ROLE ENFORCEMENT & SECURITY REASONING (FR-27, NFR-25):
+ * 1. Membership Verification: User must be an enrolled participant in `room.participants`.
+ * 2. Role Barrier: If `member.role === 'Viewer'`, execution is strictly denied with HTTP 403 Forbidden.
+ *    Viewers are read-only observers and must not be allowed to consume server/Judge0 compute
+ *    resources, initiate remote code execution, or flood the room's execution history.
+ * 3. HTML/CSS Browser Preview Bypass (FR-33): HTML/CSS code is executed directly in the browser's
+ *    sandboxed iframe and bypasses the Judge0 remote sandbox entirely, eliminating external latency.
+ * 4. WebSocket Broadcast (FR-29): The canonical result is broadcast to all participants in the room
+ *    via `global.broadcastToRoom` to provide real-time shared output.
  */
 router.post('/:uuid/run', protect, execLimiter, async (req, res) => {
   try {
@@ -203,7 +257,7 @@ router.post('/:uuid/run', protect, execLimiter, async (req, res) => {
       return res.status(403).json({ message: 'Access denied. You are not a member of this room.' });
     }
 
-    // Viewers cannot run code (FR-27)
+    // Security: Viewers cannot execute code (FR-27). Prevents compute abuse by read-only users.
     if (member.role === 'Viewer') {
       return res.status(403).json({ message: 'Viewers cannot execute code. Ask the Room Leader to promote you to Editor.' });
     }
@@ -212,6 +266,7 @@ router.post('/:uuid/run', protect, execLimiter, async (req, res) => {
     let rawResult;
     const isMock = process.env.EXECUTION_MOCK_MODE === 'true';
 
+    // FR-33: HTML/CSS executes client-side in a sandboxed iframe without remote compilation
     if (languageKey === 'html' || langEntry.id === null) {
       rawResult = {
         stdout: 'HTML/CSS is executed directly in the browser preview pane (FR-33).\nNo remote sandbox compilation required.\n',
@@ -221,7 +276,7 @@ router.post('/:uuid/run', protect, execLimiter, async (req, res) => {
         memory: 0,
       };
     } else if (isMock) {
-      // Small simulated delay for realism
+      // Small simulated delay for realism in mock mode
       await new Promise(r => setTimeout(r, 300 + Math.random() * 400));
       rawResult = getMockResult(languageKey, code);
     } else {
@@ -232,7 +287,7 @@ router.post('/:uuid/run', protect, execLimiter, async (req, res) => {
       });
     }
 
-    // ── Build the canonical result payload ─────────────────────────────────────
+    // ── Build canonical result payload ─────────────────────────────────────────
     const executorUser = room.participants.find(p => {
       const pId = p.user._id ? p.user._id.toString() : p.user.toString();
       return pId === req.user._id.toString();
@@ -263,7 +318,7 @@ router.post('/:uuid/run', protect, execLimiter, async (req, res) => {
       memory:      result.memory,
     });
 
-    // Trim to keep only the last N results
+    // Trim to keep only the last N results (NFR-37)
     if (room.executionHistory.length > MAX_EXEC_HISTORY) {
       room.executionHistory = room.executionHistory.slice(-MAX_EXEC_HISTORY);
     }
@@ -287,10 +342,13 @@ router.post('/:uuid/run', protect, execLimiter, async (req, res) => {
 // ─── GET /api/execution/:uuid/history ─────────────────────────────────────────
 
 /**
- * @route  GET /api/execution/:uuid/history
- * @desc   Return the last N execution results for a room (FR-35).
- *         Used to hydrate the output panel when a user joins.
- * @access Private — any room member
+ * @route   GET /api/execution/:uuid/history
+ * @desc    Return the last N execution results for a room (FR-35).
+ * @access  Private (Any room member)
+ * 
+ * SECURITY REASONING:
+ * Sourced from MongoDB `executionHistory`. Allows late-joining members to hydrate their
+ * output console with recent run history. Strictly verified by membership guard (NFR-25).
  */
 router.get('/:uuid/history', protect, async (req, res) => {
   try {
@@ -298,6 +356,7 @@ router.get('/:uuid/history', protect, async (req, res) => {
     const room = await Room.findOne({ uuid }, 'participants executionHistory');
     if (!room) return res.status(404).json({ message: 'Room not found.' });
 
+    // Security: Verify requesting user is a member of the room
     const isMember = room.participants.some(p => {
       const pId = p.user._id ? p.user._id.toString() : p.user.toString();
       return pId === req.user._id.toString();
