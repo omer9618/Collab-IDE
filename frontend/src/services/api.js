@@ -39,7 +39,7 @@ export async function ensureCsrfToken() {
         credentials: 'include',
       });
       if (res.ok) {
-        const data = await res.json();
+        const data = await safeJson(res);
         return data.csrfToken || getCsrfToken();
       }
       return getCsrfToken();
@@ -97,7 +97,7 @@ export async function refreshSession() {
         credentials: 'include',
       });
       if (refreshRes.ok) {
-        const refreshData = await refreshRes.json();
+        const refreshData = await safeJson(refreshRes);
         setToken(refreshData.accessToken);
         return refreshData.accessToken;
       } else {
@@ -107,7 +107,7 @@ export async function refreshSession() {
           window.dispatchEvent(new Event('auth-expired'));
         } else if (refreshRes.status === 429) {
           try {
-            const data = await refreshRes.json();
+            const data = await safeJson(refreshRes);
             window.dispatchEvent(new CustomEvent('api-error', { detail: data.message || 'API rate limit exceeded.' }));
           } catch(e) {}
         }
@@ -265,7 +265,7 @@ export function formatErrorMessage(err, fallback = 'An unexpected error occurred
  */
 async function safeJson(res, fallback = 'An unexpected server error occurred. Please try again.') {
   try {
-    return await res.json();
+    return await safeJson(res);
   } catch (e) {
     throw new Error(fallback);
   }
@@ -310,7 +310,7 @@ async function request(path, options = {}) {
   if (res.status === 429) {
     try {
       const clone = res.clone();
-      const data = await clone.json();
+      const data = await safeJson(clone);
       window.dispatchEvent(new CustomEvent('api-error', { detail: data.message || 'You have made too many requests. Please wait a moment.' }));
     } catch(e) {
       window.dispatchEvent(new CustomEvent('api-error', { detail: 'You have made too many requests. Please wait a moment.' }));
@@ -344,7 +344,7 @@ async function request(path, options = {}) {
  */
 export async function getAuthConfig() {
   const res = await request('/auth/config');
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Failed to fetch auth config');
   return data;
 }
@@ -359,7 +359,7 @@ export async function getAuthConfig() {
  */
 export async function checkEmail(email) {
   const res = await request(`/auth/check-email?email=${encodeURIComponent(email)}`);
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Email check failed');
   return data;
 }
@@ -377,7 +377,7 @@ export async function googleLogin(accessToken) {
     method: 'POST',
     body: JSON.stringify({ accessToken }),
   });
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Google login failed');
   setToken(data.accessToken);
   return data;
@@ -400,7 +400,7 @@ export async function registerUser({ email, password, displayName, avatarColor }
     method: 'POST',
     body: JSON.stringify({ email, password, displayName, avatarColor }),
   });
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Registration failed');
   return data;
 }
@@ -417,7 +417,7 @@ export async function verifyEmail(token) {
   const res = await request(`/auth/verify?token=${encodeURIComponent(token)}&format=json`, {
     headers: { 'Accept': 'application/json' },
   });
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Email verification failed');
   return data;
 }
@@ -437,7 +437,7 @@ export async function loginUser({ email, password }) {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Login failed');
   setToken(data.accessToken);
   return data;
@@ -476,7 +476,7 @@ export async function logoutAllDevices() {
  */
 export async function getProfile() {
   const res = await request('/auth/me');
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Failed to get profile');
   return data.user;
 }
@@ -494,7 +494,7 @@ export async function requestPasswordReset(email) {
     method: 'POST',
     body: JSON.stringify({ email }),
   });
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Failed to request password reset');
   return data;
 }
@@ -509,7 +509,7 @@ export async function requestPasswordReset(email) {
  */
 export async function validateResetToken(token) {
   const res = await request(`/auth/reset-password/validate?token=${encodeURIComponent(token)}`);
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Invalid or expired reset token');
   return data;
 }
@@ -529,7 +529,7 @@ export async function resetPassword({ token, newPassword }) {
     method: 'POST',
     body: JSON.stringify({ token, newPassword }),
   });
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Failed to reset password');
   return data;
 }
@@ -547,7 +547,7 @@ export async function validatePasswordApi(password) {
     method: 'POST',
     body: JSON.stringify({ password }),
   });
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Password validation failed');
   return data;
 }
@@ -567,7 +567,7 @@ export async function changePassword({ currentPassword, newPassword }) {
     method: 'POST',
     body: JSON.stringify({ currentPassword, newPassword }),
   });
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Failed to update password');
   return data;
 }
@@ -588,7 +588,7 @@ export async function updateProfile({ displayName, avatarColor, theme }) {
     method: 'PUT',
     body: JSON.stringify({ displayName, avatarColor, theme }),
   });
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Failed to update profile');
   return data.user;
 }
@@ -606,7 +606,7 @@ export async function requestEmailChange(newEmail) {
     method: 'POST',
     body: JSON.stringify({ newEmail }),
   });
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Failed to request email change');
   return data;
 }
@@ -622,7 +622,7 @@ export async function cancelEmailChange() {
   const res = await request('/auth/cancel-email-change', {
     method: 'POST',
   });
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Failed to cancel email change');
   return data.user;
 }
@@ -636,7 +636,7 @@ export async function cancelEmailChange() {
  */
 export async function getSessions() {
   const res = await request('/auth/sessions');
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Failed to get sessions');
   return data.sessions;
 }
@@ -651,7 +651,7 @@ export async function getSessions() {
  */
 export async function revokeSession(id) {
   const res = await request(`/auth/sessions/${id}`, { method: 'DELETE' });
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Failed to revoke session');
   return data;
 }
@@ -665,7 +665,7 @@ export async function revokeSession(id) {
  */
 export async function revokeAllOtherSessions() {
   const res = await request('/auth/sessions', { method: 'DELETE' });
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Failed to revoke other sessions');
   return data;
 }
@@ -683,7 +683,7 @@ export async function revokeAllOtherSessions() {
 export async function getRooms(search = '') {
   const query = search && search.trim() ? `?search=${encodeURIComponent(search.trim())}` : '';
   const res = await request(`/rooms${query}`);
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Failed to fetch rooms');
   return Array.isArray(data) ? data : (data.rooms || []);
 }
@@ -697,7 +697,7 @@ export async function getRooms(search = '') {
  */
 export async function getRoomsPresence() {
   const res = await request('/rooms/presence');
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Failed to fetch room presence');
   return data.presence || {};
 }
@@ -715,7 +715,7 @@ export async function createRoom(name) {
     method: 'POST',
     body: JSON.stringify({ name }),
   });
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Failed to create room');
   return data;
 }
@@ -730,7 +730,7 @@ export async function createRoom(name) {
  */
 export async function joinRoom(uuid) {
   const res = await request(`/rooms/${uuid}/join`, { method: 'POST' });
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Failed to join room');
   return data;
 }
@@ -745,7 +745,7 @@ export async function joinRoom(uuid) {
  */
 export async function getRoomDetails(uuid) {
   const res = await request(`/rooms/${uuid}`);
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Failed to fetch room details');
   return data;
 }
@@ -765,7 +765,7 @@ export async function promoteMember(uuid, targetUserId, role) {
     method: 'PUT',
     body: JSON.stringify({ targetUserId, newRole: role }),
   });
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Failed to change role');
   return data;
 }
@@ -780,7 +780,7 @@ export async function promoteMember(uuid, targetUserId, role) {
  */
 export async function closeRoom(uuid) {
   const res = await request(`/rooms/${uuid}/close`, { method: 'POST' });
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Failed to close room');
   return data;
 }
@@ -795,7 +795,7 @@ export async function closeRoom(uuid) {
  */
 export async function openRoom(uuid) {
   const res = await request(`/rooms/${uuid}/open`, { method: 'POST' });
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Failed to open room');
   return data;
 }
@@ -810,7 +810,7 @@ export async function openRoom(uuid) {
  */
 export async function deleteRoom(uuid) {
   const res = await request(`/rooms/${uuid}`, { method: 'DELETE' });
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Failed to delete room');
   return data;
 }
@@ -834,7 +834,7 @@ export async function runCode(uuid, { code, language, stdin }) {
     method: 'POST',
     body: JSON.stringify({ code, language, stdin }),
   });
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Execution error');
   return data.result;
 }
@@ -849,7 +849,7 @@ export async function runCode(uuid, { code, language, stdin }) {
  */
 export async function getExecutionHistory(uuid) {
   const res = await request(`/execution/${uuid}/history`);
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Failed to fetch execution history');
   return data.history;
 }
@@ -866,7 +866,7 @@ export async function getExecutionHistory(uuid) {
  */
 export async function getVoiceCredentials(uuid) {
   const res = await request(`/voice/${uuid}/credentials`);
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Failed to fetch voice credentials');
   return data;
 }
@@ -881,7 +881,8 @@ export async function getVoiceCredentials(uuid) {
  */
 export async function getVoiceParticipants(uuid) {
   const res = await request(`/voice/${uuid}/participants`);
-  const data = await res.json();
+  const data = await safeJson(res);
   if (!res.ok) throw new Error(data.message || 'Failed to fetch voice participants');
   return data;
 }
+
