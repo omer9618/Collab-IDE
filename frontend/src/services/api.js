@@ -13,7 +13,7 @@
 
 const API_BASE = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
   ? '/api' 
-  : 'https://collabide-backend-avau.onrender.com/api';
+  : (import.meta.env.VITE_BACKEND_URL ? `${import.meta.env.VITE_BACKEND_URL}/api` : '/api');
 
 let accessToken = null;
 let refreshTimeoutId = null;

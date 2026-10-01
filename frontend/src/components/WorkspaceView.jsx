@@ -326,7 +326,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
       ? `ws://${window.location.hostname}:3000` 
       : (isLocal 
           ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws` 
-          : 'wss://collabide-backend-avau.onrender.com');
+          : (import.meta.env.VITE_WS_BACKEND_URL ? import.meta.env.VITE_WS_BACKEND_URL : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`));
 
     const providerInstance = new WebsocketProvider(wsUrl, roomUuid, yDocInstance, {
       params: { token: getToken() },

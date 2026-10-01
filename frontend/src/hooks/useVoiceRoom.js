@@ -154,7 +154,7 @@ export function useVoiceRoom({ roomUuid, showToast }) {
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       const backendUrl = isViteDev 
         ? 'http://localhost:3000' 
-        : (isLocal ? window.location.origin : 'https://collabide-backend-avau.onrender.com');
+        : (isLocal ? window.location.origin : (import.meta.env.VITE_BACKEND_URL || window.location.origin));
 
       const socket = io(backendUrl + '/voice', {
         auth: { token: freshToken },
