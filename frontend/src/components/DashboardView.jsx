@@ -819,7 +819,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
       {/* Create Room Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm">
-          <div className="w-full max-w-[440px] bg-surface-panel border border-outline-subtle rounded-radius-lg p-6 shadow-2xl space-y-4">
+          <div className="w-full max-w-[440px] max-h-[90vh] overflow-y-auto bg-surface-panel border border-outline-subtle rounded-radius-lg p-6 shadow-2xl space-y-4">
             <div className="flex justify-between items-center border-b border-[#2b2b2b] pb-3">
               <h3 className="text-text-base font-semibold text-on-surface">Create a new room</h3>
               <button onClick={() => setShowCreateModal(false)} className="text-text-muted hover:text-text-primary">

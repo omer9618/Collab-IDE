@@ -143,11 +143,9 @@ async function runTestSuite() {
 
   // 2. Start server on an isolated port
   const testPort = 3196;
-  process.env.PORT = testPort;
   const { server } = require('../server');
   if (!server.listening) {
-    server.listen(testPort);
-    await new Promise((resolve) => server.once('listening', resolve));
+    await new Promise((resolve) => server.listen(testPort, resolve));
   }
   const baseUrl = `http://localhost:${testPort}`;
   const wsBaseUrl = `ws://localhost:${testPort}`;

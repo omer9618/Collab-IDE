@@ -2434,6 +2434,41 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
         </div>
       )}
 
+      {/* Room Capacity Exceeded Modal (NFR-36) */}
+      {showCapacityModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in duration-200">
+          <div className="bg-[#1f2020] border border-amber-500/40 w-full max-w-sm max-h-[85vh] overflow-y-auto rounded-xl shadow-2xl flex flex-col text-center p-6">
+            <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto mb-4 border border-amber-500/20">
+              <Users size={24} />
+            </div>
+            <h2 className="text-text-lg font-bold text-on-surface mb-2">Room Capacity Exceeded</h2>
+            <p className="text-text-sm text-text-muted leading-relaxed mb-6">
+              {capacityErrorMessage || 'This room has reached its maximum limit of 20 simultaneous connections. Please try again later or contact the room owner.'}
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                className="w-full px-4 py-2 bg-accent-blue hover:bg-blue-600 text-white rounded-md text-text-sm font-medium transition-colors"
+                onClick={() => {
+                  setShowCapacityModal(false);
+                  onBack();
+                }}
+              >
+                Return to Dashboard
+              </button>
+              <button
+                className="w-full px-4 py-2 bg-[#2d3139] hover:bg-[#3d424d] text-on-surface rounded-md text-text-sm font-medium transition-colors"
+                onClick={() => {
+                  setShowCapacityModal(false);
+                  window.location.reload();
+                }}
+              >
+                Retry Connection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* File Options Menu */}
       {activeFileMenu && (
         <>

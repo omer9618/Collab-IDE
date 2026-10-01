@@ -8,7 +8,6 @@ const mongoose = require('mongoose');
 
 /**
  * Resolves database connection pool configuration from environment variables
- * with origin tracking and fail-fast validation (NFR-40).
  *
  * @function resolvePoolConfig
  * @param {object} [env=process.env] - Environment configuration object
