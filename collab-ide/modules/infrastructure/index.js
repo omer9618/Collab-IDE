@@ -21,9 +21,12 @@ const logger = require('../../utils/logger');
 const encryption = require('../../utils/encryption');
 const csrf = require('../../middleware/csrf');
 const errorHandler = require('../../middleware/errorHandler');
+const env = require('../../config/env');
 
 module.exports = {
   name: 'infrastructure',
+  config: env,
+  env,
   rateLimiting: {
     apiLimiter,
     createRateLimiter,

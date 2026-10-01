@@ -1021,7 +1021,7 @@ router.get('/verify-mock', async (req, res) => {
 // @access  Public
 router.get('/config', (req, res) => {
   res.json({
-    googleClientId: process.env.GOOGLE_CLIENT_ID || '1017941060498-95godc626a0qvjsfpegp9dthnnafs5j6.apps.googleusercontent.com'
+    googleClientId: process.env.GOOGLE_CLIENT_ID || null
   });
 });
 

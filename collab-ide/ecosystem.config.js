@@ -24,10 +24,12 @@ module.exports = {
       // Automatic memory threshold restart (NFR-32)
       max_memory_restart: '512M',
       
-      // Automatic crash recovery
+      // Automatic crash recovery & crash-loop protection (NFR-32, NFR-49)
       autorestart: true,
-      max_restarts: 10,
+      max_restarts: 3,
+      min_uptime: 5000,
       restart_delay: 2000,
+      exp_backoff_restart_delay: 1000,
       
       // Log formatting and rotation (NFR-32)
       merge_logs: true,

@@ -12,7 +12,15 @@
  * - Graceful process termination and buffer flushing (NFR-38)
  */
 
-require('dotenv').config();
+if (process.env.SKIP_DOTENV !== 'true') {
+  require('dotenv').config();
+}
+
+// Fail-Fast Environment Configuration Validator (NFR-49)
+// Must execute before any subsystem, database connection, or socket initializes
+const { validateEnv } = require('./config/env');
+validateEnv(process.env, { exitOnError: true });
+
 const logger = require('./utils/logger');
 // NFR-23: Install universal console interceptor to sanitize logs and enforce chmod 640 storage
 logger.installGlobalInterceptor();
