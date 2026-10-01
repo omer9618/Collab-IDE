@@ -790,12 +790,12 @@ class RoomManager {
 
 const roomManager = new RoomManager();
 
-module.exports = {
-  roomManager,
-  RoomSession,
-  RoomManager,
-  saveRoomStateToDB,
-  MAX_WS_FRAME_BYTES,
-  MAX_MSGS_PER_SEC_PER_CLIENT,
-  FLOOD_THRESHOLD_PER_SEC,
-};
+roomManager.roomManager = roomManager;
+roomManager.RoomSession = RoomSession;
+roomManager.RoomManager = RoomManager;
+roomManager.saveRoomStateToDB = saveRoomStateToDB;
+roomManager.MAX_WS_FRAME_BYTES = MAX_WS_FRAME_BYTES;
+roomManager.MAX_MSGS_PER_SEC_PER_CLIENT = MAX_MSGS_PER_SEC_PER_CLIENT;
+roomManager.FLOOD_THRESHOLD_PER_SEC = FLOOD_THRESHOLD_PER_SEC;
+
+module.exports = roomManager;

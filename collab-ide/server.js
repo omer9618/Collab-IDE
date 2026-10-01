@@ -46,6 +46,7 @@ const connectDB = async () => {
     const conn = await mongoose.connect(connUri, {
       maxPoolSize: parseInt(process.env.MONGO_MAX_POOL_SIZE || '20', 10),
       minPoolSize: parseInt(process.env.MONGO_MIN_POOL_SIZE || '5', 10),
+      maxIdleTimeMS: parseInt(process.env.MONGO_MAX_IDLE_TIME_MS || '30000', 10),
     });
     console.log(`🔌 MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
@@ -62,6 +63,8 @@ const authRoutes      = require('./routes/auth');
 const roomRoutes      = require('./routes/rooms');
 const executionRoutes = require('./routes/execution');
 const voiceRoutes     = require('./routes/voice');
+const { createHealthRouter } = require('./routes/health');
+const { getHealthMetrics } = require('./services/healthCheck');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
 const app = express();
@@ -83,6 +86,23 @@ initVoiceSignalling(io);
 connectDB();
 
 const { csrfProtection } = require('./middleware/csrf');
+
+let isShuttingDown = false;
+
+// NFR-38: Ingress cutoff during graceful shutdown
+app.use((req, res, next) => {
+  if (isShuttingDown) {
+    res.set('Connection', 'close');
+    if (req.path === '/health' || req.path === '/health/') {
+      return next();
+    }
+    return res.status(503).json({
+      error: 'Server is shutting down',
+      code: 'SERVER_SHUTTING_DOWN',
+    });
+  }
+  next();
+});
 
 // Global Middlewares
 app.use(cors({
@@ -119,38 +139,23 @@ app.use('/api/voice',     voiceRoutes);
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-let isShuttingDown = false;
+function getMaxWsPerRoom() {
+  const envVal = parseInt(process.env.MAX_WS_PER_ROOM || process.env.ROOM_WS_LIMIT, 10);
+  return Number.isFinite(envVal) && envVal > 0 ? envVal : 20;
+}
 
 /**
- * Health Check Endpoint (NFR-39).
- * Returns system health, process uptime, memory allocations, and active collaborative room count.
+ * Health Check Endpoint (NFR-39, NFR-48).
+ * Modular health check route unauthenticated and unthrottled for process managers and monitors.
  * 
  * @route GET /health
  */
-app.get('/health', (req, res) => {
-  if (isShuttingDown) {
-    return res.status(503).json({ status: 'shutting_down' });
-  }
-  const mongoose = require('mongoose');
-  const client = mongoose.connection.getClient ? mongoose.connection.getClient() : null;
-  res.json({
-    status: 'healthy',
-    uptime: process.uptime(),
-    memoryUsage: process.memoryUsage(),
-    activeRooms: roomManager.rooms.size,
-    activeWebSockets: roomManager.getTotalActiveWebSockets(),
-    maxWsPerRoom: getMaxWsPerRoom(),
-    roomIsolation: {
-      rooms: roomManager.getDiagnostics(),
-    },
-    database: {
-      connected: mongoose.connection.readyState === 1,
-      minPoolSize: client?.options?.minPoolSize ?? 5,
-      maxPoolSize: client?.options?.maxPoolSize ?? 20,
-      maxIdleTimeMS: client?.options?.maxIdleTimeMS ?? 30000,
-    },
-  });
+const healthRouter = createHealthRouter({
+  getIsShuttingDown: () => isShuttingDown,
+  roomManager,
+  getMaxWsPerRoom,
 });
+app.use('/health', healthRouter);
 
 // 404 Handler for Unmatched API Endpoints (NFR-47)
 app.use('/api', notFoundHandler);
@@ -160,11 +165,6 @@ app.use(errorHandler);
 
 // Initialize WebSocket Server
 const wss = new WebSocket.Server({ noServer: true });
-
-function getMaxWsPerRoom() {
-  const envVal = parseInt(process.env.MAX_WS_PER_ROOM || process.env.ROOM_WS_LIMIT, 10);
-  return Number.isFinite(envVal) && envVal > 0 ? envVal : 20;
-}
 
 function getRoomConnectionCount(roomUuid, excludeWs = null) {
   return roomManager.getRoomConnectionCount(roomUuid, excludeWs);
@@ -473,6 +473,13 @@ wss.on('connection', async (ws, req) => {
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
+// IPC shutdown trigger support (for automated test runners & orchestrators)
+process.on('message', (msg) => {
+  if (msg === 'shutdown' || msg?.action === 'shutdown') {
+    gracefulShutdown('SIGTERM');
+  }
+});
+
 /**
  * Handles graceful process termination on SIGTERM/SIGINT signals (NFR-38).
  * Flushes all pending in-memory Yjs documents to MongoDB before terminating
@@ -484,29 +491,73 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
  * @returns {Promise<void>}
  */
 async function gracefulShutdown(signal = 'SIGTERM') {
-  if (isShuttingDown) return;
-  isShuttingDown = true;
-  console.log(`\n🛑 ${signal} received. Commencing graceful shutdown...`);
+  if (isShuttingDown) {
+    // In local development, a second Ctrl+C forces immediate termination
+    if (process.env.NODE_ENV !== 'production' && signal === 'SIGINT') {
+      console.warn('\n⚠️  Second SIGINT received in development. Forcing immediate termination.');
+      process.exit(1);
+    }
+    console.log(`\n⚠️  ${signal} received while already shutting down. Ignoring redundant signal.`);
+    return;
+  }
 
-  // 10s watchdog timer to force exit if persistence hangs (NFR-38)
+  isShuttingDown = true;
+  console.log(`\n🛑 ${signal} received. Commencing graceful shutdown (NFR-38)...`);
+
+  // Track pending rooms for diagnostic reporting if watchdog triggers
+  const pendingRooms = new Set(roomManager.rooms.keys());
+
+  // Watchdog timer: default 10,000ms per NFR-38 specification (configurable via SHUTDOWN_TIMEOUT_MS)
+  const SHUTDOWN_TIMEOUT_MS = parseInt(process.env.SHUTDOWN_TIMEOUT_MS, 10) || 10000;
   const watchdog = setTimeout(() => {
-    console.error('⚠️ Watchdog timeout: Graceful shutdown exceeded 10s. Forcing exit.');
+    console.error(`\n❌ Watchdog timeout (${SHUTDOWN_TIMEOUT_MS}ms limit reached). Forcing exit.`);
+    if (pendingRooms.size > 0) {
+      console.error(`⚠️  Unpersisted or in-flight rooms at termination: [${Array.from(pendingRooms).join(', ')}]`);
+    }
     process.exit(1);
-  }, 10000);
+  }, SHUTDOWN_TIMEOUT_MS);
   if (watchdog.unref) watchdog.unref();
 
   try {
-    // 1. Close WebSocket server to reject new connections
-    wss.close();
+    // 1. Immediately terminate idle HTTP keep-alive connections so server.close() is not stalled
+    if (typeof server.closeIdleConnections === 'function') {
+      server.closeIdleConnections();
+    }
 
-    // 2. Persist all active room documents to MongoDB (NFR-38, NFR-52)
+    // 2. Stop accepting new TCP connections immediately
+    const closeServerPromise = new Promise((resolve) => {
+      server.close((err) => {
+        if (err) console.error('Error closing HTTP server:', err.message);
+        else console.log('🚪 HTTP/Express server closed to new connections.');
+        resolve();
+      });
+    });
+
+    // 3. Gracefully notify and close active real-time connections (WebSockets & Socket.IO)
+    try {
+      wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.close(1001, 'Server shutting down'); // 1001 = Going Away
+        }
+      });
+      wss.close(() => console.log('🔌 WebSocket server closed.'));
+
+      io.disconnectSockets(true);
+      io.close(() => console.log('🎙️  Socket.IO voice server closed.'));
+    } catch (err) {
+      console.error('Error closing real-time connections:', err.message);
+    }
+
+    // 4. Persist all active room documents to MongoDB (NFR-38, NFR-52)
+    console.log(`💾 Persisting ${pendingRooms.size} active Yjs room documents to MongoDB...`);
     await roomManager.persistAllRooms();
     console.log(`💾 Yjs persistence complete. Remaining active rooms: ${roomManager.rooms.size}`);
+    pendingRooms.clear();
 
-    // 3. Close HTTP server
-    await new Promise((resolve) => server.close(resolve));
+    // 5. Await complete drain of any in-flight HTTP requests
+    await closeServerPromise;
 
-    // 4. Gracefully close MongoDB connection pool (NFR-40)
+    // 6. Gracefully close MongoDB connection pool (NFR-40)
     const mongoose = require('mongoose');
     if (mongoose.connection.readyState !== 0) {
       try {
@@ -532,8 +583,12 @@ if (require.main === module) {
   server.listen(PORT, () => {
     console.log(`\n✅  Collide Backend → http://localhost:${PORT}`);
     console.log(`⚡  JWT Asymmetric signatures initialized.\n`);
+    // PM2 readiness notification (NFR-32, NFR-39)
+    if (typeof process.send === 'function') {
+      process.send('ready');
+    }
   });
 }
 
-module.exports = { app, server, connectDB };
+module.exports = { app, server, connectDB, getHealthMetrics };
 
