@@ -178,6 +178,8 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
   const [capacityErrorMessage, setCapacityErrorMessage] = useState('');
   const [settingsError, setSettingsError] = useState('');
   const [consoleTab, setConsoleTab] = useState('output'); // output, terminal, problems
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showOnboardingBanner, setShowOnboardingBanner] = useState(() => !localStorage.getItem('collabide_seen_onboarding'));
 
   // Editor font size state and persistence (FR-26)
   const [editorFontSize, setEditorFontSize] = useState(() => {
@@ -1091,6 +1093,15 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
 
         <div className="flex items-center gap-1.5 shrink-0 ml-2">
           <button
+            onClick={() => setShowInviteModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-accent-blue bg-accent-blue/10 hover:bg-accent-blue/20 border border-accent-blue/30 text-[9px] font-medium rounded-md transition-all shadow-sm"
+            title="Share room invite link or code (NFR-45)"
+          >
+            <Share2 size={12} />
+            <span>Share</span>
+          </button>
+
+          <button
             onClick={handleRunCode}
             disabled={isRunning || role === 'Viewer' || !activeFile || activeFile.endsWith('.md')}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-white text-[9px] font-medium rounded-md transition-all shadow-sm ${
@@ -1446,6 +1457,32 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
 
         {/* Editor center workspace */}
         <main className="flex-1 flex flex-col min-w-[380px] bg-surface relative overflow-hidden">
+          {showOnboardingBanner && (
+            <div className="bg-[#182334] border-b border-accent-blue/30 px-4 py-2 flex items-center justify-between text-on-surface text-[11px] gap-3 shrink-0 animate-in slide-in-from-top-2">
+              <div className="flex items-center gap-2.5 overflow-hidden">
+                <span className="material-symbols-outlined text-[18px] text-accent-blue shrink-0">rocket_launch</span>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-on-surface-variant text-[11px]">
+                  <span className="font-semibold text-on-surface">Quick Start:</span>
+                  <span>✍️ Type to edit live</span>
+                  <span>•</span>
+                  <span>👥 Click <strong className="text-accent-blue">Share</strong> to invite peers</span>
+                  <span>•</span>
+                  <span>▶️ Click <strong className="text-accent-blue">Run</strong> to execute</span>
+                  <span>•</span>
+                  <span>🎙️ Click <strong className="text-accent-blue">Join Voice</strong> to talk</span>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowOnboardingBanner(false);
+                  localStorage.setItem('collabide_seen_onboarding', 'true');
+                }}
+                className="px-2.5 py-0.5 bg-accent-blue text-white rounded text-[10px] font-semibold hover:bg-blue-600 transition-colors shrink-0"
+              >
+                Got it!
+              </button>
+            </div>
+          )}
           <div className="flex-1 min-h-[200px] relative overflow-hidden">
             {!activeFile ? (
               <div className="w-full h-full flex flex-col items-center justify-center bg-surface-panel select-none">
@@ -2271,6 +2308,95 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
             >
               Return to Dashboard
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Invite / Share Modal (NFR-45) */}
+      {showInviteModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-surface-panel border border-outline-subtle w-full max-w-md rounded-xl overflow-hidden shadow-2xl flex flex-col">
+            <div className="px-5 py-3.5 border-b border-outline-subtle flex items-center justify-between bg-[#121414]/60">
+              <div className="flex items-center gap-2">
+                <Share2 size={18} className="text-accent-blue" />
+                <h2 className="text-text-base font-bold text-on-surface">Invite Collaborators</h2>
+              </div>
+              <button 
+                className="p-1 rounded-md text-on-surface-muted hover:bg-surface-elevated hover:text-on-surface transition-colors"
+                onClick={() => setShowInviteModal(false)}
+                title="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <p className="text-xs text-on-surface-variant leading-relaxed">
+                Invite friends and teammates to this room. Anyone with the link can join directly in their browser with zero plugins or installation required.
+              </p>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase font-bold text-on-surface-muted tracking-wider">
+                  Invite Link
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={window.location.href}
+                    className="flex-1 bg-surface border border-outline-subtle rounded-md px-3 py-1.5 text-xs text-on-surface select-all outline-none focus:border-accent-blue"
+                  />
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(window.location.href);
+                      showToast('Invite link copied to clipboard!', 'success');
+                    }}
+                    className="px-3 py-1.5 bg-accent-blue text-white rounded-md text-xs font-semibold hover:bg-blue-600 transition-colors flex items-center gap-1.5 shrink-0"
+                  >
+                    <Copy size={13} />
+                    <span>Copy</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase font-bold text-on-surface-muted tracking-wider">
+                  Room Code
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={roomUuid}
+                    className="flex-1 bg-surface border border-outline-subtle rounded-md px-3 py-1.5 text-xs text-on-surface font-mono select-all outline-none focus:border-accent-blue"
+                  />
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(roomUuid);
+                      showToast('Room code copied to clipboard!', 'success');
+                    }}
+                    className="px-3 py-1.5 bg-[#252626] border border-outline-subtle text-on-surface hover:text-white rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 shrink-0"
+                  >
+                    <Copy size={13} />
+                    <span>Copy Code</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-3 bg-accent-blue/10 border border-accent-blue/20 rounded-lg text-[11px] text-accent-blue flex items-center gap-2">
+                <span className="material-symbols-outlined text-[16px]">info</span>
+                <span>Teammates can paste this code or link into their Dashboard to join instantly.</span>
+              </div>
+            </div>
+
+            <div className="px-5 py-3 border-t border-outline-subtle bg-[#121414]/60 flex justify-end">
+              <button
+                onClick={() => setShowInviteModal(false)}
+                className="px-4 py-1.5 bg-[#252626] border border-outline-subtle text-on-surface hover:bg-[#303233] text-xs font-medium rounded-md transition-colors"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}

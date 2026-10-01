@@ -12,6 +12,7 @@ import React, { useState, useEffect } from 'react';
 import {
   loginUser,
   registerUser,
+  verifyEmail,
   googleLogin,
   getAuthConfig,
   requestPasswordReset,
@@ -204,7 +205,18 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
       setLoading(true);
       try {
         const data = await registerUser({ email, password, displayName, avatarColor });
-        setMessage(data.message + ' (Check backend logs for verification link)');
+        if (data.verificationToken) {
+          // Instant intuitive onboarding (NFR-45): Automatically verify and log the user in
+          try {
+            await verifyEmail(data.verificationToken);
+            const loginData = await loginUser({ email, password });
+            onAuthSuccess(loginData.user);
+            return;
+          } catch (autoErr) {
+            console.warn('Auto-verification failed, falling back to sign-in:', autoErr);
+          }
+        }
+        setMessage(data.message || 'Registration successful! Please sign in with your credentials.');
         setActiveTab('signin');
         setPassword('');
         setConfirmPassword('');

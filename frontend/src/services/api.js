@@ -406,6 +406,23 @@ export async function registerUser({ email, password, displayName, avatarColor }
 }
 
 /**
+ * Verifies email address using verification token (FR-01, NFR-45).
+ *
+ * @async
+ * @function verifyEmail
+ * @param {string} token - Email verification token
+ * @returns {Promise<{ message: string }>} Verification result
+ */
+export async function verifyEmail(token) {
+  const res = await request(`/auth/verify?token=${encodeURIComponent(token)}&format=json`, {
+    headers: { 'Accept': 'application/json' },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Email verification failed');
+  return data;
+}
+
+/**
  * Authenticates user with email and password credentials (FR-01).
  *
  * @async

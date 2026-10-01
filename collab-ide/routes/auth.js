@@ -167,7 +167,7 @@ router.post('/register', authLimiter, async (req, res) => {
 
     res.status(201).json({
       message: 'Registration successful. Please verify your email to activate your account.',
-      verificationToken: process.env.NODE_ENV !== 'production' ? verificationToken : undefined,
+      verificationToken: (process.env.MOCK_EMAIL_VERIFICATION === 'true' || process.env.NODE_ENV !== 'production') ? verificationToken : undefined,
     });
   } catch (error) {
     return sendPlainEnglishError(res, error, 'An error occurred while creating your account. Please try again.');
@@ -193,11 +193,15 @@ router.get('/verify', async (req, res) => {
     user.verificationToken = undefined;
     await user.save();
 
+    if (req.query.format === 'json' || (req.headers.accept && req.headers.accept.includes('application/json'))) {
+      return res.json({ message: 'Email verified successfully! You can now log in.' });
+    }
+
     // Send a simple HTML success page
     res.send(`
       <div style="font-family: sans-serif; text-align: center; margin-top: 50px;">
         <h1 style="color: #a6e3a1;">Verification Successful! 🎉</h1>
-        <p>Your email has been verified. You can now close this tab and log in to Collide.</p>
+        <p>Your email has been verified. You can now close this tab and log in to CollabIDE.</p>
       </div>
     `);
   } catch (error) {

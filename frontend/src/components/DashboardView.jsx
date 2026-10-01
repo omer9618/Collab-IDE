@@ -251,12 +251,22 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
 
   const handleJoinSubmit = async (e) => {
     e.preventDefault();
-    if (!joinUuid.trim()) return;
+    let target = joinUuid.trim();
+    if (!target) return;
+
+    // Handle full URL pasted by user (e.g., http://localhost:5173/?room=c49a6470-...)
+    if (target.includes('room=')) {
+      const match = target.match(/[?&]room=([a-zA-Z0-9-]+)/);
+      if (match && match[1]) {
+        target = match[1];
+      }
+    }
+
     setError('');
     setLoading(true);
     try {
-      await joinRoom(joinUuid.trim());
-      onRoomSelect(joinUuid.trim());
+      await joinRoom(target);
+      onRoomSelect(target);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -468,17 +478,30 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
               <h2 className="text-text-xl font-semibold text-on-surface">
                 {activeTab === 'my-rooms' ? 'My Rooms' : 'Joined Rooms'}
               </h2>
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                title="Refresh rooms"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-text-xs text-on-surface-variant border border-outline-subtle rounded-md hover:text-on-surface hover:bg-[#252626] transition-colors disabled:opacity-50"
-              >
-                <span className={`material-symbols-outlined text-[16px] ${refreshing ? 'animate-spin' : ''}`}>
-                  refresh
-                </span>
-                <span>Refresh</span>
-              </button>
+              <div className="flex items-center gap-2.5">
+                <button
+                  onClick={() => {
+                    generateRandomName();
+                    setShowCreateModal(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-text-xs font-semibold text-white bg-accent-blue rounded-md hover:bg-blue-600 transition-colors shadow-sm"
+                  title="Create new workspace"
+                >
+                  <span className="material-symbols-outlined text-[16px]">add</span>
+                  <span>New Room</span>
+                </button>
+                <button
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  title="Refresh rooms"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-text-xs text-on-surface-variant border border-outline-subtle rounded-md hover:text-on-surface hover:bg-[#252626] transition-colors disabled:opacity-50"
+                >
+                  <span className={`material-symbols-outlined text-[16px] ${refreshing ? 'animate-spin' : ''}`}>
+                    refresh
+                  </span>
+                  <span>Refresh</span>
+                </button>
+              </div>
             </div>
 
             {error && (
@@ -649,15 +672,103 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                     })}
                   
                   {allRooms.filter((r) => activeTab === 'my-rooms' ? r.myRole === 'Owner' : r.myRole !== 'Owner').length === 0 && (
-                    <div className="text-center py-12 border border-dashed border-outline-subtle rounded-lg">
-                      <span className="material-symbols-outlined text-[48px] text-text-muted mb-2">folder</span>
-                      <div className="text-text-base text-on-surface">
-                        {activeTab === 'my-rooms' ? 'No rooms created yet' : 'No joined rooms yet'}
+                    activeTab === 'my-rooms' ? (
+                      <div className="text-center py-12 px-6 border border-dashed border-outline-subtle rounded-xl bg-[#161718]/60 flex flex-col items-center">
+                        <div className="w-14 h-14 rounded-2xl bg-accent-blue/10 border border-accent-blue/20 flex items-center justify-center text-accent-blue mb-4">
+                          <span className="material-symbols-outlined text-[32px]">rocket_launch</span>
+                        </div>
+                        <h3 className="text-text-base font-semibold text-on-surface mb-1">
+                          Welcome to CollabIDE{user?.displayName ? `, ${user.displayName}` : ''}!
+                        </h3>
+                        <p className="text-text-xs text-on-surface-variant max-w-md mb-6 leading-relaxed">
+                          Collaborate on code in real-time with peers, execute code remotely, and talk over native voice chat with zero client setup.
+                        </p>
+                        <button
+                          onClick={() => {
+                            generateRandomName();
+                            setShowCreateModal(true);
+                          }}
+                          className="px-6 py-2.5 bg-accent-blue text-white rounded-lg text-text-xs font-semibold flex items-center gap-2 hover:bg-blue-600 shadow-md shadow-accent-blue/20 transition-all"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">add</span>
+                          <span>Create Your First Room</span>
+                        </button>
+
+                        {/* Quick Start Templates */}
+                        <div className="mt-8 pt-6 border-t border-outline-subtle w-full max-w-lg">
+                          <div className="text-[10px] uppercase font-semibold text-text-muted tracking-wider mb-3">
+                            Or start with a quick template
+                          </div>
+                          <div className="grid grid-cols-3 gap-3">
+                            <button
+                              onClick={async () => {
+                                setError('');
+                                setLoading(true);
+                                try {
+                                  const r = await createRoom(`js-sandbox-${Math.floor(Math.random() * 900 + 100)}`);
+                                  onRoomSelect(r.uuid);
+                                } catch (err) {
+                                  setError(err.message);
+                                } finally {
+                                  setLoading(false);
+                                }
+                              }}
+                              className="p-3 bg-[#1f2020] hover:bg-[#252626] border border-outline-subtle hover:border-yellow-500/50 rounded-lg text-left transition-all"
+                            >
+                              <div className="w-6 h-6 rounded bg-yellow-500/20 text-yellow-400 font-bold text-[10px] flex items-center justify-center mb-1.5">JS</div>
+                              <div className="text-[11px] font-semibold text-on-surface">JavaScript</div>
+                              <div className="text-[9.5px] text-text-muted">Node.js sandbox</div>
+                            </button>
+                            <button
+                              onClick={async () => {
+                                setError('');
+                                setLoading(true);
+                                try {
+                                  const r = await createRoom(`python-lab-${Math.floor(Math.random() * 900 + 100)}`);
+                                  onRoomSelect(r.uuid);
+                                } catch (err) {
+                                  setError(err.message);
+                                } finally {
+                                  setLoading(false);
+                                }
+                              }}
+                              className="p-3 bg-[#1f2020] hover:bg-[#252626] border border-outline-subtle hover:border-blue-500/50 rounded-lg text-left transition-all"
+                            >
+                              <div className="w-6 h-6 rounded bg-blue-500/20 text-blue-400 font-bold text-[10px] flex items-center justify-center mb-1.5">PY</div>
+                              <div className="text-[11px] font-semibold text-on-surface">Python</div>
+                              <div className="text-[9.5px] text-text-muted">Python 3 script</div>
+                            </button>
+                            <button
+                              onClick={async () => {
+                                setError('');
+                                setLoading(true);
+                                try {
+                                  const r = await createRoom(`web-app-${Math.floor(Math.random() * 900 + 100)}`);
+                                  onRoomSelect(r.uuid);
+                                } catch (err) {
+                                  setError(err.message);
+                                } finally {
+                                  setLoading(false);
+                                }
+                              }}
+                              className="p-3 bg-[#1f2020] hover:bg-[#252626] border border-outline-subtle hover:border-orange-500/50 rounded-lg text-left transition-all"
+                            >
+                              <div className="w-6 h-6 rounded bg-orange-500/20 text-orange-400 font-bold text-[10px] flex items-center justify-center mb-1.5">HTML</div>
+                              <div className="text-[11px] font-semibold text-on-surface">Web App</div>
+                              <div className="text-[9.5px] text-text-muted">HTML & CSS</div>
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-text-xs text-text-muted mt-1">
-                        {activeTab === 'my-rooms' ? 'Click Create new room to get started.' : 'Use a share code to join another user\'s room.'}
+                    ) : (
+                      <div className="text-center py-12 px-6 border border-dashed border-outline-subtle rounded-xl bg-[#161718]/60 flex flex-col items-center">
+                        <span className="material-symbols-outlined text-[48px] text-text-muted mb-2">group</span>
+                        <div className="text-text-base text-on-surface">No joined rooms yet</div>
+                        <div className="text-text-xs text-text-muted mt-1 max-w-sm">
+                          Paste a teammate's invite link or room code below to instantly jump into their collaborative session.
+                        </div>
                       </div>
-                    </div>
+                    )
                   )}
                 </>
               )}
