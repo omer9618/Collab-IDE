@@ -47,6 +47,7 @@ import {
   Plus,
   Type,
   RotateCcw,
+  Loader2,
 } from 'lucide-react';
 
 // WhatsApp strategy color palette for distinguishable user colors in group chat (contrasty in dark mode)
@@ -177,6 +178,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
   const [showCapacityModal, setShowCapacityModal] = useState(false);
   const [capacityErrorMessage, setCapacityErrorMessage] = useState('');
   const [settingsError, setSettingsError] = useState('');
+  const [roomActionLoading, setRoomActionLoading] = useState(false);
   const [consoleTab, setConsoleTab] = useState('output'); // output, terminal, problems
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showOnboardingBanner, setShowOnboardingBanner] = useState(() => !localStorage.getItem('collabide_seen_onboarding'));
@@ -250,6 +252,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
   const voice = useVoiceRoom({ roomUuid, showToast });
   const {
     inVoice,
+    isConnectingVoice,
     localStream,
     voiceParticipants,
     isMuted,
@@ -1110,8 +1113,17 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                 : 'bg-accent-blue hover:bg-accent-blue/90 shadow-accent-blue/20'
             }`}
           >
-            <Play size={12} fill="currentColor" />
-            <span>Run</span>
+            {isRunning ? (
+              <>
+                <Loader2 size={12} className="animate-spin" />
+                <span>Running...</span>
+              </>
+            ) : (
+              <>
+                <Play size={12} fill="currentColor" />
+                <span>Run</span>
+              </>
+            )}
           </button>
 
 
@@ -1971,11 +1983,21 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
           <div className="relative flex items-center h-10">
             <button
               onClick={joinVoice}
-              className="px-5 h-10 flex items-center justify-center rounded-full bg-accent-blue text-white text-sm font-medium hover:bg-blue-600 transition-colors gap-2"
+              disabled={isConnectingVoice}
+              className="px-5 h-10 flex items-center justify-center rounded-full bg-accent-blue text-white text-sm font-medium hover:bg-blue-600 transition-colors gap-2 disabled:opacity-75 disabled:cursor-wait"
               title="Connect Voice"
             >
-              <span className="material-symbols-outlined text-[18px]">call</span>
-              Join Voice
+              {isConnectingVoice ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Connecting...</span>
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined text-[18px]">call</span>
+                  <span>Join Voice</span>
+                </>
+              )}
             </button>
             <button
               onClick={() => setShowVoiceSettings(!showVoiceSettings)}
@@ -2207,8 +2229,10 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                         : 'Closing the room will lock the editor for all participants and disconnect active voice sessions.'}
                     </p>
                     <button
-                      className="mt-2 px-4 py-2 bg-surface-elevated border border-outline hover:border-accent-blue rounded-md text-text-sm font-medium text-on-surface transition-colors"
+                      disabled={roomActionLoading}
+                      className="mt-2 px-4 py-2 bg-surface-elevated border border-outline hover:border-accent-blue rounded-md text-text-sm font-medium text-on-surface transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                       onClick={async () => {
+                        setRoomActionLoading(true);
                         try {
                           if (room?.isClosed) {
                             await openRoom(roomUuid);
@@ -2218,10 +2242,19 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                           setShowSettingsModal(false);
                         } catch (err) {
                           setSettingsError(err.message);
+                        } finally {
+                          setRoomActionLoading(false);
                         }
                       }}
                     >
-                      {room?.isClosed ? 'Re-open Room' : 'Close Room'}
+                      {roomActionLoading ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" />
+                          <span>Updating status...</span>
+                        </>
+                      ) : (
+                        room?.isClosed ? 'Re-open Room' : 'Close Room'
+                      )}
                     </button>
                   </div>
 

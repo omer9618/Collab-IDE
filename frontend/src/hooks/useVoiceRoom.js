@@ -5,6 +5,7 @@ import { checkNativeWebRTCSupport, getMediaErrorGuidance } from '../utils/webrtc
 
 export function useVoiceRoom({ roomUuid, showToast }) {
   const [inVoice, setInVoice] = useState(false);
+  const [isConnectingVoice, setIsConnectingVoice] = useState(false);
   const [localStream, setLocalStream] = useState(null);
   const [voiceParticipants, setVoiceParticipants] = useState([]);
   const [isMuted, setIsMuted] = useState(false);
@@ -117,12 +118,13 @@ export function useVoiceRoom({ roomUuid, showToast }) {
     audioElementsRef.current.clear();
     reconnectAttemptsRef.current.clear();
     setInVoice(false);
+    setIsConnectingVoice(false);
     setVoiceParticipants([]);
     setActiveSpeakerSocketId(null);
   }, [localStream]);
 
   const joinVoice = useCallback(async () => {
-    if (inVoice) return;
+    if (inVoice || isConnectingVoice) return;
     setMutedByLeaderMsg('');
 
     // NFR-44: Verify native browser WebRTC and MediaDevices support (Zero Plugins / Extensions)
@@ -131,6 +133,9 @@ export function useVoiceRoom({ roomUuid, showToast }) {
       showToast(support.errorGuidance, 'error');
       return;
     }
+
+    // NFR-46: Immediate visible feedback (< 300ms) indicating voice connection attempt
+    setIsConnectingVoice(true);
 
     try {
       const constraints = { 
@@ -163,9 +168,11 @@ export function useVoiceRoom({ roomUuid, showToast }) {
       socket.on('connect', () => {
         socket.emit('voice:join', { roomUuid });
         setInVoice(true);
+        setIsConnectingVoice(false);
       });
 
       socket.on('connect_error', (err) => {
+        setIsConnectingVoice(false);
         leaveVoice();
       });
 
@@ -247,6 +254,7 @@ export function useVoiceRoom({ roomUuid, showToast }) {
       });
 
     } catch (err) {
+      setIsConnectingVoice(false);
       // NFR-44 & NFR-47: Plain-English error guidance on permission, device, or secure context failures
       const guidance = getMediaErrorGuidance(err);
       showToast(guidance, 'error');
@@ -329,6 +337,7 @@ export function useVoiceRoom({ roomUuid, showToast }) {
 
   return {
     inVoice,
+    isConnectingVoice,
     localStream,
     voiceParticipants,
     isMuted,

@@ -791,9 +791,9 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-6 py-2 bg-accent-blue text-white rounded-md text-[11px] font-semibold hover:opacity-90"
+                  className="px-6 py-2 bg-accent-blue text-white rounded-md text-[11px] font-semibold hover:opacity-90 disabled:opacity-60 transition-opacity"
                 >
-                  Join →
+                  {loading ? 'Joining...' : 'Join →'}
                 </button>
               </form>
             </div>
