@@ -26,6 +26,60 @@ const logger = require('../utils/logger');
 
 const router = express.Router({ mergeParams: true });
 
+/**
+ * Generates ephemeral HMAC-SHA1 TURN credentials with expiry timestamp (NFR-30).
+ *
+ * @function generateTurnCredentials
+ * @param {string} userId - User ID
+ * @param {string} [turnSecret=process.env.TURN_SECRET] - Secret key for HMAC
+ * @param {number} [ttlSeconds=3600] - Credential lifetime in seconds
+ * @returns {{ turnUsername: string, turnCredential: string, expiresAt: number }}
+ */
+function generateTurnCredentials(userId, turnSecret = process.env.TURN_SECRET, ttlSeconds = 3600) {
+  const expiresAt = Math.floor(Date.now() / 1000) + ttlSeconds;
+  const turnUsername = `${expiresAt}:${userId}`;
+  const turnCredential = crypto
+    .createHmac('sha1', turnSecret || 'collabide_turn_secret')
+    .update(turnUsername)
+    .digest('base64');
+  return { turnUsername, turnCredential, expiresAt };
+}
+
+/**
+ * Builds standard WebRTC ICE servers configuration including STUN and TURN relays (FR-53, NFR-30).
+ *
+ * @function buildIceServers
+ * @param {string} turnUsername - Authenticated TURN username
+ * @param {string} turnCredential - Authenticated TURN credential password
+ * @param {string} [turnServerUrl=process.env.TURN_SERVER_URL] - Optional custom TURN URL
+ * @returns {Array<{ urls: string|string[], username?: string, credential?: string }>}
+ */
+function buildIceServers(turnUsername, turnCredential, turnServerUrl = process.env.TURN_SERVER_URL) {
+  return [
+    // Google public STUN (no auth needed)
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+
+    // Open Relay TURN — free development/demo relay (FR-53)
+    {
+      urls: [
+        'turn:openrelay.metered.ca:80',
+        'turn:openrelay.metered.ca:443',
+        'turns:openrelay.metered.ca:443?transport=tcp',
+      ],
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+
+    // Production coturn server integration:
+    ...(turnServerUrl ? [{
+      urls: turnServerUrl,
+      username: turnUsername,
+      credential: turnCredential,
+    }] : []),
+  ];
+}
+
 // ─── GET /api/voice/:uuid/credentials ─────────────────────────────────────────
 
 /**
@@ -56,41 +110,8 @@ router.get('/:uuid/credentials', protect, apiLimiter, async (req, res) => {
     if (!isMember) return res.status(403).json({ message: 'You do not have access to voice chat in this room.' });
 
     // ── HMAC-SHA1 TURN credentials (NFR-30, coturn REST API spec) ─────────────
-    // username format: <expiryTimestamp>:<userId>
-    // credential:      base64(HMAC-SHA1(TURN_SECRET, username))
-    const turnSecret  = process.env.TURN_SECRET;
-    const expiresAt   = Math.floor(Date.now() / 1000) + 3600; // 1 hour TTL from current time
-    const turnUsername = `${expiresAt}:${req.user._id}`;
-    const turnCredential = crypto
-      .createHmac('sha1', turnSecret)
-      .update(turnUsername)
-      .digest('base64');
-
-    // ── Build RTCConfiguration iceServers array ────────────────────────────────
-    const iceServers = [
-      // Google public STUN (no auth needed)
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-
-      // Open Relay TURN — free development/demo relay (FR-53)
-      {
-        urls: [
-          'turn:openrelay.metered.ca:80',
-          'turn:openrelay.metered.ca:443',
-          'turns:openrelay.metered.ca:443?transport=tcp',
-        ],
-        username:   'openrelayproject',
-        credential: 'openrelayproject',
-      },
-
-      // Production coturn server integration:
-      // Uses time-limited HMAC credentials generated above (NFR-30)
-      ...(process.env.TURN_SERVER_URL ? [{
-        urls:       process.env.TURN_SERVER_URL,
-        username:   turnUsername,
-        credential: turnCredential,
-      }] : []),
-    ];
+    const { turnUsername, turnCredential, expiresAt } = generateTurnCredentials(req.user._id);
+    const iceServers = buildIceServers(turnUsername, turnCredential);
 
     return res.status(200).json({
       iceServers,
@@ -153,4 +174,10 @@ router.get('/:uuid/participants', protect, apiLimiter, async (req, res) => {
   }
 });
 
+router.generateTurnCredentials = generateTurnCredentials;
+router.buildIceServers = buildIceServers;
+
 module.exports = router;
+module.exports.generateTurnCredentials = generateTurnCredentials;
+module.exports.buildIceServers = buildIceServers;
+

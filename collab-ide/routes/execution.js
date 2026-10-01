@@ -373,4 +373,18 @@ router.get('/:uuid/history', protect, async (req, res) => {
   }
 });
 
+router.LANGUAGE_MAP = LANGUAGE_MAP;
+router.JUDGE0_LIMITS = JUDGE0_LIMITS;
+router.MAX_EXEC_HISTORY = MAX_EXEC_HISTORY;
+router.execLimiter = execLimiter;
+router.getMockResult = getMockResult;
+router.submitToJudge0 = submitToJudge0;
+
 module.exports = router;
+module.exports.LANGUAGE_MAP = LANGUAGE_MAP;
+module.exports.JUDGE0_LIMITS = JUDGE0_LIMITS;
+module.exports.MAX_EXEC_HISTORY = MAX_EXEC_HISTORY;
+module.exports.execLimiter = execLimiter;
+module.exports.getMockResult = getMockResult;
+module.exports.submitToJudge0 = submitToJudge0;
+

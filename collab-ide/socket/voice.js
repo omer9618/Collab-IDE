@@ -473,4 +473,11 @@ function leaveVoiceRoom(socket, voiceNs) {
   }
 }
 
-module.exports = { initVoiceSignalling, voiceRooms };
+module.exports = {
+  initVoiceSignalling,
+  voiceRooms,
+  getVoiceRoom,
+  serializeParticipants,
+  getSocketRole,
+  leaveVoiceRoom,
+};

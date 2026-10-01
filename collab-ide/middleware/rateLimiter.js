@@ -42,4 +42,34 @@ const apiLimiter = rateLimit({
   },
 });
 
-module.exports = { apiLimiter };
+/**
+ * Factory helper to construct customizable rate limiters with standardized defaults.
+ *
+ * @function createRateLimiter
+ * @param {object} [options={}] - Options overriding defaults
+ * @returns {import('express').RequestHandler}
+ */
+function createRateLimiter(options = {}) {
+  return rateLimit({
+    windowMs: options.windowMs || 1 * 60 * 1000,
+    max: options.max || 100,
+    keyGenerator: options.keyGenerator || ((req) => {
+      if (req.user && req.user._id) {
+        return req.user._id.toString();
+      }
+      return req.ip;
+    }),
+    message: options.message || { message: 'Too many requests. Please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+    validate: false,
+    skip: options.skip || ((req) => {
+      const ip = req.ip || '';
+      return ip === '127.0.0.1' || ip === '::1' || ip.endsWith('127.0.0.1') || process.env.NODE_ENV === 'test';
+    }),
+    ...options,
+  });
+}
+
+module.exports = { apiLimiter, createRateLimiter };
+

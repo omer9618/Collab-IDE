@@ -107,9 +107,9 @@ class RoomSession {
    * @param {string} roomUuid - UUID identifier of the room
    * @param {Y.Doc} ydoc - Room's independent Yjs document
    */
-  constructor(roomUuid, ydoc) {
+  constructor(roomUuid, ydoc = null) {
     this.roomUuid = roomUuid;
-    this.ydoc = ydoc;
+    this.ydoc = ydoc || new Y.Doc();
     
     // NFR-52: Independent WebSocket client set strictly scoped to this room
     this.clients = new Set();
@@ -493,7 +493,7 @@ class RoomSession {
    * @async
    * @returns {Promise<void>}
    */
-  async destroy() {
+  async destroy(skipPersistence = false) {
     this.isDestroyed = true;
 
     if (this.saveTimer) {
@@ -501,11 +501,13 @@ class RoomSession {
       this.saveTimer = null;
     }
 
-    // Perform final state persistence
-    try {
-      await saveRoomStateToDB(this.roomUuid, this.ydoc);
-    } catch (err) {
-      logger.error('Final save error on room destroy: ' + err.message, { roomId: this.roomUuid });
+    // Perform final state persistence unless explicitly skipped (e.g. unit tests)
+    if (!skipPersistence && this.ydoc) {
+      try {
+        await saveRoomStateToDB(this.roomUuid, this.ydoc);
+      } catch (err) {
+        logger.error('Final save error on room destroy: ' + err.message, { roomId: this.roomUuid });
+      }
     }
 
     // Close any remaining sockets in this room
@@ -520,7 +522,10 @@ class RoomSession {
 
     // Free Yjs CRDT document structures and awareness handlers
     try {
-      this.ydoc.destroy();
+      if (this.ydoc) {
+        this.ydoc.destroy();
+        this.ydoc = null;
+      }
     } catch (err) {
       logger.error('Error destroying Y.Doc: ' + err.message, { roomId: this.roomUuid });
     }

@@ -308,6 +308,7 @@ const logger = {
   // Export utilities for external consumers and unit testing
   sanitizeValue,
   sanitizeString,
+  sanitizeMessage: sanitizeString,
   initLogStorage,
   APP_LOG_PATH,
   ERROR_LOG_PATH,

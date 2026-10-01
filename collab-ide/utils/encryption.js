@@ -181,6 +181,7 @@ module.exports = {
   decrypt,
   isEncrypted,
   hashBlindIndex,
+  blindIndex: hashBlindIndex,
   ALGORITHM,
   ENCRYPTION_PREFIX,
 };
