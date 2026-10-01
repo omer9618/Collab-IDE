@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { getToken, getVoiceCredentials } from '../services/api';
+import { checkNativeWebRTCSupport, getMediaErrorGuidance } from '../utils/webrtcSupport';
 
 export function useVoiceRoom({ roomUuid, showToast }) {
   const [inVoice, setInVoice] = useState(false);
@@ -124,6 +125,13 @@ export function useVoiceRoom({ roomUuid, showToast }) {
     if (inVoice) return;
     setMutedByLeaderMsg('');
 
+    // NFR-44: Verify native browser WebRTC and MediaDevices support (Zero Plugins / Extensions)
+    const support = checkNativeWebRTCSupport();
+    if (!support.isSupported) {
+      showToast(support.errorGuidance, 'error');
+      return;
+    }
+
     try {
       const constraints = { 
         audio: selectedMicId ? { deviceId: { exact: selectedMicId } } : true, 
@@ -239,7 +247,9 @@ export function useVoiceRoom({ roomUuid, showToast }) {
       });
 
     } catch (err) {
-      showToast(`Could not access microphone: ${err.message}`, 'error');
+      // NFR-44 & NFR-47: Plain-English error guidance on permission, device, or secure context failures
+      const guidance = getMediaErrorGuidance(err);
+      showToast(guidance, 'error');
     }
   }, [inVoice, roomUuid, selectedMicId, createPeerConnection, closePeerConnection, leaveVoice, showToast]);
 
@@ -333,6 +343,7 @@ export function useVoiceRoom({ roomUuid, showToast }) {
     handleHardMuteParticipant,
     selectedMicId,
     selectedSpeakerId,
-    updateDevices
+    updateDevices,
+    isWebRTCSupported: checkNativeWebRTCSupport().isSupported,
   };
 }
