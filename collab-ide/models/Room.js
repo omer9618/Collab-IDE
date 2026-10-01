@@ -1,0 +1,120 @@
+/**
+ * @file models/Room.js
+ * @module models/Room
+ * @description Mongoose model for collaborative workspace rooms.
+ * 
+ * Stores:
+ * - Room metadata (name, unique UUID, owner reference)
+ * - Collaborative participants with assigned roles: Owner, Room Leader, Editor, Viewer (FR-39)
+ * - Source file tree with contents
+ * - Binary Yjs document state snapshot (`ydocState`) preserving CRDT vectors across server restarts
+ * - Capped history of code execution runs (FR-35, NFR-37)
+ * - Human presence tracking (`lastActiveAt`) for dashboard sorting (FR-14)
+ */
+
+const mongoose = require('mongoose');
+
+/**
+ * Subdocument schema representing an enrolled room participant and their collaborative role.
+ */
+const participantSchema = new mongoose.Schema({
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
+  role: {
+    type: String,
+    enum: ['Owner', 'Room Leader', 'Editor', 'Viewer'],
+    default: 'Viewer',
+  },
+});
+
+/**
+ * Subdocument schema representing an individual project file within a room workspace.
+ */
+const fileSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+  },
+  content: {
+    type: String,
+    default: '',
+  },
+});
+
+/**
+ * Stores the outcome of a single code execution run (FR-29).
+ * Persisted so late-joining participants can hydrate the output panel (FR-35).
+ */
+const executionResultSchema = new mongoose.Schema({
+  triggeredBy: { type: String, required: true },    // displayName of executor
+  language:    { type: String, required: true },    // human-readable language name
+  languageId:  { type: Number, required: true },    // Judge0 language ID
+  stdout:      { type: String, default: '' },
+  stderr:      { type: String, default: '' },
+  status:      { type: String, default: 'Unknown' }, // Judge0 status description
+  time:        { type: String, default: null },      // seconds as string e.g. "0.025"
+  memory:      { type: Number, default: null },      // KB
+  ranAt:       { type: Date,   default: Date.now },
+});
+
+/**
+ * Root Room schema definition.
+ */
+const roomSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    uuid: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+    },
+    owner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    participants: [participantSchema],
+    isClosed: {
+      type: Boolean,
+      default: false,
+    },
+    files: [fileSchema],
+    // Binary Yjs state snapshot to prevent text duplication on reconnect/unload
+    ydocState: {
+      type: Buffer,
+      default: null,
+    },
+    // Last 20 execution results for this room (NFR-37 compliant — capped in route handler)
+    executionHistory: [executionResultSchema],
+    /**
+     * FR-14: last time a participant was actually present in this room.
+     * Distinct from `updatedAt`, which also moves on metadata writes such as
+     * role changes or joins. Bumped on WebSocket connect, disconnect, and on
+     * each debounced document persist.
+     */
+    lastActiveAt: {
+      type: Date,
+      default: Date.now,
+      index: true,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+// Optimize FR-14 room listing and search query
+roomSchema.index({ 'participants.user': 1, lastActiveAt: -1 });
+roomSchema.index({ name: 'text' });
+
+const Room = mongoose.model('Room', roomSchema);
+
+module.exports = Room;
