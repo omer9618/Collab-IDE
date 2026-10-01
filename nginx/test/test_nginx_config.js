@@ -183,10 +183,12 @@ assert(compose.includes('./nginx/ssl:/etc/nginx/ssl:ro'), 'docker-compose.yml mo
 console.log('\n🔄 Phase 9: Verifying Frontend & Backend Code Sync...');
 const workspaceView = fs.readFileSync(path.join(PROJECT_ROOT, 'frontend/src/components/WorkspaceView.jsx'), 'utf8');
 const serverJs = fs.readFileSync(path.join(PROJECT_ROOT, 'collab-ide/server.js'), 'utf8');
+const wsRelayPath = path.join(PROJECT_ROOT, 'collab-ide/modules/websocket-relay/index.js');
+const wsRelayJs = fs.existsSync(wsRelayPath) ? fs.readFileSync(wsRelayPath, 'utf8') : '';
 
 assert(workspaceView.includes('${window.location.protocol === \'https:\' ? \'wss:\' : \'ws:\'}//${window.location.host}/ws'), 'WorkspaceView routes WebSocket via Nginx origin and /ws prefix');
 assert(workspaceView.includes('window.location.port === \'5173\''), 'WorkspaceView retains direct port 5173 fallback for Vite dev');
-assert(serverJs.includes('replace(/^\\/ws\\/?/, \'/\')'), 'server.js upgrade handler supports optional /ws/ prefix');
+assert(serverJs.includes('replace(/^\\/ws\\/?/, \'/\')') || wsRelayJs.includes('replace(/^\\/ws\\/?/, \'/\')'), 'backend upgrade handler supports optional /ws/ prefix');
 
 // ------------------------------------------------------------------------------
 // Phase 10: Configuration Syntax Validation (nginx -t / Structural AST Parser)
