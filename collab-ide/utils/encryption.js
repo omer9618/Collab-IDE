@@ -43,26 +43,28 @@ let cachedIndexKey = null;
 function getMasterKey() {
   const envKey = process.env.FIELD_ENCRYPTION_KEY;
 
-  if (!envKey) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('[FATAL] FIELD_ENCRYPTION_KEY environment variable is required for NFR-22.');
-    }
-    // Safe deterministic development fallback to avoid crashing unconfigured dev runs
-    return crypto.createHash('sha256').update('collabide-default-dev-field-encryption-key-2026').digest();
+  if (!envKey || typeof envKey !== 'string' || envKey.trim() === '') {
+    throw new Error(
+      'Fatal Configuration Error: FIELD_ENCRYPTION_KEY environment variable is required (NFR-22, NFR-49).\n' +
+      'Generate a 256-bit key with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
+    );
   }
 
-  // Support 64 hex characters (32 bytes) or 32 raw ASCII characters
-  if (/^[0-9a-fA-F]{64}$/.test(envKey)) {
-    return Buffer.from(envKey, 'hex');
+  const trimmed = envKey.trim();
+  // Support 64 hex characters (32 bytes)
+  if (/^[0-9a-fA-F]{64}$/.test(trimmed)) {
+    return Buffer.from(trimmed, 'hex');
   }
 
-  const buf = Buffer.from(envKey, 'utf8');
+  const buf = Buffer.from(trimmed, 'utf8');
   if (buf.length === 32) {
     return buf;
   }
 
-  // Hash key if non-standard length to guarantee exact 256 bits
-  return crypto.createHash('sha256').update(buf).digest();
+  throw new Error(
+    `Fatal Configuration Error: Invalid FIELD_ENCRYPTION_KEY format (${trimmed.length} chars). ` +
+    'Must be exactly 64 hexadecimal characters (256 bits) (NFR-22, NFR-49).'
+  );
 }
 
 /**

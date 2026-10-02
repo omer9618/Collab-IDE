@@ -36,10 +36,13 @@ const router = express.Router({ mergeParams: true });
  * @returns {{ turnUsername: string, turnCredential: string, expiresAt: number }}
  */
 function generateTurnCredentials(userId, turnSecret = process.env.TURN_SECRET, ttlSeconds = 3600) {
+  if (!turnSecret || typeof turnSecret !== 'string' || turnSecret.trim() === '') {
+    throw new Error('Fatal Configuration Error: TURN_SECRET environment variable is required (NFR-30, NFR-49).');
+  }
   const expiresAt = Math.floor(Date.now() / 1000) + ttlSeconds;
   const turnUsername = `${expiresAt}:${userId}`;
   const turnCredential = crypto
-    .createHmac('sha1', turnSecret || 'collabide_turn_secret')
+    .createHmac('sha1', turnSecret)
     .update(turnUsername)
     .digest('base64');
   return { turnUsername, turnCredential, expiresAt };
@@ -52,13 +55,17 @@ function generateTurnCredentials(userId, turnSecret = process.env.TURN_SECRET, t
  * @param {string} turnUsername - Authenticated TURN username
  * @param {string} turnCredential - Authenticated TURN credential password
  * @param {string} [turnServerUrl=process.env.TURN_SERVER_URL] - Optional custom TURN URL
+ * @param {string|string[]} [stunServerUrl=process.env.STUN_SERVER_URL] - Optional custom STUN URL
  * @returns {Array<{ urls: string|string[], username?: string, credential?: string }>}
  */
-function buildIceServers(turnUsername, turnCredential, turnServerUrl = process.env.TURN_SERVER_URL) {
+function buildIceServers(turnUsername, turnCredential, turnServerUrl = process.env.TURN_SERVER_URL, stunServerUrl = process.env.STUN_SERVER_URL) {
+  const stunUrls = stunServerUrl
+    ? (Array.isArray(stunServerUrl) ? stunServerUrl : [stunServerUrl])
+    : ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'];
+
   return [
-    // Google public STUN (no auth needed)
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
+    // Configured or public STUN servers
+    { urls: stunUrls },
 
     // Open Relay TURN — free development/demo relay (FR-53)
     {
