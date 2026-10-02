@@ -37,6 +37,7 @@ export async function ensureCsrfToken() {
       const res = await fetch(`${API_BASE}/auth/csrf-token`, {
         method: 'GET',
         credentials: 'include',
+        cache: 'no-store',
       });
       if (res.ok) {
         const data = await safeJson(res);
