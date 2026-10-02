@@ -1043,7 +1043,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                       e.stopPropagation();
                       setShowRoomDropdown(false);
                     }}
-                    className="p-0.5 text-on-surface-muted hover:text-on-surface hover:bg-[#2b2d30] rounded"
+                    className="p-0.5 text-on-surface-muted hover:text-on-surface hover:bg-surface-hover rounded"
                   >
                     <X size={12} />
                   </button>
@@ -1052,7 +1052,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                   {joinedRooms.map(r => (
                     <button
                       key={r.uuid}
-                      className={`w-full text-left px-3 py-1.5 text-[11.5px] font-medium hover:bg-[#2b2d30] transition-colors ${r.uuid === roomUuid ? 'text-[#9fcaff] bg-[#1c2b41]/30' : 'text-on-surface'}`}
+                      className={`w-full text-left px-3 py-1.5 text-[11.5px] font-medium hover:bg-surface-hover transition-colors ${r.uuid === roomUuid ? 'text-[#9fcaff] bg-[#1c2b41]/30' : 'text-on-surface'}`}
                       onClick={() => {
                         setShowRoomDropdown(false);
                         if (r.uuid !== roomUuid && onRoomSelect) {
@@ -1091,7 +1091,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                 className={`px-3 h-[36px] text-[9.5px] flex items-center gap-1 border-b-[3px] transition-all group/tab shrink-0 ${
                   activeFile === fileName
                     ? 'text-accent-blue border-accent-blue bg-transparent'
-                    : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] border-transparent'
+                    : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover border-transparent'
                 }`}
               >
                 <button
@@ -1102,7 +1102,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                   <span title={fileName}>{fileName.split('/').pop()}</span>
                 </button>
                 <button
-                  className="text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] rounded p-0.5 ml-1 flex items-center justify-center opacity-40 hover:opacity-100 transition-all"
+                  className="text-on-surface-variant hover:text-on-surface hover:bg-surface-hover rounded p-0.5 ml-1 flex items-center justify-center opacity-40 hover:opacity-100 transition-all"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleCloseFile(fileName);
@@ -1131,7 +1131,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
             disabled={isRunning || role === 'Viewer' || !activeFile || activeFile.endsWith('.md')}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-white text-[9px] font-medium rounded-md transition-all shadow-sm ${
               (isRunning || role === 'Viewer' || !activeFile || activeFile.endsWith('.md'))
-                ? 'bg-[#2b2d30] text-on-surface-muted cursor-not-allowed'
+                ? 'bg-surface-hover text-on-surface-muted cursor-not-allowed'
                 : 'bg-accent-blue hover:bg-accent-blue/90 shadow-accent-blue/20'
             }`}
           >
@@ -1152,7 +1152,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
           <button
             onClick={() => setRightPanelOpen(!rightPanelOpen)}
             className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${
-              rightPanelOpen ? 'bg-[#1c2b41]/60 text-[#9fcaff]' : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
+              rightPanelOpen ? 'bg-[#1c2b41]/60 text-[#9fcaff]' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover'
             }`}
             title={rightPanelOpen ? 'Collapse Panel' : 'Expand Panel'}
           >
@@ -1162,7 +1162,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
           <button
             onClick={toggleTheme}
             type="button"
-            className="p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] transition-colors flex items-center justify-center"
+            className="p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-hover transition-colors flex items-center justify-center"
             title={`Switch to ${isLight ? 'Dark' : 'Light'} Mode`}
           >
             {isLight ? (
@@ -1188,7 +1188,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
           <div className="flex flex-col gap-2 w-full items-center">
             <button
               className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
-                sidebarOpen ? 'bg-[#1c2b41]/60 text-[#9fcaff]' : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
+                sidebarOpen ? 'bg-[#1c2b41]/60 text-[#9fcaff]' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover'
               }`}
               onClick={() => setSidebarOpen(!sidebarOpen)}
               title="Explorer"
@@ -1199,7 +1199,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
 
           <div className="mt-auto flex flex-col gap-2 w-full items-center">
             <button 
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] transition-colors" 
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-hover transition-colors" 
               title="Settings"
               onClick={() => {
                 setSettingsTab('editor');
@@ -1220,19 +1220,19 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
 
         {/* Sidebar explorer panel */}
           {sidebarOpen && (
-            <nav style={{ width: `${leftPanelWidth}px` }} className="h-full bg-[#181818] border-r border-outline-subtle flex flex-col shrink-0 select-none relative">
+            <nav style={{ width: `${leftPanelWidth}px` }} className="h-full bg-surface-panel border-r border-outline-subtle flex flex-col shrink-0 select-none relative">
               <div className="absolute top-0 right-0 w-[4px] h-full bg-transparent hover:bg-accent-blue cursor-col-resize transition-colors z-50 translate-x-1/2" onMouseDown={handleLeftPanelResize} />
               
               {/* Explorer Top Header */}
               <div className="px-5 py-2.5 flex items-center justify-between text-on-surface-muted">
                 <span className="text-[11px] text-on-surface uppercase tracking-wide">Explorer</span>
-                <button className="p-0.5 hover:bg-[#2a2d2e] rounded"><MoreHorizontal size={12} /></button>
+                <button className="p-0.5 hover:bg-surface-hover rounded"><MoreHorizontal size={12} /></button>
               </div>
 
               <div className="flex-1 overflow-y-auto outline-none custom-scrollbar pb-4" tabIndex={0}>
                 {/* Workspace Root Row */}
                 <div 
-                  className="px-1 py-1 flex items-center justify-between group/root cursor-pointer hover:bg-[#2a2d2e] transition-colors"
+                  className="px-1 py-1 flex items-center justify-between group/root cursor-pointer hover:bg-surface-hover transition-colors"
                   onClick={() => setIsFilesTreeOpen(!isFilesTreeOpen)}
                 >
                   <div className="flex items-center gap-0.5 min-w-0 flex-1">
@@ -1307,7 +1307,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                             <div key={node.path}>
                               {/* Folder Row */}
                               <div
-                                className="flex items-center py-[1px] cursor-pointer text-on-surface-variant hover:text-on-surface hover:bg-[#2a2d2e] group/folder transition-colors"
+                                className="flex items-center py-[1px] cursor-pointer text-on-surface-variant hover:text-on-surface hover:bg-surface-hover group/folder transition-colors"
                                 style={{ paddingLeft: `${indent}px`, paddingRight: '8px' }}
                                 onClick={() => setExpandedFolders(prev => {
                                   const s = new Set(prev);
@@ -1330,14 +1330,14 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                                 {role !== 'Viewer' && (
                                   <div className="flex items-center gap-0.5 opacity-0 group-hover/folder:opacity-100 transition-opacity ml-auto shrink-0">
                                     <button
-                                      className="p-0.5 hover:bg-[#3e3e42] rounded text-on-surface-muted hover:text-on-surface"
+                                      className="p-0.5 hover:bg-surface-hover rounded text-on-surface-muted hover:text-on-surface"
                                       onClick={(e) => { e.stopPropagation(); handleCreateFile(node.path); }}
                                       title="New File"
                                     >
                                       <span className="material-symbols-outlined text-[13px]">note_add</span>
                                     </button>
                                     <button
-                                      className="p-0.5 hover:bg-[#3e3e42] rounded text-on-surface-muted hover:text-on-surface"
+                                      className="p-0.5 hover:bg-surface-hover rounded text-on-surface-muted hover:text-on-surface"
                                       onClick={(e) => { e.stopPropagation(); handleCreateFolder(node.path); }}
                                       title="New Folder"
                                     >
@@ -1357,14 +1357,14 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                               {/* Inline folder/file creation input shown inside this folder */}
                               {isOpen && isCreatingFolder && createInsideFolder === node.path && (
                                 <div
-                                  className="flex items-center py-[1px] bg-[#2a2d2e]"
+                                  className="flex items-center py-[1px] bg-surface-hover"
                                   style={{ paddingLeft: `${indent + 28}px`, paddingRight: '8px' }}
                                 >
                                   <span className="material-symbols-outlined text-[13px] text-on-surface-muted shrink-0 mr-1.5">folder</span>
                                   <input
                                     id="new-folder-input"
                                     type="text"
-                                    className="bg-[#3c3c3c] border border-[#007acc] text-[12px] px-1 py-0.5 text-on-surface outline-none w-full"
+                                    className="bg-surface-active border border-[#007acc] text-[12px] px-1 py-0.5 text-on-surface outline-none w-full"
                                     value={newFolderNameInput}
                                     onChange={(e) => setNewFolderNameInput(e.target.value)}
                                     onKeyDown={handleNewFolderKeyDown}
@@ -1375,14 +1375,14 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                               )}
                               {isOpen && isCreatingFile && createInsideFolder === node.path && (
                                 <div
-                                  className="flex items-center py-[1px] bg-[#2a2d2e]"
+                                  className="flex items-center py-[1px] bg-surface-hover"
                                   style={{ paddingLeft: `${indent + 28}px`, paddingRight: '8px' }}
                                 >
                                   <FileIcon name={newFileNameInput || 'new'} />
                                   <input
                                     id="new-file-input"
                                     type="text"
-                                    className="bg-[#3c3c3c] border border-[#007acc] text-[12px] px-1 py-0.5 text-on-surface outline-none w-full ml-1.5"
+                                    className="bg-surface-active border border-[#007acc] text-[12px] px-1 py-0.5 text-on-surface outline-none w-full ml-1.5"
                                     value={newFileNameInput}
                                     onChange={(e) => setNewFileNameInput(e.target.value)}
                                     onKeyDown={handleNewFileKeyDown}
@@ -1404,8 +1404,8 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                             key={node.path}
                             className={`flex items-center py-[1px] cursor-pointer transition-colors group/file ${
                               activeFile === node.path
-                                ? 'bg-[#37373d] text-on-surface shadow-sm'
-                                : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2a2d2e]'
+                                ? 'bg-surface-hover text-on-surface shadow-sm'
+                                : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover'
                             }`}
                             style={{ paddingLeft: `${indent + 20}px`, paddingRight: '8px' }}
                             onClick={() => {
@@ -1422,7 +1422,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                               <input
                                 id="rename-file-input"
                                 type="text"
-                                className="bg-[#3c3c3c] border border-[#007acc] text-[12px] px-1 py-0.5 text-on-surface outline-none w-full ml-1.5"
+                                className="bg-surface-active border border-[#007acc] text-[12px] px-1 py-0.5 text-on-surface outline-none w-full ml-1.5"
                                 value={renameInputVal}
                                 onChange={(e) => setRenameInputVal(e.target.value)}
                                 onKeyDown={(e) => handleRenameKeyDown(e, node.path)}
@@ -1435,7 +1435,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                             )}
                             {role !== 'Viewer' && renamingFileName !== node.path && (
                               <button
-                                className="ml-auto shrink-0 text-on-surface-muted hover:text-on-surface opacity-0 group-hover/file:opacity-100 transition-opacity p-0.5 rounded hover:bg-[#3e3e42]"
+                                className="ml-auto shrink-0 text-on-surface-muted hover:text-on-surface opacity-0 group-hover/file:opacity-100 transition-opacity p-0.5 rounded hover:bg-surface-hover"
                                 onClick={(e) => { e.stopPropagation(); handleFileDoubleClick(e, node.path); }}
                                 title="File options"
                               >
@@ -1453,12 +1453,12 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                   <div className="pt-0.5">
                     {/* Root-level inline creation inputs */}
                     {isCreatingFolder && createInsideFolder === '' && (
-                        <div className="flex items-center py-[1px] bg-[#2a2d2e]" style={{ paddingLeft: '32px', paddingRight: '8px' }}>
+                        <div className="flex items-center py-[1px] bg-surface-hover" style={{ paddingLeft: '32px', paddingRight: '8px' }}>
                           <span className="material-symbols-outlined text-[14px] text-on-surface-muted shrink-0 mr-1.5">folder</span>
                           <input
                             id="new-folder-input"
                             type="text"
-                            className="bg-[#3c3c3c] border border-[#007acc] text-[12px] px-1 py-0.5 text-on-surface outline-none w-full"
+                            className="bg-surface-active border border-[#007acc] text-[12px] px-1 py-0.5 text-on-surface outline-none w-full"
                             value={newFolderNameInput}
                             onChange={(e) => setNewFolderNameInput(e.target.value)}
                             onKeyDown={handleNewFolderKeyDown}
@@ -1468,12 +1468,12 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                         </div>
                       )}
                       {isCreatingFile && createInsideFolder === '' && (
-                        <div className="flex items-center py-[1px] bg-[#2a2d2e]" style={{ paddingLeft: '32px', paddingRight: '8px' }}>
+                        <div className="flex items-center py-[1px] bg-surface-hover" style={{ paddingLeft: '32px', paddingRight: '8px' }}>
                           <FileIcon name={newFileNameInput || 'new'} />
                           <input
                             id="new-file-input"
                             type="text"
-                            className="bg-[#3c3c3c] border border-[#007acc] text-[12px] px-1 py-0.5 text-on-surface outline-none w-full ml-1.5"
+                            className="bg-surface-active border border-[#007acc] text-[12px] px-1 py-0.5 text-on-surface outline-none w-full ml-1.5"
                             value={newFileNameInput}
                             onChange={(e) => setNewFileNameInput(e.target.value)}
                             onKeyDown={handleNewFileKeyDown}
@@ -1619,7 +1619,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                 <div className="flex h-full">
                   <button
                     className={`px-3 text-[9px] font-medium h-full transition-colors ${
-                      consoleTab === 'output' ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent' : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
+                      consoleTab === 'output' ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover'
                     }`}
                     onClick={() => setConsoleTab('output')}
                   >
@@ -1627,7 +1627,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                   </button>
                   <button
                     className={`px-3 text-[9px] font-medium h-full transition-colors ${
-                      consoleTab === 'terminal' ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent' : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
+                      consoleTab === 'terminal' ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover'
                     }`}
                     onClick={() => setConsoleTab('terminal')}
                   >
@@ -1635,7 +1635,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                   </button>
                   <button
                     className={`px-3 text-[9px] font-medium h-full transition-colors ${
-                      consoleTab === 'problems' ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent' : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
+                      consoleTab === 'problems' ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover'
                     }`}
                     onClick={() => setConsoleTab('problems')}
                   >
@@ -1644,7 +1644,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                 </div>
                 <div className="flex items-center gap-1">
                   <button
-                    className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] rounded transition-colors"
+                    className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-hover rounded transition-colors"
                     onClick={handleCopyOutput}
                     title="Copy Output"
                   >
@@ -1658,7 +1658,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                     <Trash2 size={12} />
                   </button>
                   <button
-                    className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] rounded transition-colors"
+                    className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-hover rounded transition-colors"
                     onClick={() => setConsoleOpen(false)}
                     title="Minimize Console"
                   >
@@ -1667,7 +1667,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                 </div>
               </div>
 
-              <div className="flex-1 p-3 font-code text-[9.5px] overflow-y-auto bg-[#0d0e0f]">
+              <div className="flex-1 p-3 font-code text-[9.5px] overflow-y-auto bg-surface-base">
                 {consoleTab === 'output' && (
                   <div className="text-on-surface">
                     {outputLines.length === 0 ? (
@@ -1719,7 +1719,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                   className={`flex-1 py-1.5 text-[9.5px] font-medium transition-colors ${
                     rightPanelTab === 'participants'
                       ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent'
-                      : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
+                      : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover'
                   }`}
                   onClick={() => setRightPanelTab('participants')}
                 >
@@ -1729,7 +1729,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                   className={`flex-1 py-1.5 text-[9.5px] font-medium transition-colors ${
                     rightPanelTab === 'chat'
                       ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent'
-                      : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
+                      : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover'
                   }`}
                   onClick={() => setRightPanelTab('chat')}
                 >
@@ -1774,7 +1774,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                   <div className="flex flex-col gap-1">
 
                 {/* Local user entry */}
-                <div className="flex items-center gap-1.5 p-2 rounded-lg hover:bg-[#2b2d30]">
+                <div className="flex items-center gap-1.5 p-2 rounded-lg hover:bg-surface-hover">
                   <div className="relative">
                     <div
                       className="w-8 h-8 rounded-full shrink-0 bg-accent-blue flex items-center justify-center text-white text-[9px] font-bold"
@@ -1810,7 +1810,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                         case 'Owner': return 'bg-[#3d3000] text-[#f9ab00]';
                         case 'Room Leader': return 'bg-[#2a0e38] text-[#cba6f7]';
                         case 'Editor': return 'bg-[#0a2510] text-[#34a853]';
-                        default: return 'bg-[#181825] text-on-surface-muted';
+                        default: return 'bg-surface-panel text-on-surface-muted';
                       }
                     };
 
@@ -1835,7 +1835,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                               <select
                                 value={p.role || 'Viewer'}
                                 onChange={(e) => handleRoleChange(p.id, e.target.value)}
-                                className="bg-[#1e1e2e] border border-outline-subtle rounded text-[9px] text-on-surface px-1 py-0.5 outline-none cursor-pointer focus:border-accent-blue"
+                                className="bg-surface-panel border border-outline-subtle rounded text-[9px] text-on-surface px-1 py-0.5 outline-none cursor-pointer focus:border-accent-blue"
                               >
                                 <option value="Viewer">Viewer</option>
                                 <option value="Editor">Editor</option>
@@ -1884,7 +1884,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
               <div className="flex flex-col flex-1 overflow-hidden">
                 <div
                   id="chat-msg-container"
-                  className="flex-1 p-4 overflow-y-auto flex flex-col gap-1 bg-[#121414]"
+                  className="flex-1 p-4 overflow-y-auto flex flex-col gap-1 bg-surface-base"
                 >
                   {chatMessages.map((msg, idx) => {
                     const isMine = msg.userId === (user.id || user._id);
@@ -2054,7 +2054,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
 
 {/* Admin lock overlay notifications */}
       {mutedByLeaderMsg && (
-        <div className="fixed bottom-24 left-6 z-50 bg-[#1b1c1c] border-l-4 border-accent-red px-2 py-1.5 rounded-lg shadow-2xl max-w-sm">
+        <div className="fixed bottom-24 left-6 z-50 bg-surface-panel border-l-4 border-accent-red px-2 py-1.5 rounded-lg shadow-2xl max-w-sm">
           <div className="flex items-center gap-1 text-accent-red font-semibold text-sm">
             <MicOff size={16} /> Muted by Room Leader
           </div>
@@ -2095,7 +2095,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
       {showSettingsModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
           <div className="bg-surface-panel border border-outline-subtle w-full max-w-md max-h-[85vh] rounded-xl overflow-hidden shadow-2xl flex flex-col">
-            <div className="px-5 py-3.5 border-b border-outline-subtle flex items-center justify-between bg-[#121414]/60">
+            <div className="px-5 py-3.5 border-b border-outline-subtle flex items-center justify-between bg-surface-base/60">
               <div className="flex items-center gap-2">
                 <Settings size={18} className="text-accent-blue" />
                 <h2 className="text-text-base font-bold text-on-surface">Settings</h2>
@@ -2163,12 +2163,12 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                     </p>
 
                     {/* Stepper + Slider */}
-                    <div className="flex items-center gap-3 bg-[#121414] p-3 rounded-lg border border-[#2b2b2b]">
+                    <div className="flex items-center gap-3 bg-surface-base p-3 rounded-lg border border-outline-subtle">
                       <button
                         type="button"
                         onClick={() => handleFontSizeChange(editorFontSize - 1)}
                         disabled={editorFontSize <= 10 || fontSizeSaving}
-                        className="w-8 h-8 rounded-md bg-[#252626] hover:bg-[#2e3032] disabled:opacity-30 disabled:hover:bg-[#252626] text-on-surface flex items-center justify-center transition-colors shadow-sm"
+                        className="w-8 h-8 rounded-md bg-surface-hover hover:bg-[#2e3032] disabled:opacity-30 disabled:hover:bg-surface-hover text-on-surface flex items-center justify-center transition-colors shadow-sm"
                         title="Decrease font size (-1px)"
                       >
                         <Minus size={14} />
@@ -2188,7 +2188,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                         type="button"
                         onClick={() => handleFontSizeChange(editorFontSize + 1)}
                         disabled={editorFontSize >= 32 || fontSizeSaving}
-                        className="w-8 h-8 rounded-md bg-[#252626] hover:bg-[#2e3032] disabled:opacity-30 disabled:hover:bg-[#252626] text-on-surface flex items-center justify-center transition-colors shadow-sm"
+                        className="w-8 h-8 rounded-md bg-surface-hover hover:bg-[#2e3032] disabled:opacity-30 disabled:hover:bg-surface-hover text-on-surface flex items-center justify-center transition-colors shadow-sm"
                         title="Increase font size (+1px)"
                       >
                         <Plus size={14} />
@@ -2213,7 +2213,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                           className={`px-2.5 py-1 rounded text-[11px] font-medium transition-all ${
                             editorFontSize === preset.val
                               ? 'bg-accent-blue text-white shadow-sm'
-                              : 'bg-[#1e2022] hover:bg-[#26282b] text-on-surface-muted hover:text-on-surface border border-outline-subtle'
+                              : 'bg-surface-panel hover:bg-surface-hover text-on-surface-muted hover:text-on-surface border border-outline-subtle'
                           }`}
                         >
                           {preset.label}
@@ -2222,13 +2222,13 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                     </div>
 
                     {/* Live Preview Box */}
-                    <div className="mt-4 p-3 rounded-lg bg-[#121414] border border-[#2b2b2b] overflow-hidden">
+                    <div className="mt-4 p-3 rounded-lg bg-surface-base border border-outline-subtle overflow-hidden">
                       <div className="text-[10px] uppercase font-semibold text-on-surface-muted mb-1.5 flex items-center justify-between">
                         <span>Live Code Preview</span>
                         <span className="font-mono text-accent-blue">{editorFontSize}px</span>
                       </div>
                       <pre
-                        className="font-mono text-on-surface leading-relaxed select-none overflow-x-auto custom-scrollbar p-2 rounded bg-[#0d0e0f]"
+                        className="font-mono text-on-surface leading-relaxed select-none overflow-x-auto custom-scrollbar p-2 rounded bg-surface-base"
                         style={{ fontSize: `${editorFontSize}px`, fontFamily: "'JetBrains Mono', 'Fira Code', monospace" }}
                       >
                         <span className="text-purple-400">function</span> <span className="text-blue-400">calculateMetrics</span>(<span>items</span>) &#123;{'\n'}
@@ -2359,7 +2359,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
       {/* Room Deleted Modal */}
       {showRoomDeletedModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in duration-200">
-          <div className="bg-[#1f2020] border border-[#404751] w-full max-w-sm max-h-[85vh] overflow-y-auto rounded-xl shadow-2xl flex flex-col text-center p-6">
+          <div className="bg-surface-panel border border-outline w-full max-w-sm max-h-[85vh] overflow-y-auto rounded-xl shadow-2xl flex flex-col text-center p-6">
             <div className="w-12 h-12 rounded-full bg-red-950/30 flex items-center justify-center text-red-500 mx-auto mb-4">
               <span className="material-symbols-outlined text-[24px]">warning</span>
             </div>
@@ -2384,7 +2384,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
       {showInviteModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
           <div className="bg-surface-panel border border-outline-subtle w-full max-w-md rounded-xl overflow-hidden shadow-2xl flex flex-col">
-            <div className="px-5 py-3.5 border-b border-outline-subtle flex items-center justify-between bg-[#121414]/60">
+            <div className="px-5 py-3.5 border-b border-outline-subtle flex items-center justify-between bg-surface-base/60">
               <div className="flex items-center gap-2">
                 <Share2 size={18} className="text-accent-blue" />
                 <h2 className="text-text-base font-bold text-on-surface">Invite Collaborators</h2>
@@ -2443,7 +2443,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                       navigator.clipboard.writeText(roomUuid);
                       showToast('Room code copied to clipboard!', 'success');
                     }}
-                    className="px-3 py-1.5 bg-[#252626] border border-outline-subtle text-on-surface hover:text-on-surface hover:bg-[#2b2d30] rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 shrink-0"
+                    className="px-3 py-1.5 bg-surface-hover border border-outline-subtle text-on-surface hover:text-on-surface hover:bg-surface-hover rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 shrink-0"
                   >
                     <Copy size={13} />
                     <span>Copy Code</span>
@@ -2457,10 +2457,10 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
               </div>
             </div>
 
-            <div className="px-5 py-3 border-t border-outline-subtle bg-[#121414]/60 flex justify-end">
+            <div className="px-5 py-3 border-t border-outline-subtle bg-surface-base/60 flex justify-end">
               <button
                 onClick={() => setShowInviteModal(false)}
-                className="px-4 py-1.5 bg-[#252626] border border-outline-subtle text-on-surface hover:bg-[#303233] text-xs font-medium rounded-md transition-colors"
+                className="px-4 py-1.5 bg-surface-hover border border-outline-subtle text-on-surface hover:bg-[#303233] text-xs font-medium rounded-md transition-colors"
               >
                 Done
               </button>
@@ -2472,7 +2472,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
       {/* Room Capacity Exceeded Modal (NFR-36) */}
       {showCapacityModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in duration-200">
-          <div className="bg-[#1f2020] border border-amber-500/40 w-full max-w-sm max-h-[85vh] overflow-y-auto rounded-xl shadow-2xl flex flex-col text-center p-6">
+          <div className="bg-surface-panel border border-amber-500/40 w-full max-w-sm max-h-[85vh] overflow-y-auto rounded-xl shadow-2xl flex flex-col text-center p-6">
             <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto mb-4 border border-amber-500/20">
               <Users size={24} />
             </div>
@@ -2517,7 +2517,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
             style={{ top: activeFileMenu.y, left: activeFileMenu.x }}
           >
             <button
-              className="w-full text-left px-3 py-1.5 text-[12.5px] text-on-surface hover:bg-[#37373d] transition-colors"
+              className="w-full text-left px-3 py-1.5 text-[12.5px] text-on-surface hover:bg-surface-hover transition-colors"
               onClick={() => {
                 handleRenameFile(activeFileMenu.fileName);
                 setActiveFileMenu(null);
@@ -2527,7 +2527,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
             </button>
             <div className="h-px w-full bg-[#454545] my-1" />
             <button
-              className="w-full text-left px-3 py-1.5 text-[12.5px] text-red-400 hover:bg-[#37373d] transition-colors"
+              className="w-full text-left px-3 py-1.5 text-[12.5px] text-red-400 hover:bg-surface-hover transition-colors"
               onClick={() => {
                 handleDeleteFile(activeFileMenu.fileName);
                 setActiveFileMenu(null);
@@ -2542,4 +2542,5 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     </div>
   );
 }
+
 
