@@ -348,7 +348,7 @@ async function runTestSuite() {
     // 5.2 render.yaml sanitization checks
     const renderPath = path.join(__dirname, '..', '..', 'render.yaml');
     check(fs.existsSync(renderPath), 'render.yaml exists in repository root');
-    const renderContent = fs.readFileSync(renderPath, 'utf8');
+    const renderContent = fs.readFileSync(renderPath, 'utf8').replace(/\r\n/g, '\n');
 
     check(!renderContent.includes('omerdb9090'), 'render.yaml contains NO database password');
     check(!renderContent.includes('16017cdd07msh'), 'render.yaml contains NO RapidAPI key');
