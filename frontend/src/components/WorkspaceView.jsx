@@ -3036,6 +3036,54 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
         </>
       )}
 
+      {/* Delete File Confirmation Modal */}
+      {deleteConfirmFile && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-surface-panel border border-outline rounded-xl shadow-2xl w-[340px] p-5">
+            {isLastFileWarning ? (
+              <>
+                <h3 className="text-sm font-bold text-on-surface mb-2">Cannot Delete Last File</h3>
+                <p className="text-[11px] text-on-surface-muted mb-4">
+                  You must have at least one file in the workspace. Create a new file first before deleting
+                  <span className="font-semibold text-on-surface"> "{deleteConfirmFile.split('/').pop()}"</span>.
+                </p>
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => { setDeleteConfirmFile(null); setIsLastFileWarning(false); }}
+                    className="px-4 py-1.5 text-[11px] font-medium bg-surface-elevated hover:bg-surface-hover border border-outline rounded-md text-on-surface transition-colors"
+                  >
+                    OK
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-sm font-bold text-on-surface mb-2">Delete File</h3>
+                <p className="text-[11px] text-on-surface-muted mb-4">
+                  Are you sure you want to permanently delete
+                  <span className="font-semibold text-red-400"> "{deleteConfirmFile.split('/').pop()}"</span>?
+                  This action cannot be undone.
+                </p>
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => { setDeleteConfirmFile(null); setIsLastFileWarning(false); }}
+                    className="px-4 py-1.5 text-[11px] font-medium bg-surface-elevated hover:bg-surface-hover border border-outline rounded-md text-on-surface transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirmDelete}
+                    className="px-4 py-1.5 text-[11px] font-medium bg-red-500 hover:bg-red-600 text-white rounded-md transition-colors"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
