@@ -33,8 +33,25 @@ export default function SpeechVisualizer({ stream, isSpeaking, size = 32, avatar
     if (!stream || !canvasRef.current) return;
 
     try {
-      // Setup Web Audio API analyser
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      // Setup Web Audio API analyser (cross-browser Chrome, Firefox, Edge, Safari)
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      const audioContext = new AudioContextClass();
+      
+      // Handle browser autoplay policy suspending AudioContext before user interaction
+      if (audioContext.state === 'suspended') {
+        const resumeCtx = () => {
+          if (audioContext.state === 'suspended') {
+            audioContext.resume().catch(() => {});
+          }
+          window.removeEventListener('click', resumeCtx);
+          window.removeEventListener('keydown', resumeCtx);
+        };
+        window.addEventListener('click', resumeCtx, { once: true });
+        window.addEventListener('keydown', resumeCtx, { once: true });
+        audioContext.resume().catch(() => {});
+      }
+
       const source = audioContext.createMediaStreamSource(stream);
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 64;
