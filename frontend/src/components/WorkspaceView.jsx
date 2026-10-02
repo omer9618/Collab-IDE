@@ -152,6 +152,65 @@ module.exports = { formatDate };`,
 };
 
 /**
+ * Boilerplate templates for new files by extension.
+ * Used when creating a new file to pre-fill it with starter code.
+ */
+const BOILERPLATE_TEMPLATES = {
+  '.js': `// JavaScript — CollabIDE
+console.log('Hello, World!');`,
+  '.py': `# Python — CollabIDE
+print('Hello, World!')`,
+  '.cpp': `// C++ — CollabIDE
+#include <iostream>
+using namespace std;
+
+int main() {
+    cout << "Hello, World!" << endl;
+    return 0;
+}`,
+  '.c': `// C — CollabIDE
+#include <stdio.h>
+
+int main() {
+    printf("Hello, World!\\n");
+    return 0;
+}`,
+  '.java': `// Java — CollabIDE
+public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello, World!");
+    }
+}`,
+  '.html': `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CollabIDE Page</title>
+  <style>
+    body { font-family: sans-serif; padding: 2rem; }
+  </style>
+</head>
+<body>
+  <h1>Hello from CollabIDE!</h1>
+</body>
+</html>`,
+  '.css': `/* CSS — CollabIDE */
+body {
+  margin: 0;
+  font-family: sans-serif;
+}`,
+  '.md': `# New Document\n\nStart writing here.`,
+};
+
+const getBoilerplate = (filename) => {
+  const lower = filename.toLowerCase();
+  for (const [ext, template] of Object.entries(BOILERPLATE_TEMPLATES)) {
+    if (lower.endsWith(ext)) return template;
+  }
+  return `// ${filename}\n`;
+};
+
+/**
  * Supported Languages and Judge0 mapping (FR-23)
  * Languages: JavaScript, Python, C++, C, Java, HTML/CSS
  */
@@ -522,9 +581,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
       const currentNames = yfilesInstance.toArray();
       // Deduplicate file names to prevent concurrent client initialization race conditions
       const uniqueNames = Array.from(new Set(currentNames));
-      if (uniqueNames.length > 0) {
-        setFiles(uniqueNames.map(name => ({ name })));
-      }
+      setFiles(uniqueNames.map(name => ({ name })));
     };
     yfilesInstance.observe(updateFilesFromYjs);
 
@@ -1167,6 +1224,14 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
 
     // Push new file path to shared Yjs array
     yfiles.push([fullPath]);
+
+    // Write boilerplate content into the Yjs text document for this new file
+    const ytext = ydoc.getText(`${roomUuid}:${fullPath}`);
+    if (ytext.toString().length === 0) {
+      const boilerplate = DEFAULT_CODE[fullPath] || getBoilerplate(fullPath);
+      ytext.insert(0, boilerplate);
+    }
+
     setActiveFile(fullPath);
     setOpenedFiles(prev => prev.includes(fullPath) ? prev : [...prev, fullPath]);
     setIsCreatingFile(false);
@@ -2945,11 +3010,11 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
             onContextMenu={(e) => { e.preventDefault(); setActiveFileMenu(null); }}
           />
           <div
-            className="fixed z-[101] bg-[#252526] border border-[#454545] rounded-md shadow-2xl py-1 min-w-[140px] flex flex-col"
+            className="fixed z-[101] bg-surface-panel border border-outline rounded-md shadow-2xl py-1 min-w-[140px] flex flex-col"
             style={{ top: activeFileMenu.y, left: activeFileMenu.x }}
           >
             <button
-              className="w-full text-left px-3 py-1.5 text-[12.5px] text-on-surface hover:bg-[#37373d] transition-colors"
+              className="w-full text-left px-3 py-1.5 text-[12.5px] text-on-surface hover:bg-surface-hover transition-colors"
               onClick={() => {
                 handleRenameFile(activeFileMenu.fileName);
                 setActiveFileMenu(null);
@@ -2957,9 +3022,9 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
             >
               Rename
             </button>
-            <div className="h-px w-full bg-[#454545] my-1" />
+            <div className="h-px w-full bg-outline my-1" />
             <button
-              className="w-full text-left px-3 py-1.5 text-[12.5px] text-red-400 hover:bg-[#37373d] transition-colors"
+              className="w-full text-left px-3 py-1.5 text-[12.5px] text-red-400 hover:bg-surface-hover transition-colors"
               onClick={() => {
                 handleDeleteFile(activeFileMenu.fileName);
                 setActiveFileMenu(null);
