@@ -172,6 +172,10 @@ app.use('/api', notFoundHandler);
 // Centralized Plain-English Error Sanitizer Middleware (NFR-47)
 app.use(errorHandler);
 
+// Stateless REST Architecture Assertion (NFR-51)
+// Enforces that session state lives exclusively in tokens and DB, with zero server memory sessions
+auth.assertStatelessPipeline(app);
+
 // Initialize Modular WebSocket Relay Subsystem (NFR-48, NFR-52, NFR-17, NFR-36)
 const {
   wss,

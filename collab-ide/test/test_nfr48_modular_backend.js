@@ -47,9 +47,10 @@
  *    - Sensitive credential redaction in universal logger (NFR-23)
  */
 
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 require('dotenv').config();
 const assert = require('assert');
-const path = require('path');
 const jwt = require('jsonwebtoken');
 const Y = require('yjs');
 const syncProtocol = require('y-protocols/sync');

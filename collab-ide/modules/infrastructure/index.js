@@ -62,4 +62,10 @@ module.exports = {
   encryption,
   csrf,
   errorHandler,
+  stateless: {
+    enabled: true,
+    sessionStorage: 'tokens-and-db',
+    inMemorySessionStore: false,
+    supportsHorizontalScaling: true,
+  },
 };
