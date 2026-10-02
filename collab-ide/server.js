@@ -12,7 +12,10 @@
  * - Graceful process termination and buffer flushing (NFR-38)
  */
 
+const path = require('path');
+
 if (process.env.SKIP_DOTENV !== 'true') {
+  require('dotenv').config({ path: path.resolve(__dirname, '.env') });
   require('dotenv').config();
 }
 
@@ -27,7 +30,6 @@ logger.installGlobalInterceptor();
 
 const http = require('http');
 const express = require('express');
-const path = require('path');
 const fs = require('fs');
 const WebSocket = require('ws');
 const cors = require('cors');
