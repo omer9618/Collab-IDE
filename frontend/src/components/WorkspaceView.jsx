@@ -1980,7 +1980,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                 className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors border ${
                   isMuted 
                     ? 'bg-accent-red text-white border-transparent hover:opacity-90' 
-                    : 'bg-surface-variant text-on-surface hover:bg-outline-subtle'
+                    : 'bg-surface-elevated text-on-surface hover:bg-surface-hover border-outline-subtle'
                 }`}
                 title={isMuted ? 'Unmute microphone' : 'Mute microphone'}
               >
@@ -2399,7 +2399,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
       {showInviteModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
           <div className="bg-surface-panel border border-outline-subtle w-full max-w-md rounded-xl overflow-hidden shadow-2xl flex flex-col">
-            <div className="px-5 py-3.5 border-b border-outline-subtle flex items-center justify-between bg-[#121414]/60">
+            <div className="px-5 py-3.5 border-b border-outline-subtle flex items-center justify-between bg-surface-base rounded-t-xl">
               <div className="flex items-center gap-2">
                 <Share2 size={18} className="text-accent-blue" />
                 <h2 className="text-text-base font-bold text-on-surface">Invite Collaborators</h2>
@@ -2458,7 +2458,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                       navigator.clipboard.writeText(roomUuid);
                       showToast('Room code copied to clipboard!', 'success');
                     }}
-                    className="px-3 py-1.5 bg-[#252626] border border-outline-subtle text-on-surface hover:text-on-surface hover:bg-[#2b2d30] rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 shrink-0"
+                    className="px-3 py-1.5 bg-surface-elevated border border-outline-subtle text-on-surface hover:text-on-surface hover:bg-surface-hover rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 shrink-0"
                   >
                     <Copy size={13} />
                     <span>Copy Code</span>
@@ -2472,10 +2472,10 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
               </div>
             </div>
 
-            <div className="px-5 py-3 border-t border-outline-subtle bg-[#121414]/60 flex justify-end">
+            <div className="px-5 py-3 border-t border-outline-subtle bg-surface-base flex justify-end rounded-b-xl">
               <button
                 onClick={() => setShowInviteModal(false)}
-                className="px-4 py-1.5 bg-[#252626] border border-outline-subtle text-on-surface hover:bg-[#303233] text-xs font-medium rounded-md transition-colors"
+                className="px-4 py-1.5 bg-surface-elevated border border-outline-subtle text-on-surface hover:bg-surface-hover text-xs font-medium rounded-md transition-colors"
               >
                 Done
               </button>
