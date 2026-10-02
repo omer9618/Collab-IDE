@@ -312,9 +312,9 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
   // Live breach checks disabled by user preference
 
   return (
-    <div className="bg-surface-base text-on-surface font-ui text-[13px] h-screen flex overflow-hidden w-full">
+    <div className="bg-[#0d0e0f] text-[#e3e2e3] font-ui text-[13px] h-screen flex overflow-hidden w-full">
       {/* Left Side: Hero Section */}
-      <section className="hidden lg:flex w-1/2 bg-surface-base p-8 flex-col justify-between relative overflow-hidden">
+      <section className="hidden lg:flex w-1/2 bg-[#0d0e0f] p-8 flex-col justify-between relative overflow-hidden">
         <div className="absolute inset-0 opacity-10 pointer-events-none">
           <img
             alt="Background Pattern"
@@ -323,41 +323,41 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
           />
         </div>
         <div className="relative z-10 max-w-md my-auto xl:ml-16">
-          <h1 className="text-[36px] font-semibold text-on-surface leading-tight mb-4">
+          <h1 className="text-[36px] font-semibold text-[#e3e2e2] leading-tight mb-4">
             Code together, <br />in real time.
           </h1>
-          <p className="text-on-surface-variant text-[16px] leading-relaxed mb-12">
+          <p className="text-[#c0c7d3] text-[16px] leading-relaxed mb-12">
             A collaborative IDE with live editing, voice chat, and instant code execution.
           </p>
 
           <div className="space-y-8">
             <div className="flex items-start space-x-4 group">
-              <div className="mt-1 w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-lg bg-surface-panel border border-outline text-[#9fcaff] group-hover:border-[#9fcaff] transition-colors">
+              <div className="mt-1 w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-lg bg-[#1f2021] border border-[#404751] text-[#9fcaff] group-hover:border-[#9fcaff] transition-colors">
                 <span className="material-symbols-outlined">sync_alt</span>
               </div>
               <div>
-                <h3 className="text-[14px] font-medium text-on-surface">Real-time sync</h3>
-                <p className="text-[13px] text-on-surface-variant">
+                <h3 className="text-[14px] font-medium text-[#e3e2e3]">Real-time sync</h3>
+                <p className="text-[13px] text-[#c0c7d3]">
                   Sub-millisecond latency updates across all connected clients.
                 </p>
               </div>
             </div>
             <div className="flex items-start space-x-4 group">
-              <div className="mt-1 w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-lg bg-surface-panel border border-outline text-[#9fcaff] group-hover:border-[#9fcaff] transition-colors">
+              <div className="mt-1 w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-lg bg-[#1f2021] border border-[#404751] text-[#9fcaff] group-hover:border-[#9fcaff] transition-colors">
                 <span className="material-symbols-outlined">mic</span>
               </div>
               <div>
-                <h3 className="text-[14px] font-medium text-on-surface">Voice chat</h3>
-                <p className="text-[13px] text-on-surface-variant">Built-in spatial audio for seamless team communication.</p>
+                <h3 className="text-[14px] font-medium text-[#e3e2e3]">Voice chat</h3>
+                <p className="text-[13px] text-[#c0c7d3]">Built-in spatial audio for seamless team communication.</p>
               </div>
             </div>
             <div className="flex items-start space-x-4 group">
-              <div className="mt-1 w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-lg bg-surface-panel border border-outline text-[#9fcaff] group-hover:border-[#9fcaff] transition-colors">
+              <div className="mt-1 w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-lg bg-[#1f2021] border border-[#404751] text-[#9fcaff] group-hover:border-[#9fcaff] transition-colors">
                 <span className="material-symbols-outlined">terminal</span>
               </div>
               <div>
-                <h3 className="text-[14px] font-medium text-on-surface">Code execution</h3>
-                <p className="text-[13px] text-on-surface-variant">
+                <h3 className="text-[14px] font-medium text-[#e3e2e3]">Code execution</h3>
+                <p className="text-[13px] text-[#c0c7d3]">
                   Secure sandboxed runtime for over 25+ programming languages.
                 </p>
               </div>
@@ -365,18 +365,18 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
           </div>
         </div>
         <div className="relative z-10 xl:ml-16">
-          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-on-surface-muted/50">
+          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#8a919d]/50">
             BAHRIA UNIVERSITY FYP · BSE 2026
           </p>
         </div>
       </section>
 
       {/* Right Side: Auth Card Section */}
-      <section className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-surface-base relative">
+      <section className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-[#121314] relative">
         <button
           onClick={toggleTheme}
           type="button"
-          className="absolute top-6 right-6 p-2 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors"
+          className="absolute top-6 right-6 p-2 rounded-lg text-text-muted hover:text-text-primary hover:bg-[#252626] transition-colors"
           title={`Switch to ${isLight ? 'Dark' : 'Light'} Mode`}
         >
           {isLight ? (
@@ -386,7 +386,7 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
           )}
         </button>
 
-        <div className="w-full max-w-[440px] bg-surface-panel border border-outline rounded-lg p-10 shadow-xl overflow-y-auto max-h-[92vh]">
+        <div className="w-full max-w-[440px] bg-[#1b1c1c] border border-[#404751] rounded-lg p-10 shadow-xl overflow-y-auto max-h-[92vh]">
           {/* Logo */}
           <div
             className="flex items-center justify-center space-x-2 mb-8 cursor-pointer select-none"
@@ -402,13 +402,13 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
 
           {/* Tab Switcher (Visible in Signin / Signup mode) */}
           {(activeTab === 'signin' || activeTab === 'signup') && (
-            <div className="flex border-b border-outline mb-8">
+            <div className="flex border-b border-[#404751] mb-8">
               <button
                 type="button"
                 className={`flex-1 pb-4 text-[14px] font-medium transition-all border-b-2 ${
                   activeTab === 'signin'
                     ? 'text-[#9fcaff] border-[#9fcaff]'
-                    : 'text-on-surface-variant border-transparent hover:text-on-surface'
+                    : 'text-[#c0c7d3] border-transparent hover:text-[#e3e2e3]'
                 }`}
                 onClick={() => {
                   setActiveTab('signin');
@@ -423,7 +423,7 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
                 className={`flex-1 pb-4 text-[14px] font-medium transition-all border-b-2 ${
                   activeTab === 'signup'
                     ? 'text-[#9fcaff] border-[#9fcaff]'
-                    : 'text-on-surface-variant border-transparent hover:text-on-surface'
+                    : 'text-[#c0c7d3] border-transparent hover:text-[#e3e2e3]'
                 }`}
                 onClick={() => {
                   setActiveTab('signup');
@@ -451,8 +451,8 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
                 <ArrowLeft size={14} />
                 Back to Sign in
               </button>
-              <h2 className="text-[20px] font-semibold text-on-surface">Reset your password</h2>
-              <p className="text-[13px] text-on-surface-variant leading-relaxed">
+              <h2 className="text-[20px] font-semibold text-[#e3e2e2]">Reset your password</h2>
+              <p className="text-[13px] text-[#c0c7d3] leading-relaxed">
                 Enter your account email below. We will send a single-use reset link valid for <strong>30 minutes</strong>.
               </p>
             </div>
@@ -465,13 +465,13 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
                 <KeyRound size={13} />
                 Single-Use Reset Link (30m)
               </div>
-              <h2 className="text-[20px] font-semibold text-on-surface">Set new password</h2>
+              <h2 className="text-[20px] font-semibold text-[#e3e2e2]">Set new password</h2>
               {resetTargetEmail ? (
-                <p className="text-[13px] text-on-surface-variant">
+                <p className="text-[13px] text-[#c0c7d3]">
                   Resetting credentials for account: <strong className="text-white font-mono">{resetTargetEmail}</strong>
                 </p>
               ) : (
-                <p className="text-[13px] text-on-surface-variant leading-relaxed">
+                <p className="text-[13px] text-[#c0c7d3] leading-relaxed">
                   Enter your new password below. All existing active sessions will be revoked for security.
                 </p>
               )}
@@ -500,11 +500,11 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
           {(activeTab === 'signin' || activeTab === 'signup') && (
             <form className="space-y-6" onSubmit={handleAuthSubmit}>
               <div className="space-y-2">
-                <label className="text-[11px] font-medium uppercase tracking-widest text-on-surface-variant" htmlFor="email">
+                <label className="text-[11px] font-medium uppercase tracking-widest text-[#c0c7d3]" htmlFor="email">
                   Email Address
                 </label>
                 <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-muted text-[20px]">
+                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#8a919d] text-[20px]">
                     mail
                   </span>
                   <input
@@ -514,7 +514,7 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="dev@collabide.io"
-                    className="w-full h-11 bg-surface-base border border-outline rounded-lg pl-10 pr-4 text-[13px] text-on-surface placeholder:text-on-surface-muted/40 transition-all focus:border-[#9fcaff] focus:outline-none focus:ring-1 focus:ring-[#9fcaff]/50"
+                    className="w-full h-11 bg-[#0d0e0f] border border-[#404751] rounded-lg pl-10 pr-4 text-[13px] text-[#e3e2e3] placeholder:text-[#8a919d]/40 transition-all focus:border-[#9fcaff] focus:outline-none focus:ring-1 focus:ring-[#9fcaff]/50"
                   />
                 </div>
               </div>
@@ -523,13 +523,13 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
                 <>
                   <div className="space-y-2">
                     <label
-                      className="text-[11px] font-medium uppercase tracking-widest text-on-surface-variant"
+                      className="text-[11px] font-medium uppercase tracking-widest text-[#c0c7d3]"
                       htmlFor="displayName"
                     >
                       Display Name
                     </label>
                     <div className="relative">
-                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-muted text-[20px]">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#8a919d] text-[20px]">
                         person
                       </span>
                       <input
@@ -539,13 +539,13 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
                         value={displayName}
                         onChange={(e) => setDisplayName(e.target.value)}
                         placeholder="e.g. John Doe"
-                        className="w-full h-11 bg-surface-base border border-outline rounded-lg pl-10 pr-4 text-[13px] text-on-surface placeholder:text-on-surface-muted/40 transition-all focus:border-[#9fcaff] focus:outline-none focus:ring-1 focus:ring-[#9fcaff]/50"
+                        className="w-full h-11 bg-[#0d0e0f] border border-[#404751] rounded-lg pl-10 pr-4 text-[13px] text-[#e3e2e3] placeholder:text-[#8a919d]/40 transition-all focus:border-[#9fcaff] focus:outline-none focus:ring-1 focus:ring-[#9fcaff]/50"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[11px] font-medium uppercase tracking-widest text-on-surface-variant">
+                    <label className="text-[11px] font-medium uppercase tracking-widest text-[#c0c7d3]">
                       Choose Avatar Color
                     </label>
                     <div className="flex gap-2.5">
@@ -569,7 +569,7 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
 
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <label className="text-[11px] font-medium uppercase tracking-widest text-on-surface-variant" htmlFor="password">
+                  <label className="text-[11px] font-medium uppercase tracking-widest text-[#c0c7d3]" htmlFor="password">
                     Password
                   </label>
                   {activeTab === 'signin' && (
@@ -587,7 +587,7 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
                   )}
                 </div>
                 <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-muted text-[20px]">
+                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#8a919d] text-[20px]">
                     lock
                   </span>
                   <input
@@ -597,12 +597,12 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full h-11 bg-surface-base border border-outline rounded-lg pl-10 pr-12 text-[13px] text-on-surface placeholder:text-on-surface-muted/40 transition-all focus:border-[#9fcaff] focus:outline-none focus:ring-1 focus:ring-[#9fcaff]/50"
+                    className="w-full h-11 bg-[#0d0e0f] border border-[#404751] rounded-lg pl-10 pr-12 text-[13px] text-[#e3e2e3] placeholder:text-[#8a919d]/40 transition-all focus:border-[#9fcaff] focus:outline-none focus:ring-1 focus:ring-[#9fcaff]/50"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-muted hover:text-[#9fcaff] transition-colors flex items-center justify-center"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8a919d] hover:text-[#9fcaff] transition-colors flex items-center justify-center"
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
@@ -613,11 +613,11 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
                 <>
                   {/* Confirm Password Field */}
                   <div className="space-y-2">
-                    <label className="text-[11px] font-medium uppercase tracking-widest text-on-surface-variant" htmlFor="signupConfirmPassword">
+                    <label className="text-[11px] font-medium uppercase tracking-widest text-[#c0c7d3]" htmlFor="signupConfirmPassword">
                       Confirm Password
                     </label>
                     <div className="relative">
-                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-muted text-[20px]">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#8a919d] text-[20px]">
                         lock_reset
                       </span>
                       <input
@@ -627,12 +627,12 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         placeholder="••••••••"
-                        className="w-full h-11 bg-surface-base border border-outline rounded-lg pl-10 pr-12 text-[13px] text-on-surface placeholder:text-on-surface-muted/40 transition-all focus:border-[#9fcaff] focus:outline-none focus:ring-1 focus:ring-[#9fcaff]/50"
+                        className="w-full h-11 bg-[#0d0e0f] border border-[#404751] rounded-lg pl-10 pr-12 text-[13px] text-[#e3e2e3] placeholder:text-[#8a919d]/40 transition-all focus:border-[#9fcaff] focus:outline-none focus:ring-1 focus:ring-[#9fcaff]/50"
                       />
                       <button
                         type="button"
                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-muted hover:text-[#9fcaff] transition-colors flex items-center justify-center"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8a919d] hover:text-[#9fcaff] transition-colors flex items-center justify-center"
                       >
                         {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
@@ -640,8 +640,8 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
                   </div>
 
                   {/* Live Password Complexity Checklist (NFR-16) */}
-                  <div className="p-3 bg-surface-base border border-outline-subtle rounded-lg space-y-1.5 text-[11px]">
-                    <div className="font-semibold text-on-surface-muted uppercase tracking-wider mb-1 flex items-center justify-between">
+                  <div className="p-3 bg-[#0d0e0f] border border-[#2b2b2b] rounded-lg space-y-1.5 text-[11px]">
+                    <div className="font-semibold text-[#8a919d] uppercase tracking-wider mb-1 flex items-center justify-between">
                       <span>Password Requirements</span>
                     </div>
                     <div className={`flex items-center gap-2 ${signupHasLength ? 'text-accent-green' : 'text-text-muted'}`}>
@@ -690,24 +690,24 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
 
               <div className="relative py-2">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-outline/50"></div>
+                  <div className="w-full border-t border-[#404751]/50"></div>
                 </div>
                 <div className="relative flex justify-center text-[11px] font-medium uppercase tracking-widest">
-                  <span className="bg-surface-panel px-4 text-on-surface-muted/60">Or continue with</span>
+                  <span className="bg-[#1b1c1c] px-4 text-[#8a919d]/60">Or continue with</span>
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={handleGoogleSignIn}
-                className="w-full h-11 border border-outline bg-transparent hover:bg-[#292a2b] transition-colors rounded-lg flex items-center justify-center space-x-3"
+                className="w-full h-11 border border-[#404751] bg-transparent hover:bg-[#292a2b] transition-colors rounded-lg flex items-center justify-center space-x-3"
               >
                 <img
                   src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png"
                   alt="Google Logo"
                   className="w-5 h-5 object-contain"
                 />
-                <span className="text-[14px] font-medium text-on-surface">Continue with Google</span>
+                <span className="text-[14px] font-medium text-[#e3e2e3]">Continue with Google</span>
               </button>
             </form>
           )}
@@ -718,11 +718,11 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
           {activeTab === 'forgot' && (
             <form className="space-y-6" onSubmit={handleForgotSubmit}>
               <div className="space-y-2">
-                <label className="text-[11px] font-medium uppercase tracking-widest text-on-surface-variant" htmlFor="forgotEmail">
+                <label className="text-[11px] font-medium uppercase tracking-widest text-[#c0c7d3]" htmlFor="forgotEmail">
                   Account Email Address
                 </label>
                 <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-muted text-[20px]">
+                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#8a919d] text-[20px]">
                     mail
                   </span>
                   <input
@@ -732,10 +732,10 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="dev@collabide.io"
-                    className="w-full h-11 bg-surface-base border border-outline rounded-lg pl-10 pr-4 text-[13px] text-on-surface placeholder:text-on-surface-muted/40 transition-all focus:border-[#9fcaff] focus:outline-none focus:ring-1 focus:ring-[#9fcaff]/50"
+                    className="w-full h-11 bg-[#0d0e0f] border border-[#404751] rounded-lg pl-10 pr-4 text-[13px] text-[#e3e2e3] placeholder:text-[#8a919d]/40 transition-all focus:border-[#9fcaff] focus:outline-none focus:ring-1 focus:ring-[#9fcaff]/50"
                   />
                 </div>
-                <p className="text-[11px] text-on-surface-muted leading-relaxed">
+                <p className="text-[11px] text-[#8a919d] leading-relaxed">
                   A cryptographically signed, single-use reset link will be sent to this email (or printed to the local backend terminal).
                 </p>
               </div>
@@ -755,7 +755,7 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
                   setError('');
                   setMessage('');
                 }}
-                className="w-full h-11 border border-outline bg-transparent hover:bg-[#292a2b] transition-colors rounded-lg flex items-center justify-center text-[13px] text-on-surface-variant hover:text-white"
+                className="w-full h-11 border border-[#404751] bg-transparent hover:bg-[#292a2b] transition-colors rounded-lg flex items-center justify-center text-[13px] text-[#c0c7d3] hover:text-white"
               >
                 Cancel and return to Sign In
               </button>
@@ -770,7 +770,7 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
               {tokenValidating ? (
                 <div className="py-12 flex flex-col items-center justify-center space-y-3">
                   <div className="w-8 h-8 border-2 border-[#007acc] border-t-transparent rounded-full animate-spin" />
-                  <p className="text-sm text-on-surface-muted">Verifying reset token...</p>
+                  <p className="text-sm text-[#8a919d]">Verifying reset token...</p>
                 </div>
               ) : resetSuccess ? (
                 <div className="space-y-6 text-center py-4">
@@ -779,7 +779,7 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-white">Password Updated</h3>
-                    <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">
+                    <p className="text-xs text-[#c0c7d3] mt-1 leading-relaxed">
                       Your password has been changed. All active sessions have been revoked per FR-09 security requirements.
                     </p>
                   </div>
@@ -816,7 +816,7 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
                       setError('');
                       setMessage('');
                     }}
-                    className="w-full h-10 border border-outline hover:bg-surface-hover rounded-lg text-xs text-on-surface-variant transition-colors"
+                    className="w-full h-10 border border-[#404751] hover:bg-[#252626] rounded-lg text-xs text-[#c0c7d3] transition-colors"
                   >
                     Back to Sign In
                   </button>
@@ -825,11 +825,11 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
                 <form className="space-y-5" onSubmit={handleResetSubmit}>
                   {/* New Password */}
                   <div className="space-y-1.5">
-                    <label className="text-[11px] font-medium uppercase tracking-widest text-on-surface-variant" htmlFor="newPassword">
+                    <label className="text-[11px] font-medium uppercase tracking-widest text-[#c0c7d3]" htmlFor="newPassword">
                       New Password
                     </label>
                     <div className="relative">
-                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-muted text-[20px]">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#8a919d] text-[20px]">
                         lock
                       </span>
                       <input
@@ -839,12 +839,12 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         placeholder="••••••••"
-                        className="w-full h-11 bg-surface-base border border-outline rounded-lg pl-10 pr-12 text-[13px] text-on-surface placeholder:text-on-surface-muted/40 transition-all focus:border-[#9fcaff] focus:outline-none focus:ring-1 focus:ring-[#9fcaff]/50"
+                        className="w-full h-11 bg-[#0d0e0f] border border-[#404751] rounded-lg pl-10 pr-12 text-[13px] text-[#e3e2e3] placeholder:text-[#8a919d]/40 transition-all focus:border-[#9fcaff] focus:outline-none focus:ring-1 focus:ring-[#9fcaff]/50"
                       />
                       <button
                         type="button"
                         onClick={() => setShowNewPassword(!showNewPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-muted hover:text-[#9fcaff] transition-colors flex items-center justify-center"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8a919d] hover:text-[#9fcaff] transition-colors flex items-center justify-center"
                       >
                         {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
@@ -853,11 +853,11 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
 
                   {/* Confirm Password */}
                   <div className="space-y-1.5">
-                    <label className="text-[11px] font-medium uppercase tracking-widest text-on-surface-variant" htmlFor="confirmPassword">
+                    <label className="text-[11px] font-medium uppercase tracking-widest text-[#c0c7d3]" htmlFor="confirmPassword">
                       Confirm New Password
                     </label>
                     <div className="relative">
-                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-muted text-[20px]">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#8a919d] text-[20px]">
                         lock_reset
                       </span>
                       <input
@@ -867,12 +867,12 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         placeholder="••••••••"
-                        className="w-full h-11 bg-surface-base border border-outline rounded-lg pl-10 pr-12 text-[13px] text-on-surface placeholder:text-on-surface-muted/40 transition-all focus:border-[#9fcaff] focus:outline-none focus:ring-1 focus:ring-[#9fcaff]/50"
+                        className="w-full h-11 bg-[#0d0e0f] border border-[#404751] rounded-lg pl-10 pr-12 text-[13px] text-[#e3e2e3] placeholder:text-[#8a919d]/40 transition-all focus:border-[#9fcaff] focus:outline-none focus:ring-1 focus:ring-[#9fcaff]/50"
                       />
                       <button
                         type="button"
                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-muted hover:text-[#9fcaff] transition-colors flex items-center justify-center"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8a919d] hover:text-[#9fcaff] transition-colors flex items-center justify-center"
                       >
                         {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
@@ -880,8 +880,8 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
                   </div>
 
                   {/* Live Password Complexity Checklist (FR-01 / FR-09 / NFR-16) */}
-                  <div className="p-3 bg-surface-base border border-outline-subtle rounded-lg space-y-1.5 text-[11px]">
-                    <div className="font-semibold text-on-surface-muted uppercase tracking-wider mb-1 flex items-center justify-between">
+                  <div className="p-3 bg-[#0d0e0f] border border-[#2b2b2b] rounded-lg space-y-1.5 text-[11px]">
+                    <div className="font-semibold text-[#8a919d] uppercase tracking-wider mb-1 flex items-center justify-between">
                       <span>Password Requirements</span>
                     </div>
                     <div className={`flex items-center gap-2 ${hasLength ? 'text-accent-green' : 'text-text-muted'}`}>
@@ -936,7 +936,7 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
                       setMessage('');
                       onClearResetToken?.();
                     }}
-                    className="w-full h-10 border border-outline hover:bg-surface-hover rounded-lg text-xs text-on-surface-variant transition-colors"
+                    className="w-full h-10 border border-[#404751] hover:bg-[#252626] rounded-lg text-xs text-[#c0c7d3] transition-colors"
                   >
                     Cancel
                   </button>
@@ -949,4 +949,3 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
     </div>
   );
 }
-

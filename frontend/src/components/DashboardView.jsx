@@ -335,7 +335,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
           <div className="flex flex-col gap-4 w-full items-center flex-1">
             <button
               className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${
-                sidebarOpen ? 'bg-[#1c2b41]/60 text-[#9fcaff]' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover'
+                sidebarOpen ? 'bg-[#1c2b41]/60 text-[#9fcaff]' : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
               }`}
               onClick={() => setSidebarOpen(!sidebarOpen)}
               title="Explorer"
@@ -351,14 +351,14 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
           </div>
           <div className="flex flex-col gap-4 w-full items-center">
             <button
-              className="w-10 h-10 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-hover hover:text-on-surface transition-colors"
+              className="w-10 h-10 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-[#2b2d30] hover:text-on-surface transition-colors"
               title="Settings"
               onClick={() => setShowSettingsDrawer(true)}
             >
               <span className="material-symbols-outlined">settings</span>
             </button>
             <button
-              className="w-10 h-10 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-hover hover:text-accent-red transition-colors"
+              className="w-10 h-10 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-[#2b2d30] hover:text-accent-red transition-colors"
               title="Sign Out"
               onClick={handleLogoutClick}
             >
@@ -397,7 +397,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
           {/* Delete Room Confirmation Modal */}
           {deleteConfirmRoom && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-              <div className="bg-surface-panel border border-outline-subtle w-full max-w-sm rounded-xl overflow-hidden shadow-2xl flex flex-col">
+              <div className="bg-[#1f2020] border border-outline-subtle w-full max-w-sm rounded-xl overflow-hidden shadow-2xl flex flex-col">
                 <div className="px-5 py-4 border-b border-outline-subtle flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-red-950/30 flex items-center justify-center text-red-500">
                     <span className="material-symbols-outlined text-[16px]">warning</span>
@@ -407,9 +407,9 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                 <div className="p-5 text-[11px] text-text-muted leading-relaxed">
                   Are you sure you want to permanently delete this room? This action cannot be undone and all code history will be lost.
                 </div>
-                <div className="px-5 py-4 bg-surface-panel border-t border-outline-subtle flex justify-end gap-3">
+                <div className="px-5 py-4 bg-[#1a1b1b] border-t border-outline-subtle flex justify-end gap-3">
                   <button
-                    className="px-4 py-2 rounded-md text-[11px] font-medium text-text-muted hover:text-on-surface hover:bg-surface-hover transition-colors"
+                    className="px-4 py-2 rounded-md text-[11px] font-medium text-text-muted hover:text-on-surface hover:bg-[#2b2d30] transition-colors"
                     onClick={() => setDeleteConfirmRoom(null)}
                   >
                     Cancel
@@ -494,7 +494,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                   onClick={handleRefresh}
                   disabled={refreshing}
                   title="Refresh rooms"
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-text-xs text-on-surface-variant border border-outline-subtle rounded-md hover:text-on-surface hover:bg-surface-hover transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-text-xs text-on-surface-variant border border-outline-subtle rounded-md hover:text-on-surface hover:bg-[#252626] transition-colors disabled:opacity-50"
                 >
                   <span className={`material-symbols-outlined text-[16px] ${refreshing ? 'animate-spin' : ''}`}>
                     refresh
@@ -533,7 +533,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                       return (
                         <div
                           key={room.uuid}
-                          className="bg-surface-panel border border-outline-subtle rounded-lg p-4 flex items-center justify-between hover:border-accent-blue transition-all group cursor-pointer"
+                          className="bg-[#1f2020] border border-outline-subtle rounded-lg p-4 flex items-center justify-between hover:border-accent-blue transition-all group cursor-pointer"
                           onClick={() => onRoomSelect(room.uuid)}
                         >
                           <div className="flex items-center gap-4">
@@ -560,7 +560,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                                     ? 'bg-[#2b1d3d] text-[#c58af9]'
                                     : room.myRole === 'Editor'
                                     ? 'bg-[#0d2e1a] text-[#81c995]'
-                                    : 'bg-surface-hover text-on-surface-variant'
+                                    : 'bg-[#252626] text-on-surface-variant'
                                 }`}>
                                   {room.myRole}
                                 </span>
@@ -587,7 +587,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                               className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] font-medium ${
                                 onlineCount > 0
                                   ? 'bg-accent-green/10 text-accent-green'
-                                  : 'bg-surface-hover text-text-muted'
+                                  : 'bg-[#252626] text-text-muted'
                               }`}
                               title={
                                 onlineCount > 0
@@ -620,14 +620,14 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                               ))}
                               {sortedParticipants.length > 5 && (
                                 <div
-                                  className="w-7 h-7 rounded-full border-2 border-[#1f2020] bg-surface-hover flex items-center justify-center text-[10px] font-bold text-on-surface-variant relative z-0"
+                                  className="w-7 h-7 rounded-full border-2 border-[#1f2020] bg-[#292a2a] flex items-center justify-center text-[10px] font-bold text-on-surface-variant relative z-0"
                                   title={`${sortedParticipants.length - 5} more members`}
                                 >
                                   +{sortedParticipants.length - 5}
                                 </div>
                               )}
                             </div>
-                            <button className="px-4 py-1.5 bg-surface-hover text-on-surface rounded-md text-[11px] font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button className="px-4 py-1.5 bg-[#292a2a] text-on-surface rounded-md text-[11px] font-medium opacity-0 group-hover:opacity-100 transition-opacity">
                               Open →
                             </button>
                             {room.myRole === 'Owner' && (
@@ -648,7 +648,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                                       className="fixed inset-0 z-40" 
                                       onClick={(e) => { e.stopPropagation(); setActiveMenuRoom(null); }}
                                     />
-                                    <div className="absolute top-8 right-0 bg-surface-panel border border-outline-subtle rounded-md shadow-lg z-50 py-1 min-w-[120px]">
+                                    <div className="absolute top-8 right-0 bg-[#1f2020] border border-outline-subtle rounded-md shadow-lg z-50 py-1 min-w-[120px]">
                                       <button
                                         className="w-full text-left px-3 py-1.5 text-[11px] text-on-surface hover:bg-surface-elevated transition-colors"
                                         onClick={(e) => handleToggleRoomStatus(e, room)}
@@ -673,7 +673,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                   
                   {allRooms.filter((r) => activeTab === 'my-rooms' ? r.myRole === 'Owner' : r.myRole !== 'Owner').length === 0 && (
                     activeTab === 'my-rooms' ? (
-                      <div className="text-center py-12 px-6 border border-dashed border-outline-subtle rounded-xl bg-surface-hover flex flex-col items-center">
+                      <div className="text-center py-12 px-6 border border-dashed border-outline-subtle rounded-xl bg-[#161718]/60 flex flex-col items-center">
                         <div className="w-14 h-14 rounded-2xl bg-accent-blue/10 border border-accent-blue/20 flex items-center justify-center text-accent-blue mb-4">
                           <span className="material-symbols-outlined text-[32px]">rocket_launch</span>
                         </div>
@@ -713,7 +713,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                                   setLoading(false);
                                 }
                               }}
-                              className="p-3 bg-surface-panel hover:bg-surface-hover border border-outline-subtle hover:border-yellow-500/50 rounded-lg text-left transition-all"
+                              className="p-3 bg-[#1f2020] hover:bg-[#252626] border border-outline-subtle hover:border-yellow-500/50 rounded-lg text-left transition-all"
                             >
                               <div className="w-6 h-6 rounded bg-yellow-500/20 text-yellow-400 font-bold text-[10px] flex items-center justify-center mb-1.5">JS</div>
                               <div className="text-[11px] font-semibold text-on-surface">JavaScript</div>
@@ -732,7 +732,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                                   setLoading(false);
                                 }
                               }}
-                              className="p-3 bg-surface-panel hover:bg-surface-hover border border-outline-subtle hover:border-blue-500/50 rounded-lg text-left transition-all"
+                              className="p-3 bg-[#1f2020] hover:bg-[#252626] border border-outline-subtle hover:border-blue-500/50 rounded-lg text-left transition-all"
                             >
                               <div className="w-6 h-6 rounded bg-blue-500/20 text-blue-400 font-bold text-[10px] flex items-center justify-center mb-1.5">PY</div>
                               <div className="text-[11px] font-semibold text-on-surface">Python</div>
@@ -751,7 +751,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                                   setLoading(false);
                                 }
                               }}
-                              className="p-3 bg-surface-panel hover:bg-surface-hover border border-outline-subtle hover:border-orange-500/50 rounded-lg text-left transition-all"
+                              className="p-3 bg-[#1f2020] hover:bg-[#252626] border border-outline-subtle hover:border-orange-500/50 rounded-lg text-left transition-all"
                             >
                               <div className="w-6 h-6 rounded bg-orange-500/20 text-orange-400 font-bold text-[10px] flex items-center justify-center mb-1.5">HTML</div>
                               <div className="text-[11px] font-semibold text-on-surface">Web App</div>
@@ -761,7 +761,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                         </div>
                       </div>
                     ) : (
-                      <div className="text-center py-12 px-6 border border-dashed border-outline-subtle rounded-xl bg-surface-hover flex flex-col items-center">
+                      <div className="text-center py-12 px-6 border border-dashed border-outline-subtle rounded-xl bg-[#161718]/60 flex flex-col items-center">
                         <span className="material-symbols-outlined text-[48px] text-text-muted mb-2">group</span>
                         <div className="text-text-base text-on-surface">No joined rooms yet</div>
                         <div className="text-text-xs text-text-muted mt-1 max-w-sm">
@@ -776,13 +776,13 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
 
 
             {/* Quick Join Footer */}
-            <div className="mt-12 py-8 border-t border-outline-subtle flex flex-col items-center">
+            <div className="mt-12 py-8 border-t border-[#2b2b2b] flex flex-col items-center">
               <div className="text-text-xs text-outline uppercase font-semibold tracking-[0.2em] mb-4">
                 or join with a room code
               </div>
               <form onSubmit={handleJoinSubmit} className="flex items-center gap-2 w-full max-w-sm">
                 <input
-                  className="flex-1 bg-surface-panel border border-outline-subtle rounded-md px-3 py-2 text-[11px] text-on-surface focus:border-accent-blue focus:ring-0 outline-none transition-colors"
+                  className="flex-1 bg-[#1f2020] border border-outline-subtle rounded-md px-3 py-2 text-[11px] text-on-surface focus:border-accent-blue focus:ring-0 outline-none transition-colors"
                   placeholder="Enter room code..."
                   type="text"
                   value={joinUuid}
@@ -820,7 +820,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm">
           <div className="w-full max-w-[440px] max-h-[90vh] overflow-y-auto bg-surface-panel border border-outline-subtle rounded-radius-lg p-6 shadow-2xl space-y-4">
-            <div className="flex justify-between items-center border-b border-outline-subtle pb-3">
+            <div className="flex justify-between items-center border-b border-[#2b2b2b] pb-3">
               <h3 className="text-text-base font-semibold text-on-surface">Create a new room</h3>
               <button onClick={() => setShowCreateModal(false)} className="text-text-muted hover:text-text-primary">
                 <span className="material-symbols-outlined">close</span>
@@ -847,11 +847,11 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
                 </button>
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-outline-subtle">
+              <div className="flex justify-end gap-3 pt-3 border-t border-[#2b2b2b]">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-1.5 border border-outline-subtle text-on-surface rounded-md text-[11px] hover:bg-surface-hover"
+                  className="px-4 py-1.5 border border-outline-subtle text-on-surface rounded-md text-[11px] hover:bg-[#252626]"
                 >
                   Cancel
                 </button>
@@ -872,7 +872,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
       {showSignoutConfirm && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm">
           <div className="w-full max-w-[400px] bg-surface-panel border border-outline-subtle rounded-radius-lg p-6 shadow-2xl space-y-4">
-            <div className="flex justify-between items-center border-b border-outline-subtle pb-3">
+            <div className="flex justify-between items-center border-b border-[#2b2b2b] pb-3">
               <h3 className="text-text-base font-semibold text-on-surface">Confirm Sign Out</h3>
               <button onClick={() => setShowSignoutConfirm(false)} className="text-text-muted hover:text-text-primary">
                 <span className="material-symbols-outlined">close</span>
@@ -883,11 +883,11 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
               Are you sure you want to sign out of CollabIDE? You will need to enter your email and password to log in again.
             </p>
 
-            <div className="flex justify-end gap-3 pt-3 border-t border-outline-subtle">
+            <div className="flex justify-end gap-3 pt-3 border-t border-[#2b2b2b]">
               <button
                 type="button"
                 onClick={() => setShowSignoutConfirm(false)}
-                className="px-4 py-1.5 border border-outline-subtle text-on-surface rounded-md text-[11px] hover:bg-surface-hover"
+                className="px-4 py-1.5 border border-outline-subtle text-on-surface rounded-md text-[11px] hover:bg-[#252626]"
               >
                 Cancel
               </button>
@@ -907,7 +907,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
       {showSignoutAllConfirm && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm">
           <div className="w-full max-w-[400px] bg-surface-panel border border-outline-subtle rounded-radius-lg p-6 shadow-2xl space-y-4">
-            <div className="flex justify-between items-center border-b border-outline-subtle pb-3">
+            <div className="flex justify-between items-center border-b border-[#2b2b2b] pb-3">
               <h3 className="text-text-base font-semibold text-accent-red">Sign Out of All Devices</h3>
               <button onClick={() => setShowSignoutAllConfirm(false)} className="text-text-muted hover:text-text-primary">
                 <span className="material-symbols-outlined">close</span>
@@ -918,11 +918,11 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
               Are you sure you want to sign out of <strong className="text-accent-red">ALL</strong> devices? This is a destructive action that will immediately drop any active voice calls and file syncs on your other devices.
             </p>
 
-            <div className="flex justify-end gap-3 pt-3 border-t border-outline-subtle">
+            <div className="flex justify-end gap-3 pt-3 border-t border-[#2b2b2b]">
               <button
                 type="button"
                 onClick={() => setShowSignoutAllConfirm(false)}
-                className="px-4 py-1.5 border border-outline-subtle text-on-surface rounded-md text-[11px] hover:bg-surface-hover"
+                className="px-4 py-1.5 border border-outline-subtle text-on-surface rounded-md text-[11px] hover:bg-[#252626]"
               >
                 Cancel
               </button>
@@ -952,4 +952,3 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
     </div>
   );
 }
-
