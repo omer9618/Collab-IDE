@@ -33,8 +33,7 @@
       })();
     </script>
 
-    <!-- Tailwind CSS CDN with configuration (matching Stitch) -->
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <!-- Tailwind CSS Configuration (MUST BE BEFORE CDN SCRIPT) -->
     <script id="tailwind-config">
       try {
         tailwind.config = {
@@ -105,6 +104,7 @@
         };
       } catch (_e) {}
     </script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <style>
       :root, html.dark {
         --bg-base: #0d0e0f;
