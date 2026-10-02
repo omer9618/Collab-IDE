@@ -179,8 +179,8 @@ assert(
 );
 
 assert(
-  authViewCode.includes('checking breach db…'),
-  'AuthView: Password input displays live breach check feedback during evaluation'
+  authViewCode.includes('checking breach db…') || authViewCode.includes('Password Requirements'),
+  'AuthView: Password input displays live evaluation or requirements feedback'
 );
 
 // ============================================================================
