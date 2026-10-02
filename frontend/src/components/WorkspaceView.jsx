@@ -1338,8 +1338,8 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
   const handleDeleteFile = (fileName) => {
     if (role === 'Viewer') return;
     // Don't delete the last file to ensure stability
-    const yfiles = ydoc.getArray(`${roomUuid}:files`);
-    if (yfiles.length <= 1) {
+    // Use `files` state (what the explorer shows) rather than yfiles.length which may lag behind REST-loaded data
+    if (files.length <= 1) {
       setDeleteConfirmFile(fileName);
       setIsLastFileWarning(true);
       return;
