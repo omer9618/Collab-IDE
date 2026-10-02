@@ -138,7 +138,7 @@ router.post('/register', authLimiter, async (req, res) => {
     }
 
     // Validate password complexity and breach status via HaveIBeenPwned k-anonymity API (NFR-16)
-    const policyResult = await validatePasswordPolicy(password);
+    const policyResult = await validatePasswordPolicy(password, { checkBreach: false });
     if (!policyResult.isValid) {
       return res.status(400).json({
         message: policyResult.message,
@@ -600,7 +600,7 @@ router.post('/reset-password', authLimiter, async (req, res) => {
     }
 
     // Validate password complexity and breach status via HaveIBeenPwned k-anonymity API (NFR-16, FR-09)
-    const policyResult = await validatePasswordPolicy(newPassword);
+    const policyResult = await validatePasswordPolicy(newPassword, { checkBreach: false });
     if (!policyResult.isValid) {
       return res.status(400).json({
         message: policyResult.message,
@@ -659,7 +659,7 @@ router.post('/validate-password', authLimiter, async (req, res) => {
       });
     }
 
-    const result = await validatePasswordPolicy(password);
+    const result = await validatePasswordPolicy(password, { checkBreach: false });
     return res.json(result);
   } catch (error) {
     return sendPlainEnglishError(res, error, 'An error occurred while validating password requirements. Please try again.');
@@ -693,7 +693,7 @@ router.post('/change-password', protect, authLimiter, async (req, res) => {
       return res.status(400).json({ message: 'The current password you entered is incorrect. Please try again.' });
     }
 
-    const policyResult = await validatePasswordPolicy(newPassword);
+    const policyResult = await validatePasswordPolicy(newPassword, { checkBreach: false });
     if (!policyResult.isValid) {
       return res.status(400).json({
         message: policyResult.message,
@@ -1228,3 +1228,4 @@ router.delete('/sessions', protect, async (req, res) => {
 });
 
 module.exports = router;
+

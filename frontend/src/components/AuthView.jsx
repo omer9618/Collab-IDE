@@ -197,10 +197,6 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
         setError('Passwords do not match.');
         return;
       }
-      if (breachCheck.isPwned) {
-        setError(breachCheck.message || 'This password was found in a known data breach and cannot be used per security policy (NFR-16).');
-        return;
-      }
 
       setLoading(true);
       try {
@@ -220,7 +216,6 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
         setActiveTab('signin');
         setPassword('');
         setConfirmPassword('');
-        setBreachCheck({ checking: false, isPwned: false, breachCount: 0, checked: false, message: '' });
       } catch (err) {
         setError(formatErrorMessage(err, 'Registration failed. Please try again.'));
       } finally {
@@ -278,11 +273,6 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
       return;
     }
 
-    if (resetBreachCheck.isPwned) {
-      setError(resetBreachCheck.message || 'This password was found in a known data breach and cannot be used per security policy (NFR-16).');
-      return;
-    }
-
     setLoading(true);
 
     try {
@@ -294,7 +284,6 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
       // Clear sensitive form state
       setNewPassword('');
       setConfirmPassword('');
-      setResetBreachCheck({ checking: false, isPwned: false, breachCount: 0, checked: false, message: '' });
     } catch (err) {
       setError(formatErrorMessage(err, 'Failed to reset password. The link may have expired or already been used.'));
     } finally {
@@ -320,57 +309,7 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
   const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword;
   const resetComplexityValid = hasLength && hasUpper && hasLower && hasNumber && hasSpecial;
 
-  // Live HaveIBeenPwned breach check for Sign Up password (NFR-16)
-  useEffect(() => {
-    if (activeTab !== 'signup' || !signupComplexityValid) {
-      setBreachCheck({ checking: false, isPwned: false, breachCount: 0, checked: false, message: '' });
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      setBreachCheck((prev) => ({ ...prev, checking: true }));
-      try {
-        const res = await validatePasswordApi(password);
-        setBreachCheck({
-          checking: false,
-          isPwned: !!res.isPwned,
-          breachCount: res.breachCount || 0,
-          checked: true,
-          message: res.message || '',
-        });
-      } catch (err) {
-        setBreachCheck({ checking: false, isPwned: false, breachCount: 0, checked: false, message: '' });
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [activeTab, password, signupComplexityValid]);
-
-  // Live HaveIBeenPwned breach check for Reset password (NFR-16)
-  useEffect(() => {
-    if (activeTab !== 'reset' || !resetComplexityValid) {
-      setResetBreachCheck({ checking: false, isPwned: false, breachCount: 0, checked: false, message: '' });
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      setResetBreachCheck((prev) => ({ ...prev, checking: true }));
-      try {
-        const res = await validatePasswordApi(newPassword);
-        setResetBreachCheck({
-          checking: false,
-          isPwned: !!res.isPwned,
-          breachCount: res.breachCount || 0,
-          checked: true,
-          message: res.message || '',
-        });
-      } catch (err) {
-        setResetBreachCheck({ checking: false, isPwned: false, breachCount: 0, checked: false, message: '' });
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [activeTab, newPassword, resetComplexityValid]);
+  // Live breach checks disabled by user preference
 
   return (
     <div className="bg-[#0d0e0f] text-[#e3e2e3] font-ui text-[13px] h-screen flex overflow-hidden w-full">
@@ -703,12 +642,7 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
                   {/* Live Password Complexity Checklist (NFR-16) */}
                   <div className="p-3 bg-[#0d0e0f] border border-[#2b2b2b] rounded-lg space-y-1.5 text-[11px]">
                     <div className="font-semibold text-[#8a919d] uppercase tracking-wider mb-1 flex items-center justify-between">
-                      <span>Password Requirements (NFR-16)</span>
-                      {breachCheck.checking && (
-                        <span className="text-[10px] text-[#9fcaff] flex items-center gap-1 font-normal lowercase">
-                          <Loader2 size={11} className="animate-spin" /> checking breach db…
-                        </span>
-                      )}
+                      <span>Password Requirements</span>
                     </div>
                     <div className={`flex items-center gap-2 ${signupHasLength ? 'text-accent-green' : 'text-text-muted'}`}>
                       {signupHasLength ? <Check size={13} /> : <span className="w-3.5 inline-block text-center">•</span>}
@@ -734,32 +668,6 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
                       {signupPasswordsMatch ? <Check size={13} /> : <span className="w-3.5 inline-block text-center">•</span>}
                       <span>Passwords match</span>
                     </div>
-
-                    {/* HaveIBeenPwned Result */}
-                    {breachCheck.checked && (
-                      <div className={`mt-2 p-2 rounded-md flex items-start gap-2 border text-[11px] ${
-                        breachCheck.isPwned
-                          ? 'bg-red-950/40 border-red-500/40 text-accent-red'
-                          : 'bg-emerald-950/30 border-emerald-500/40 text-accent-green'
-                      }`}>
-                        {breachCheck.isPwned ? (
-                          <>
-                            <ShieldAlert size={15} className="shrink-0 mt-0.5 text-accent-red" />
-                            <div>
-                              <p className="font-semibold">Compromised Password Detected</p>
-                              <p className="text-[10px] opacity-90 leading-tight">
-                                Found in {breachCheck.breachCount.toLocaleString()} known data breaches (HaveIBeenPwned). Please choose a different password.
-                              </p>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <ShieldCheck size={15} className="shrink-0 mt-0.5 text-accent-green" />
-                            <span className="leading-tight">Password not found in known data breaches (HaveIBeenPwned verified).</span>
-                          </>
-                        )}
-                      </div>
-                    )}
                   </div>
                 </>
               )}
@@ -768,7 +676,7 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
                 type="submit"
                 disabled={
                   loading ||
-                  (activeTab === 'signup' && (!signupComplexityValid || !signupPasswordsMatch || breachCheck.isPwned || breachCheck.checking))
+                  (activeTab === 'signup' && (!signupComplexityValid || !signupPasswordsMatch))
                 }
                 className="w-full h-12 bg-[#007acc] hover:bg-[#007acc]/90 text-white font-medium text-[14px] rounded-lg flex items-center justify-center group transition-all active:scale-[0.98] mt-2 shadow-lg shadow-[#007acc]/20 disabled:opacity-50"
               >
@@ -974,12 +882,7 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
                   {/* Live Password Complexity Checklist (FR-01 / FR-09 / NFR-16) */}
                   <div className="p-3 bg-[#0d0e0f] border border-[#2b2b2b] rounded-lg space-y-1.5 text-[11px]">
                     <div className="font-semibold text-[#8a919d] uppercase tracking-wider mb-1 flex items-center justify-between">
-                      <span>Password Requirements (NFR-16)</span>
-                      {resetBreachCheck.checking && (
-                        <span className="text-[10px] text-[#9fcaff] flex items-center gap-1 font-normal lowercase">
-                          <Loader2 size={11} className="animate-spin" /> checking breach db…
-                        </span>
-                      )}
+                      <span>Password Requirements</span>
                     </div>
                     <div className={`flex items-center gap-2 ${hasLength ? 'text-accent-green' : 'text-text-muted'}`}>
                       {hasLength ? <Check size={13} /> : <span className="w-3.5 inline-block text-center">•</span>}
@@ -1005,32 +908,6 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
                       {passwordsMatch ? <Check size={13} /> : <span className="w-3.5 inline-block text-center">•</span>}
                       <span>Passwords match</span>
                     </div>
-
-                    {/* HaveIBeenPwned Result */}
-                    {resetBreachCheck.checked && (
-                      <div className={`mt-2 p-2 rounded-md flex items-start gap-2 border text-[11px] ${
-                        resetBreachCheck.isPwned
-                          ? 'bg-red-950/40 border-red-500/40 text-accent-red'
-                          : 'bg-emerald-950/30 border-emerald-500/40 text-accent-green'
-                      }`}>
-                        {resetBreachCheck.isPwned ? (
-                          <>
-                            <ShieldAlert size={15} className="shrink-0 mt-0.5 text-accent-red" />
-                            <div>
-                              <p className="font-semibold">Compromised Password Detected</p>
-                              <p className="text-[10px] opacity-90 leading-tight">
-                                Found in {resetBreachCheck.breachCount.toLocaleString()} known data breaches (HaveIBeenPwned). Please choose a different password.
-                              </p>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <ShieldCheck size={15} className="shrink-0 mt-0.5 text-accent-green" />
-                            <span className="leading-tight">Password not found in known data breaches (HaveIBeenPwned verified).</span>
-                          </>
-                        )}
-                      </div>
-                    )}
                   </div>
 
                   <button
