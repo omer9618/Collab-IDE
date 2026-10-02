@@ -297,6 +297,14 @@ async function request(path, options = {}) {
     headers['Authorization'] = `Bearer ${accessToken}`;
   }
 
+  const method = (options.method || 'GET').toUpperCase();
+  if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+    const csrfToken = await ensureCsrfToken();
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
+    }
+  }
+
   let res;
   try {
     res = await fetch(`${API_BASE}${path}`, {
@@ -886,5 +894,6 @@ export async function getVoiceParticipants(uuid) {
   if (!res.ok) throw new Error(data.message || 'Failed to fetch voice participants');
   return data;
 }
+
 
 
