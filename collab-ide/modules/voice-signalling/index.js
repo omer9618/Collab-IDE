@@ -27,4 +27,15 @@ module.exports = {
   leaveVoiceRoom: voiceSocket.leaveVoiceRoom,
   generateTurnCredentials: voiceRoutes.generateTurnCredentials,
   buildIceServers: voiceRoutes.buildIceServers,
+  setVoicePubSubAdapter: voiceSocket.setVoicePubSubAdapter,
+  getVoicePubSubAdapter: voiceSocket.getVoicePubSubAdapter,
+  ensureVoiceChannelSubscribed: voiceSocket.ensureVoiceChannelSubscribed,
+  pubsub: require('../../services/pubsub'),
+  horizontalScaling: {
+    ready: true,
+    supportsRedisAdapter: true,
+    singleProcessAssumptions: false,
+    pubsubChannels: ['collab:voice:<uuid>'],
+  },
 };
+

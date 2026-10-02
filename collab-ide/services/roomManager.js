@@ -55,6 +55,11 @@ const FLOOD_THRESHOLD_PER_SEC = 300;
  */
 async function saveRoomStateToDB(roomUuid, ydoc) {
   try {
+    const mongoose = require('mongoose');
+    if (!mongoose.connection || mongoose.connection.readyState !== 1) {
+      return;
+    }
+
     if (process.env.TEST_SIMULATE_SLOW_ROOM && roomUuid.includes(process.env.TEST_SIMULATE_SLOW_ROOM)) {
       const delay = parseInt(process.env.TEST_PERSISTENCE_DELAY_MS, 10) || 30000;
       console.log(`[TEST HOOK] Artificially delaying persistence of room ${roomUuid} for ${delay}ms...`);
@@ -106,13 +111,24 @@ class RoomSession {
    * @constructor
    * @param {string} roomUuid - UUID identifier of the room
    * @param {Y.Doc} ydoc - Room's independent Yjs document
+   * @param {object} [options={}] - Optional configuration including pubsubAdapter and nodeId (NFR-53)
    */
-  constructor(roomUuid, ydoc = null) {
+  constructor(roomUuid, ydoc = null, options = {}) {
     this.roomUuid = roomUuid;
     this.ydoc = ydoc || new Y.Doc();
     
     // NFR-52: Independent WebSocket client set strictly scoped to this room
     this.clients = new Set();
+
+    // NFR-53: Distributed Pub/Sub Adapter & Horizontal Scaling Readiness
+    this.pubsubAdapter = options.pubsubAdapter || null;
+    this.nodeId = options.nodeId || 'default_node';
+    this.pubsubChannel = `collab:room:${roomUuid}`;
+    this._pubsubHandler = (channel, msg) => this.handlePubSubMessage(channel, msg);
+
+    if (this.pubsubAdapter && typeof this.pubsubAdapter.subscribe === 'function') {
+      this.pubsubAdapter.subscribe(this.pubsubChannel, this._pubsubHandler);
+    }
 
     // Debounced persistence state
     this.saveTimer = null;
@@ -134,6 +150,71 @@ class RoomSession {
     this.ydoc.on('update', () => {
       this.scheduleSave();
     });
+  }
+
+  /**
+   * Dynamically configures or updates the Pub/Sub adapter for this room session (NFR-53).
+   *
+   * @param {import('./pubsub').PubSubAdapter|null} adapter
+   */
+  setPubSubAdapter(adapter) {
+    if (this.pubsubAdapter && this._pubsubHandler && typeof this.pubsubAdapter.unsubscribe === 'function') {
+      try {
+        this.pubsubAdapter.unsubscribe(this.pubsubChannel, this._pubsubHandler);
+      } catch (_) {}
+    }
+    this.pubsubAdapter = adapter || null;
+    if (this.pubsubAdapter && this._pubsubHandler && !this.isDestroyed && typeof this.pubsubAdapter.subscribe === 'function') {
+      this.pubsubAdapter.subscribe(this.pubsubChannel, this._pubsubHandler);
+    }
+  }
+
+  /**
+   * Processes distributed room messages received via the Pub/Sub adapter (NFR-53).
+   * Routes cross-node CRDT edits, broadcasts, role mutations, and presence without single-process limits.
+   *
+   * @param {string} channel - Channel name
+   * @param {object} msg - Deserialized pub/sub payload
+   */
+  handlePubSubMessage(channel, msg) {
+    if (this.isDestroyed || !msg) return;
+    if (msg.originNodeId === this.nodeId) return; // Drop echo loop from self
+
+    if (msg.type === 'yjs_update' && msg.payload) {
+      let updateBytes;
+      if (msg.payload.__binary && msg.payload.data) {
+        updateBytes = Buffer.from(msg.payload.data, 'base64');
+      } else if (msg.payload instanceof Uint8Array || Buffer.isBuffer(msg.payload)) {
+        updateBytes = new Uint8Array(msg.payload);
+      } else if (typeof msg.payload === 'object') {
+        updateBytes = new Uint8Array(Object.values(msg.payload));
+      }
+      if (updateBytes && updateBytes.length > 0) {
+        try {
+          if (updateBytes[0] === 0) {
+            // Decodes Yjs syncProtocol binary message (messageSync = 0)
+            const decoder = decoding.createDecoder(updateBytes);
+            decoding.readVarUint(decoder); // skip messageSync (0)
+            const encoder = encoding.createEncoder();
+            encoding.writeVarUint(encoder, 0);
+            syncProtocol.readSyncMessage(decoder, encoder, this.ydoc, 'pubsub');
+          } else {
+            // Raw Yjs update
+            Y.applyUpdate(this.ydoc, updateBytes, 'pubsub');
+          }
+          // Relay binary update to local connected clients
+          this.relay(null, updateBytes, true);
+        } catch (err) {
+          logger.error('Error applying pubsub Yjs update: ' + err.message, { roomId: this.roomUuid });
+        }
+      }
+    } else if (msg.type === 'broadcast_text') {
+      this.broadcastText(msg.payload);
+    } else if (msg.type === 'role_update') {
+      this.updateUserRole(msg.userId, msg.newRole);
+    } else if (msg.type === 'participants_update' && msg.payload) {
+      this.broadcastText(msg.payload);
+    }
   }
 
   /**
@@ -436,6 +517,15 @@ class RoomSession {
 
       // Relay frame strictly within this room's client set (NFR-52)
       this.relay(ws, rawData, isBinary);
+
+      // NFR-53: Publish collaborative update to all cluster nodes via Pub/Sub adapter
+      if (this.pubsubAdapter && cleanData && cleanData.length > 0) {
+        this.pubsubAdapter.publish(this.pubsubChannel, {
+          originNodeId: this.nodeId,
+          type: 'yjs_update',
+          payload: cleanData,
+        });
+      }
     } catch (err) {
       this.errorCount++;
       logger.error('Room message processing error (contained): ' + err.message, {
@@ -520,6 +610,13 @@ class RoomSession {
     }
     this.clients.clear();
 
+    // Unsubscribe from Pub/Sub channel (NFR-53)
+    if (this.pubsubAdapter && this._pubsubHandler && typeof this.pubsubAdapter.unsubscribe === 'function') {
+      try {
+        this.pubsubAdapter.unsubscribe(this.pubsubChannel, this._pubsubHandler);
+      } catch (_) {}
+    }
+
     // Free Yjs CRDT document structures and awareness handlers
     try {
       if (this.ydoc) {
@@ -536,12 +633,28 @@ class RoomSession {
  * RoomManager: Global Singleton managing isolated RoomSession instances.
  */
 class RoomManager {
-  constructor() {
+  constructor(options = {}) {
     /**
      * Active room registry mapping roomUuid -> RoomSession.
      * @type {Map<string, RoomSession>}
      */
     this.rooms = new Map();
+
+    // NFR-53: Horizontal Scaling Readiness
+    this.nodeId = options.nodeId || process.env.NODE_ID || 'node_' + Math.random().toString(36).substring(2, 9);
+    this.pubsubAdapter = options.pubsubAdapter || null;
+  }
+
+  /**
+   * Sets or replaces the Pub/Sub adapter across all active rooms (NFR-53).
+   *
+   * @param {import('./pubsub').PubSubAdapter|null} adapter
+   */
+  setPubSubAdapter(adapter) {
+    this.pubsubAdapter = adapter || null;
+    for (const session of this.rooms.values()) {
+      session.setPubSubAdapter(this.pubsubAdapter);
+    }
   }
 
   /**
@@ -556,7 +669,15 @@ class RoomManager {
       return this.rooms.get(roomUuid);
     }
 
-    const room = await Room.findOne({ uuid: roomUuid });
+    let room = null;
+    const mongoose = require('mongoose');
+    if (mongoose.connection && mongoose.connection.readyState === 1) {
+      try {
+        room = await Room.findOne({ uuid: roomUuid });
+      } catch (err) {
+        // Fall back gracefully to empty room on database failure
+      }
+    }
     const ydoc = new Y.Doc();
 
     if (room) {
@@ -602,7 +723,10 @@ class RoomManager {
       }
     }
 
-    const session = new RoomSession(roomUuid, ydoc);
+    const session = new RoomSession(roomUuid, ydoc, {
+      pubsubAdapter: this.pubsubAdapter,
+      nodeId: this.nodeId,
+    });
     this.rooms.set(roomUuid, session);
     return session;
   }
@@ -670,6 +794,7 @@ class RoomManager {
 
   /**
    * Broadcasts a JSON string to all clients in a specific room.
+   * Relays locally and publishes to cluster nodes via Pub/Sub adapter (NFR-53).
    *
    * @param {string} roomUuid - Target room UUID
    * @param {string} message - JSON string to broadcast
@@ -679,10 +804,18 @@ class RoomManager {
     if (session) {
       session.broadcastText(message);
     }
+    if (this.pubsubAdapter && typeof this.pubsubAdapter.publish === 'function') {
+      this.pubsubAdapter.publish(`collab:room:${roomUuid}`, {
+        originNodeId: this.nodeId,
+        type: 'broadcast_text',
+        payload: message,
+      });
+    }
   }
 
   /**
    * Updates a user's role across their active WebSockets in a room (NFR-19).
+   * Relays locally and publishes to cluster nodes via Pub/Sub adapter (NFR-53).
    *
    * @param {string} roomUuid - Target room UUID
    * @param {string} userId - User ID
@@ -693,10 +826,19 @@ class RoomManager {
     if (session) {
       session.updateUserRole(userId, newRole);
     }
+    if (this.pubsubAdapter && typeof this.pubsubAdapter.publish === 'function') {
+      this.pubsubAdapter.publish(`collab:room:${roomUuid}`, {
+        originNodeId: this.nodeId,
+        type: 'role_update',
+        userId,
+        newRole,
+      });
+    }
   }
 
   /**
    * Broadcasts updated participant list to all clients in a room (FR-44).
+   * Relays locally and publishes to cluster nodes via Pub/Sub adapter (NFR-53).
    *
    * @async
    * @param {string} roomUuid - Target room UUID
@@ -704,28 +846,39 @@ class RoomManager {
    */
   async broadcastRoomParticipants(roomUuid) {
     const session = this.rooms.get(roomUuid);
-    if (!session || session.clients.size === 0) return;
+    let payload = null;
 
     try {
       const room = await Room.findOne({ uuid: roomUuid }).populate(
         'participants.user',
         'displayName email avatarColor'
       );
-      if (!room) return;
-
-      const payload = JSON.stringify({
-        type: 'participants_update',
-        participants: room.participants.map((p) => ({
-          userId: p.user._id,
-          displayName: p.user.displayName,
-          avatarColor: p.user.avatarColor,
-          role: p.role,
-        })),
-      });
-
-      session.broadcastText(payload);
+      if (room) {
+        payload = JSON.stringify({
+          type: 'participants_update',
+          participants: room.participants.map((p) => ({
+            userId: p.user._id,
+            displayName: p.user.displayName,
+            avatarColor: p.user.avatarColor,
+            role: p.role,
+          })),
+        });
+      }
     } catch (err) {
       logger.error('Error broadcasting participants: ' + err.message, { roomId: roomUuid });
+    }
+
+    if (payload) {
+      if (session && session.clients.size > 0) {
+        session.broadcastText(payload);
+      }
+      if (this.pubsubAdapter && typeof this.pubsubAdapter.publish === 'function') {
+        this.pubsubAdapter.publish(`collab:room:${roomUuid}`, {
+          originNodeId: this.nodeId,
+          type: 'participants_update',
+          payload,
+        });
+      }
     }
   }
 

@@ -60,14 +60,19 @@ const app = express();
 app.set('trust proxy', 1);
 const server = http.createServer(app);
 
-// Initialize Socket.IO Server for Voice Signalling (FR-45 – FR-53, NFR-48)
+// Distributed Pub/Sub Messaging Subsystem (NFR-53)
+const { createPubSubAdapter } = require('./services/pubsub');
+const pubsubAdapter = createPubSubAdapter();
+
+// Initialize Socket.IO Server for Voice Signalling (FR-45 – FR-53, NFR-48, NFR-53)
 const io = new Server(server, {
   cors: {
     origin: "*",
     methods: ["GET", "POST"]
   }
 });
-voiceSignalling.initVoiceSignalling(io);
+const redisAdapter = typeof pubsubAdapter.createSocketIoAdapter === 'function' ? pubsubAdapter.createSocketIoAdapter() : null;
+voiceSignalling.initVoiceSignalling(io, { pubsubAdapter, redisAdapter });
 
 // Connect to Database with connection pooling (NFR-40)
 connectDB();
@@ -193,6 +198,7 @@ const {
   Room,
   publicKey,
   logger,
+  pubsubAdapter,
   getIsShuttingDown: () => isShuttingDown,
   maxWsPerRoom: getMaxWsPerRoom,
 });
@@ -272,6 +278,11 @@ async function gracefulShutdown(signal = 'SIGTERM') {
 
       io.disconnectSockets(true);
       io.close(() => console.log('🎙️  Socket.IO voice server closed.'));
+
+      if (pubsubAdapter && typeof pubsubAdapter.close === 'function') {
+        await pubsubAdapter.close();
+        console.log('📡 Pub/Sub adapter closed cleanly.');
+      }
     } catch (err) {
       console.error('Error closing real-time connections:', err.message);
     }

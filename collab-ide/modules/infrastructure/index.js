@@ -68,4 +68,10 @@ module.exports = {
     inMemorySessionStore: false,
     supportsHorizontalScaling: true,
   },
+  pubsub: require('../../services/pubsub'),
+  horizontalScaling: {
+    ready: true,
+    supportsRedisAdapter: true,
+    singleProcessAssumptions: false,
+  },
 };
