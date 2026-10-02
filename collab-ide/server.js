@@ -28,6 +28,7 @@ logger.installGlobalInterceptor();
 const http = require('http');
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const WebSocket = require('ws');
 const cors = require('cors');
 const compression = require('compression');
@@ -110,8 +111,32 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(csrfProtection);
 
-// Static Client Files
-app.use(express.static(path.join(__dirname, 'public')));
+// Static Client Files & Asset Caching (NFR-41)
+const publicPath = path.join(__dirname, 'public');
+const distPath = path.join(__dirname, '../frontend/dist');
+
+const staticOptions = {
+  setHeaders: (res, filePath) => {
+    // NFR-41: HTML entry point must always revalidate
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+    // NFR-41: Versioned filenames (content-hashed by Vite) cached immutable for 1 year
+    else if (
+      filePath.includes(path.sep + 'assets' + path.sep) ||
+      filePath.includes('/assets/') ||
+      /\.[a-f0-9]{8,}\.(js|css)$/i.test(filePath) ||
+      /-[A-Za-z0-9_-]{8,}\.(js|css)$/i.test(filePath)
+    ) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  },
+};
+
+app.use(express.static(publicPath, staticOptions));
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath, staticOptions));
+}
 
 // Register REST Routes (Modular architecture NFR-48)
 app.use('/api/auth',      auth.routes);
@@ -119,7 +144,10 @@ app.use('/api/rooms',     rooms.routes);
 app.use('/api/execution', execution.routes);
 app.use('/api/voice',     voiceSignalling.routes);
 
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache');
+  res.sendFile(path.join(publicPath, 'index.html'));
+});
 
 const getMaxWsPerRoom = websocketRelay.getMaxWsPerRoom;
 
