@@ -164,12 +164,19 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
 
   // Theme state
   const [isLight, setIsLight] = useState(
-    () => document.documentElement.classList.contains('light') || localStorage.getItem('collabide_theme') === 'light'
+    () => user?.theme ? user.theme === 'light' : (document.documentElement.classList.contains('light') || localStorage.getItem('collabide_theme') === 'light')
   );
 
-  const toggleTheme = () => {
+  useEffect(() => {
+    if (user?.theme) {
+      setIsLight(user.theme === 'light');
+    }
+  }, [user?.theme]);
+
+  const toggleTheme = async () => {
     const nextIsLight = !isLight;
     setIsLight(nextIsLight);
+    const themeStr = nextIsLight ? 'light' : 'vs-dark';
     if (nextIsLight) {
       document.documentElement.classList.remove('dark');
       document.documentElement.classList.add('light');
@@ -180,6 +187,14 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
       document.documentElement.classList.add('dark');
       document.documentElement.setAttribute('data-theme', 'dark');
       localStorage.setItem('collabide_theme', 'vs-dark');
+    }
+    if (user && onUserUpdate) {
+      try {
+        const updatedUser = await updateProfile({ theme: themeStr });
+        onUserUpdate(updatedUser);
+      } catch (err) {
+        console.error('Failed to update theme profile:', err);
+      }
     }
   };
 
@@ -1565,7 +1580,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                     ? 'markdown'
                     : 'javascript'
                 }
-                theme={user?.theme === 'light' ? 'light' : 'vs-dark'}
+                theme={isLight ? 'light' : 'vs-dark'}
                 loading="Loading Editor Workspace..."
                 onMount={handleEditorDidMount}
                 options={{
