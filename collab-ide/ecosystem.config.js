@@ -9,7 +9,7 @@ module.exports = {
       script: './server.js',
       
       // Cluster mode: spawn one worker process per available CPU core (NFR-32)
-      instances: 'max',
+      instances: process.env.PM2_WORKERS || 'max',
       exec_mode: 'cluster',
       
       // Graceful shutdown & lifecycle timing (NFR-38)
@@ -31,9 +31,12 @@ module.exports = {
       restart_delay: 2000,
       exp_backoff_restart_delay: 1000,
       
-      // Log formatting and rotation (NFR-32)
+      // Log formatting and destinations (NFR-32)
       merge_logs: true,
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+      error_file: './logs/pm2-error.log',
+      out_file: './logs/pm2-out.log',
+      log_file: './logs/pm2-combined.log',
       
       env: {
         NODE_ENV: 'development',
@@ -44,5 +47,14 @@ module.exports = {
         PORT: 3000
       }
     }
-  ]
+  ],
+  // Declarative pm2-logrotate module configuration (NFR-32)
+  logrotate: {
+    rotateInterval: '0 0 * * *', // Daily rotation at midnight
+    retain: 14,                  // Retain logs for 14 days
+    dateFormat: 'YYYY-MM-DD',
+    max_size: '10M',
+    workerInterval: 30,
+    rotateModule: true
+  }
 };

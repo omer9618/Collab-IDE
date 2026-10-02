@@ -6,6 +6,12 @@
   "scripts": {
     "start": "node server.js",
     "precompress": "node scripts/precompress.js",
+    "pm2:start": "pm2 start ecosystem.config.js --env production",
+    "pm2:reload": "pm2 reload ecosystem.config.js --env production",
+    "pm2:stop": "pm2 stop ecosystem.config.js",
+    "pm2:logs": "pm2 logs collabide-backend",
+    "pm2:setup": "node scripts/setup_pm2.js",
+    "logs:rotate": "node scripts/rotate_app_logs.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -29,6 +35,7 @@
   },
   "devDependencies": {
     "esbuild": "^0.28.1",
+    "pm2": "^7.0.4",
     "socket.io-client": "^4.8.3"
   }
 }
