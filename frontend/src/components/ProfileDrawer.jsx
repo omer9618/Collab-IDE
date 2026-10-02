@@ -85,6 +85,7 @@ export default function ProfileDrawer({
     if (newTheme === (user.theme || 'vs-dark') || themeSaving) return;
     try {
       setThemeSaving(true);
+      localStorage.setItem('collabide_theme', newTheme);
       const updated = await updateProfile({ theme: newTheme });
       onUserUpdate?.(updated);
       setThemeSuccess(true);

@@ -84,7 +84,13 @@ export default function App() {
 
   // Synchronize document theme class for full web UI theming (FR-24)
   useEffect(() => {
-    const activeTheme = user?.theme || localStorage.getItem('collabide_theme') || 'vs-dark';
+    // Prioritize localStorage to remember choices across refresh and logout
+    let activeTheme = localStorage.getItem('collabide_theme');
+    if (!activeTheme) {
+      activeTheme = user?.theme || 'vs-dark';
+      localStorage.setItem('collabide_theme', activeTheme);
+    }
+
     const isLight = activeTheme === 'light';
     if (isLight) {
       document.documentElement.classList.remove('dark');
@@ -95,8 +101,12 @@ export default function App() {
       document.documentElement.classList.add('dark');
       document.documentElement.setAttribute('data-theme', 'dark');
     }
-    if (user?.theme) {
-      localStorage.setItem('collabide_theme', user.theme);
+
+    // Sync choice to backend if logged in and differs
+    if (user && user.theme !== activeTheme) {
+      import('./services/api').then(({ updateProfile }) => {
+        updateProfile({ theme: activeTheme }).catch(console.error);
+      });
     }
   }, [user?.theme]);
 

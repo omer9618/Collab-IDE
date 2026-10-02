@@ -220,6 +220,29 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showOnboardingBanner, setShowOnboardingBanner] = useState(() => !localStorage.getItem('collabide_seen_onboarding'));
 
+  // Fullscreen state
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
+
   // Editor font size state and persistence (FR-26)
   const [editorFontSize, setEditorFontSize] = useState(() => {
     const saved = localStorage.getItem('collabide_editor_font_size');
@@ -1172,6 +1195,18 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
             title={rightPanelOpen ? 'Collapse Panel' : 'Expand Panel'}
           >
             {rightPanelOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
+          </button>
+          <button
+            onClick={toggleFullscreen}
+            type="button"
+            className="p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] transition-colors flex items-center justify-center"
+            title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+          >
+            {isFullscreen ? (
+              <span className="material-symbols-outlined text-[18px]">fullscreen_exit</span>
+            ) : (
+              <span className="material-symbols-outlined text-[18px]">fullscreen</span>
+            )}
           </button>
 
           <button
