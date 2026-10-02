@@ -265,7 +265,7 @@ export function formatErrorMessage(err, fallback = 'An unexpected error occurred
  */
 async function safeJson(res, fallback = 'An unexpected server error occurred. Please try again.') {
   try {
-    return await safeJson(res);
+    return await res.json();
   } catch (e) {
     throw new Error(fallback);
   }
@@ -885,4 +885,5 @@ export async function getVoiceParticipants(uuid) {
   if (!res.ok) throw new Error(data.message || 'Failed to fetch voice participants');
   return data;
 }
+
 
