@@ -1404,7 +1404,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                             key={node.path}
                             className={`flex items-center py-[1px] cursor-pointer transition-colors group/file ${
                               activeFile === node.path
-                                ? 'bg-[#37373d] text-white'
+                                ? 'bg-[#37373d] text-on-surface shadow-sm'
                                 : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2a2d2e]'
                             }`}
                             style={{ paddingLeft: `${indent + 20}px`, paddingRight: '8px' }}
@@ -1973,7 +1973,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
               </button>
               <button
                 onClick={() => setShowVoiceSettings(!showVoiceSettings)}
-                className="w-6 h-10 flex items-center justify-center text-white/70 hover:text-white transition-colors"
+                className="w-6 h-10 flex items-center justify-center text-on-surface-muted hover:text-on-surface transition-colors"
               >
                 <span className="material-symbols-outlined text-[20px]">expand_less</span>
               </button>
@@ -2036,7 +2036,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
             </button>
             <button
               onClick={() => setShowVoiceSettings(!showVoiceSettings)}
-              className="w-8 h-10 ml-1 flex items-center justify-center text-white/70 hover:text-white transition-colors"
+              className="w-8 h-10 ml-1 flex items-center justify-center text-on-surface-muted hover:text-on-surface transition-colors"
             >
               <span className="material-symbols-outlined text-[20px]">expand_less</span>
             </button>
@@ -2443,7 +2443,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                       navigator.clipboard.writeText(roomUuid);
                       showToast('Room code copied to clipboard!', 'success');
                     }}
-                    className="px-3 py-1.5 bg-[#252626] border border-outline-subtle text-on-surface hover:text-white rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 shrink-0"
+                    className="px-3 py-1.5 bg-[#252626] border border-outline-subtle text-on-surface hover:text-on-surface hover:bg-[#2b2d30] rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 shrink-0"
                   >
                     <Copy size={13} />
                     <span>Copy Code</span>
@@ -2542,3 +2542,4 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     </div>
   );
 }
+
