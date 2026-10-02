@@ -839,6 +839,18 @@ export async function deleteRoom(uuid) {
  * @returns {Promise<object>} Execution outcome payload
  */
 export async function runCode(uuid, { code, language, stdin }) {
+  if (language === 'html' || language === 'css') {
+    return {
+      stdout: 'HTML/CSS is executed directly in the browser preview pane (FR-33).\nNo remote sandbox compilation required.\n',
+      stderr: '',
+      status: 'Accepted',
+      time: '0.001',
+      memory: 0,
+      language: 'HTML/CSS',
+      languageId: 'Client'
+    };
+  }
+
   const res = await request(`/execution/${uuid}/run`, {
     method: 'POST',
     body: JSON.stringify({ code, language, stdin }),

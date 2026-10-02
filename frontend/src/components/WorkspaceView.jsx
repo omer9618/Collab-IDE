@@ -86,6 +86,92 @@ function formatDate(date) {
 }
 module.exports = { formatDate };`,
   'README.md': `# CollabIDE Room\nCollaborate and execute code live!`,
+  'index.html': `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CollabIDE Live HTML/CSS</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 30px;
+      background: linear-gradient(135deg, #1e3a8a, #0d9488);
+      color: white;
+      text-align: center;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(10px);
+      padding: 30px 40px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      max-width: 460px;
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 24px;
+      letter-spacing: -0.5px;
+    }
+    p {
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    button {
+      background: #38bdf8;
+      color: #0f172a;
+      border: none;
+      padding: 10px 24px;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 14px;
+      transition: transform 0.2s, background 0.2s;
+    }
+    button:hover {
+      background: #7dd3fc;
+      transform: scale(1.05);
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🚀 Hello from HTML &amp; CSS!</h1>
+    <p>This is a live preview rendered directly inside CollabIDE.</p>
+    <button onclick="alert('Interactive HTML/CSS works!')">Click Me</button>
+  </div>
+</body>
+</html>`,
+};
+
+/**
+ * Supported Languages and Judge0 mapping (FR-23)
+ * Languages: JavaScript, Python, C++, C, Java, HTML/CSS
+ */
+const SUPPORTED_LANGUAGES = [
+  { id: 'javascript', name: 'JavaScript', monaco: 'javascript', judge0Id: 63, version: 'Node.js 12.14.0' },
+  { id: 'python',     name: 'Python',     monaco: 'python',     judge0Id: 71, version: 'Python 3.8.1' },
+  { id: 'cpp',        name: 'C++',        monaco: 'cpp',        judge0Id: 54, version: 'GCC 9.2.0' },
+  { id: 'c',          name: 'C',          monaco: 'c',          judge0Id: 50, version: 'GCC 9.2.0' },
+  { id: 'java',       name: 'Java',       monaco: 'java',       judge0Id: 62, version: 'OpenJDK 13.0.1' },
+  { id: 'html',       name: 'HTML/CSS',   monaco: 'html',       judge0Id: null, version: 'Browser Preview' },
+];
+
+const getDefaultLanguage = (filename = '') => {
+  const lower = filename.toLowerCase();
+  if (lower.endsWith('.py') || lower.endsWith('.pyw')) return 'python';
+  if (lower.endsWith('.cpp') || lower.endsWith('.cc') || lower.endsWith('.cxx') || lower.endsWith('.hpp')) return 'cpp';
+  if (lower.endsWith('.c') || lower.endsWith('.h')) return 'c';
+  if (lower.endsWith('.java')) return 'java';
+  if (lower.endsWith('.html') || lower.endsWith('.htm') || lower.endsWith('.css')) return 'html';
+  return 'javascript';
 };
 
 /**
@@ -150,6 +236,44 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     toastTimerRef.current = setTimeout(() => setToastMessage(null), 2500);
   };
   const [activeFile, setActiveFile] = useState('main.js');
+  
+  // FR-23 Language states
+  const [fileLanguages, setFileLanguages] = useState({});
+  const [showLangDropdown, setShowLangDropdown] = useState(false);
+  const langDropdownRef = useRef(null);
+
+  const currentLanguageId = activeFile ? (fileLanguages[activeFile] || getDefaultLanguage(activeFile)) : 'javascript';
+  const currentLangConfig = SUPPORTED_LANGUAGES.find((l) => l.id === currentLanguageId) || SUPPORTED_LANGUAGES[0];
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (langDropdownRef.current && !langDropdownRef.current.contains(event.target)) {
+        setShowLangDropdown(false);
+      }
+    }
+    if (showLangDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showLangDropdown]);
+
+  const handleSelectLanguage = (langId) => {
+    if (!activeFile) return;
+    setFileLanguages((prev) => ({
+      ...prev,
+      [activeFile]: langId,
+    }));
+    setShowLangDropdown(false);
+
+    const langConfig = SUPPORTED_LANGUAGES.find((l) => l.id === langId);
+    if (langConfig && editorRef.current && monacoRef.current) {
+      const model = editorRef.current.getModel();
+      if (model) {
+        monacoRef.current.editor.setModelLanguage(model, langConfig.monaco);
+      }
+    }
+    showToast(`Language set to ${langConfig?.name || langId}`, 'info');
+  };
   const [isSyncing, setIsSyncing] = useState(true);
   const [syncStatus, setSyncStatus] = useState('Connecting…');
   const [onlineCount, setOnlineCount] = useState(0);
@@ -534,8 +658,135 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     editorRef.current = editor;
     monacoRef.current = monaco;
 
-    // Enforce read-only behavior by intercepting keyboard events, bypassing y-monaco readOnly lock issues
+    // ─────────────────────────────────────────────────────────────────────────────
+    // FR-25: Toggle Comment helper (supports HTML block comments <!-- --> )
+    // ─────────────────────────────────────────────────────────────────────────────
+    const toggleComment = () => {
+      const model = editor.getModel();
+      if (!model) return;
+      const langId = model.getLanguageId();
+
+      // HTML utilizes block comment syntax (<!-- ... -->)
+      if (langId === 'html') {
+        const selection = editor.getSelection();
+        if (selection && !selection.isEmpty()) {
+          const blockCommentAction = editor.getAction('editor.action.blockComment');
+          if (blockCommentAction) {
+            blockCommentAction.run();
+            return;
+          }
+        }
+
+        // Single cursor line comment toggling for HTML
+        const lineNum = selection ? selection.startLineNumber : editor.getPosition()?.lineNumber || 1;
+        const lineContent = model.getLineContent(lineNum);
+        const trimmed = lineContent.trim();
+
+        if (trimmed.startsWith('<!--') && trimmed.endsWith('-->')) {
+          // Uncomment line: remove leading '<!--' and trailing '-->'
+          const startIdx = lineContent.indexOf('<!--');
+          const endIdx = lineContent.lastIndexOf('-->') + 3;
+          const innerText = trimmed.slice(4, -3).trim();
+          editor.executeEdits('toggleComment', [{
+            range: new monaco.Range(lineNum, startIdx + 1, lineNum, endIdx + 1),
+            text: innerText
+          }]);
+        } else if (trimmed.length > 0) {
+          // Comment line: wrap with <!-- ... -->
+          const firstNonWs = lineContent.search(/\S/);
+          const leadingWs = lineContent.slice(0, firstNonWs === -1 ? 0 : firstNonWs);
+          editor.executeEdits('toggleComment', [{
+            range: new monaco.Range(lineNum, 1, lineNum, lineContent.length + 1),
+            text: `${leadingWs}<!-- ${trimmed} -->`
+          }]);
+        }
+      } else {
+        // JavaScript, Python, C, C++, Java, CSS
+        const lineCommentAction = editor.getAction('editor.action.commentLine');
+        if (lineCommentAction) {
+          lineCommentAction.run();
+        }
+      }
+    };
+
+    /**
+     * ─────────────────────────────────────────────────────────────────────────────
+     * ROLE ENFORCEMENT & CLIENT-SIDE READ-ONLY KEYBOARD SHIELD (NFR-50)
+     * AND STANDARD EDITOR KEYBINDINGS (FR-25)
+     * ─────────────────────────────────────────────────────────────────────────────
+     * Standard Keybindings (FR-25):
+     * - Undo: Ctrl+Z / Cmd+Z
+     * - Redo: Ctrl+Y / Cmd+Y and Ctrl+Shift+Z / Cmd+Shift+Z
+     * - Find: Ctrl+F / Cmd+F
+     * - Select All: Ctrl+A / Cmd+A
+     * - Toggle Comment: Ctrl+/ / Cmd+/
+     *
+     * Keystrokes are intercepted directly to prevent browser default shortcut
+     * collisions (e.g., Ctrl+Y browser history, Ctrl+F browser search bar).
+     * Mutating shortcuts are strictly checked against `window._collabIdeReadOnly`
+     * to preserve role security.
+     * ─────────────────────────────────────────────────────────────────────────────
+     */
     editor.onKeyDown((e) => {
+      // FR-25: Direct keydown overrides for standard editor keybindings
+      if (e.ctrlKey || e.metaKey) {
+        // Redo: Ctrl+Y / Cmd+Y
+        if (e.keyCode === monaco.KeyCode.KeyY) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!window._collabIdeReadOnly) {
+            editor.trigger('keyboard', 'redo', null);
+          }
+          return;
+        }
+
+        // Redo: Ctrl+Shift+Z / Cmd+Shift+Z
+        if (e.shiftKey && e.keyCode === monaco.KeyCode.KeyZ) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!window._collabIdeReadOnly) {
+            editor.trigger('keyboard', 'redo', null);
+          }
+          return;
+        }
+
+        // Undo: Ctrl+Z / Cmd+Z
+        if (!e.shiftKey && e.keyCode === monaco.KeyCode.KeyZ) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!window._collabIdeReadOnly) {
+            editor.trigger('keyboard', 'undo', null);
+          }
+          return;
+        }
+
+        // Comment/Uncomment: Ctrl+/ / Cmd+/
+        if (e.keyCode === monaco.KeyCode.Slash) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!window._collabIdeReadOnly) {
+            toggleComment();
+          }
+          return;
+        }
+
+        // Find: Ctrl+F / Cmd+F
+        if (e.keyCode === monaco.KeyCode.KeyF) {
+          e.preventDefault();
+          e.stopPropagation();
+          editor.getAction('actions.find')?.run();
+          return;
+        }
+
+        // Select All: Ctrl+A / Cmd+A
+        if (e.keyCode === monaco.KeyCode.KeyA) {
+          e.preventDefault();
+          e.stopPropagation();
+          editor.trigger('keyboard', 'editor.action.selectAll', null);
+          return;
+        }
+      }
+
       if (window._collabIdeReadOnly) {
         // Allow navigation keys
         const allowedKeys = [
@@ -546,7 +797,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
           monaco.KeyCode.Escape
         ];
         
-        // Allow Ctrl+C, Ctrl+A, Ctrl+F
+        // Allow Ctrl+C, Ctrl+A, Ctrl+F in read-only mode
         if (e.ctrlKey || e.metaKey) {
           if (
             e.keyCode === monaco.KeyCode.KeyC || 
@@ -564,6 +815,37 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
       }
     });
 
+    // ─────────────────────────────────────────────────────────────────────────────
+    // FR-25: Register explicit Monaco editor commands for the command manager
+    // ─────────────────────────────────────────────────────────────────────────────
+    // 1. Undo: Ctrl+Z / Cmd+Z
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyZ, () => {
+      if (!window._collabIdeReadOnly) editor.trigger('keyboard', 'undo', null);
+    });
+
+    // 2. Redo: Ctrl+Y / Cmd+Y and Ctrl+Shift+Z / Cmd+Shift+Z
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyY, () => {
+      if (!window._collabIdeReadOnly) editor.trigger('keyboard', 'redo', null);
+    });
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyZ, () => {
+      if (!window._collabIdeReadOnly) editor.trigger('keyboard', 'redo', null);
+    });
+
+    // 3. Find: Ctrl+F / Cmd+F
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF, () => {
+      editor.getAction('actions.find')?.run();
+    });
+
+    // 4. Select All: Ctrl+A / Cmd+A
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyA, () => {
+      editor.trigger('keyboard', 'editor.action.selectAll', null);
+    });
+
+    // 5. Toggle Comment: Ctrl+/ / Cmd+/
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Slash, () => {
+      if (!window._collabIdeReadOnly) toggleComment();
+    });
+
     bindEditorModel(activeFile);
   };
 
@@ -576,6 +858,13 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     const model = editor.getModel();
     if (!model) return;
     model.setEOL(0); // Enforce LF line endings (0) to prevent cursor offset misalignment between CRLF and LF clients
+
+    // Instant update of language highlighting for current model (FR-23)
+    const activeLangId = fileLanguages[fileName] || getDefaultLanguage(fileName);
+    const langConfig = SUPPORTED_LANGUAGES.find((l) => l.id === activeLangId) || SUPPORTED_LANGUAGES[0];
+    if (monacoRef.current && langConfig) {
+      monacoRef.current.editor.setModelLanguage(model, langConfig.monaco);
+    }
 
     const isReadOnly = room?.isClosed || role === 'Viewer' || (editorOnlyMode && role === 'Editor' && !inVoice);
 
@@ -617,33 +906,38 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     }
   }, [activeFile, ydoc, provider, role, editorOnlyMode, inVoice]);
 
-  // Run code handler
+  // Run code handler (FR-23)
   const handleRunCode = async () => {
-    if (!editorRef.current || isRunning) return;
+    if (!editorRef.current || isRunning || !activeFile) return;
     setIsRunning(true);
     setConsoleOpen(true);
-    setConsoleTab('output');
-    setOutputLines((prev) => [...prev, { text: `> Running ${activeFile}...`, type: 'info' }]);
+
+    const activeLangId = fileLanguages[activeFile] || getDefaultLanguage(activeFile);
+    const langConfig = SUPPORTED_LANGUAGES.find((l) => l.id === activeLangId) || SUPPORTED_LANGUAGES[0];
+
+    if (langConfig.id === 'html') {
+      setConsoleTab('preview');
+    } else {
+      setConsoleTab('output');
+    }
+
+    setOutputLines((prev) => [
+      ...prev,
+      {
+        text: `> Running ${activeFile} (${langConfig.name} · Judge0 ID: ${langConfig.judge0Id ?? 'Browser Preview'})...`,
+        type: 'info',
+      },
+    ]);
 
     try {
       const code = editorRef.current.getValue();
-      const language = activeFile.endsWith('.py')
-        ? 'python'
-        : activeFile.endsWith('.java')
-        ? 'java'
-        : (activeFile.endsWith('.cpp') || activeFile.endsWith('.cc'))
-        ? 'cpp'
-        : activeFile.endsWith('.c')
-        ? 'c'
-        : 'javascript';
-
-      const result = await apiRunCode(roomUuid, { code, language });
+      const result = await apiRunCode(roomUuid, { code, language: langConfig.id });
 
       const newLines = [];
       if (result.stdout) newLines.push({ text: result.stdout, type: 'success' });
       if (result.stderr) newLines.push({ text: result.stderr, type: 'err' });
       newLines.push({
-        text: `Status: ${result.status} | Time: ${result.time || '?'}s | Memory: ${result.memory || '?'} KB`,
+        text: `Status: ${result.status} | Language: ${result.language || langConfig.name} (ID: ${result.languageId ?? langConfig.judge0Id ?? 'Client'}) | Time: ${result.time || '?'}s | Memory: ${result.memory || '?'} KB`,
         type: 'info',
       });
       newLines.push({ text: '----------------------------------------', type: 'info' });
@@ -1164,11 +1458,73 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
             <span>Share</span>
           </button>
 
+          {/* FR-23: Language Selection Dropdown */}
+          <div className="relative" ref={langDropdownRef}>
+            <button
+              onClick={() => setShowLangDropdown((prev) => !prev)}
+              disabled={!activeFile}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-[10px] font-medium transition-all ${
+                showLangDropdown
+                  ? 'bg-accent-blue/15 border-accent-blue text-accent-blue'
+                  : 'bg-surface-elevated hover:bg-surface-hover border-outline text-on-surface'
+              } ${!activeFile ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+              title="Select Active File Language (FR-23)"
+            >
+              <FileCode size={13} className="text-accent-blue shrink-0" />
+              <span className="font-semibold">{currentLangConfig.name}</span>
+              <span className="text-[8.5px] px-1 rounded bg-surface-panel border border-outline/40 text-on-surface-muted">
+                {currentLangConfig.judge0Id ? `ID:${currentLangConfig.judge0Id}` : 'Web'}
+              </span>
+              <ChevronDown
+                size={12}
+                className={`transition-transform duration-150 ${showLangDropdown ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            {showLangDropdown && (
+              <div className="absolute right-0 mt-1 w-56 bg-surface-panel border border-outline rounded-lg shadow-2xl py-1.5 z-50 backdrop-blur-md">
+                <div className="px-3 py-1 text-[9px] font-semibold text-on-surface-muted tracking-wider uppercase border-b border-outline/40 mb-1 flex items-center justify-between">
+                  <span>Supported Languages</span>
+                  <span className="text-[8px] text-accent-blue">Judge0 CE</span>
+                </div>
+                {SUPPORTED_LANGUAGES.map((lang) => {
+                  const isSelected = currentLangConfig.id === lang.id;
+                  return (
+                    <button
+                      key={lang.id}
+                      onClick={() => handleSelectLanguage(lang.id)}
+                      className={`w-full px-3 py-1.5 text-left text-[11px] flex items-center justify-between transition-colors ${
+                        isSelected
+                          ? 'bg-accent-blue/15 text-accent-blue font-semibold'
+                          : 'text-on-surface hover:bg-surface-hover'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${isSelected ? 'bg-accent-blue' : 'bg-on-surface-muted/40'}`} />
+                        <div className="flex flex-col">
+                          <span>{lang.name}</span>
+                          <span className="text-[8.5px] text-on-surface-muted">{lang.version}</span>
+                        </div>
+                      </div>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono ${
+                        isSelected
+                          ? 'bg-accent-blue text-white'
+                          : 'bg-surface-elevated text-on-surface-muted border border-outline/30'
+                      }`}>
+                        {lang.judge0Id ? `ID ${lang.judge0Id}` : 'Preview'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           <button
             onClick={handleRunCode}
-            disabled={isRunning || role === 'Viewer' || !activeFile || activeFile.endsWith('.md')}
+            disabled={isRunning || role === 'Viewer' || !activeFile}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-white text-[9px] font-medium rounded-md transition-all shadow-sm ${
-              (isRunning || role === 'Viewer' || !activeFile || activeFile.endsWith('.md'))
+              (isRunning || role === 'Viewer' || !activeFile)
                 ? 'bg-[#2b2d30] text-on-surface-muted cursor-not-allowed'
                 : 'bg-accent-blue hover:bg-accent-blue/90 shadow-accent-blue/20'
             }`}
@@ -1602,19 +1958,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
               <Editor
                 height="100%"
                 path={activeFile}
-                language={
-                  activeFile.endsWith('.py')
-                    ? 'python'
-                    : activeFile.endsWith('.java')
-                    ? 'java'
-                    : (activeFile.endsWith('.cpp') || activeFile.endsWith('.cc'))
-                    ? 'cpp'
-                    : activeFile.endsWith('.c')
-                    ? 'c'
-                    : activeFile.endsWith('.md')
-                    ? 'markdown'
-                    : 'javascript'
-                }
+                language={currentLangConfig.monaco}
                 theme={isLight ? 'light' : 'vs-dark'}
                 loading="Loading Editor Workspace..."
                 onMount={handleEditorDidMount}
@@ -1691,6 +2035,17 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                   >
                     Problems
                   </button>
+                  {(currentLangConfig.id === 'html' || activeFile?.endsWith('.html') || activeFile?.endsWith('.htm')) && (
+                    <button
+                      className={`px-3 text-[9px] font-medium h-full transition-colors flex items-center gap-1.5 ${
+                        consoleTab === 'preview' ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent' : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
+                      }`}
+                      onClick={() => setConsoleTab('preview')}
+                    >
+                      <span>Web Preview</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />
+                    </button>
+                  )}
                 </div>
                 <div className="flex items-center gap-1">
                   <button
@@ -1717,9 +2072,9 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                 </div>
               </div>
 
-              <div className="flex-1 p-3 font-code text-[9.5px] overflow-y-auto bg-[#0d0e0f]">
+              <div className="flex-1 p-2 font-code text-[9.5px] overflow-hidden bg-[#0d0e0f] flex flex-col">
                 {consoleTab === 'output' && (
-                  <div className="text-on-surface">
+                  <div className="text-on-surface overflow-y-auto flex-1 p-1">
                     {outputLines.length === 0 ? (
                       <div className="text-on-surface-muted italic">Click Run to compile code.</div>
                     ) : (
@@ -1742,7 +2097,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                 )}
 
                 {consoleTab === 'terminal' && (
-                  <div className="text-on-surface-variant">
+                  <div className="text-on-surface-variant overflow-y-auto flex-1 p-1">
                     <div className="text-accent-green">$ CollabIDE interactive prompt active.</div>
                     <div className="flex items-center gap-1 mt-2">
                       <span className="text-on-surface">collab-ide/src %</span>
@@ -1752,7 +2107,27 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                 )}
 
                 {consoleTab === 'problems' && (
-                  <div className="text-on-surface-muted italic">No problems detected.</div>
+                  <div className="text-on-surface-muted italic overflow-y-auto flex-1 p-1">No problems detected.</div>
+                )}
+
+                {consoleTab === 'preview' && (
+                  <div className="w-full h-full bg-white rounded overflow-hidden flex flex-col border border-outline/30">
+                    <div className="bg-[#f3f4f6] border-b border-gray-300 px-3 py-1 text-[10px] text-gray-700 font-mono flex items-center justify-between select-none shrink-0">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-red-400 inline-block" />
+                        <span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" />
+                        <span className="w-2 h-2 rounded-full bg-green-400 inline-block" />
+                        <span className="ml-1 font-semibold text-gray-800">Browser Live Preview</span>
+                      </span>
+                      <span className="text-[9px] text-gray-500 font-medium">HTML/CSS (FR-33)</span>
+                    </div>
+                    <iframe
+                      title="HTML CSS Live Preview"
+                      srcDoc={editorRef.current ? editorRef.current.getValue() : ''}
+                      className="w-full flex-1 border-0 bg-white"
+                      sandbox="allow-scripts allow-modals"
+                    />
+                  </div>
                 )}
               </div>
             </section>
@@ -1994,7 +2369,14 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
           <span>{onlineCount} online</span>
         </div>
         <div className="flex items-center gap-1">
-          <span>{activeFile.endsWith('.js') ? 'JavaScript' : 'Python'}</span>
+          <button
+            onClick={() => setShowLangDropdown((prev) => !prev)}
+            className="hover:bg-white/10 px-1.5 py-0.5 rounded flex items-center gap-1 cursor-pointer transition-colors"
+            title="Click to switch language (FR-23)"
+          >
+            <span className="font-medium">{currentLangConfig.name}</span>
+            <span className="text-[8px] opacity-80">({currentLangConfig.judge0Id ? `ID: ${currentLangConfig.judge0Id}` : 'Web'})</span>
+          </button>
           <div className="h-3 w-px bg-white/20" />
           <span className="cursor-pointer hover:underline" onClick={() => navigator.clipboard.writeText(roomUuid)}>
             Room: {roomUuid.slice(0, 8)}
