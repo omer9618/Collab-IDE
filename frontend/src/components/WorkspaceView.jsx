@@ -161,6 +161,28 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
   const [isOnlineListOpen, setIsOnlineListOpen] = useState(true);
   const [isFilesTreeOpen, setIsFilesTreeOpen] = useState(true);
   const [activeMenuDropdown, setActiveMenuDropdown] = useState(null);
+
+  // Theme state
+  const [isLight, setIsLight] = useState(
+    () => document.documentElement.classList.contains('light') || localStorage.getItem('collabide_theme') === 'light'
+  );
+
+  const toggleTheme = () => {
+    const nextIsLight = !isLight;
+    setIsLight(nextIsLight);
+    if (nextIsLight) {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
+      document.documentElement.setAttribute('data-theme', 'light');
+      localStorage.setItem('collabide_theme', 'light');
+    } else {
+      document.documentElement.classList.remove('light');
+      document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
+      localStorage.setItem('collabide_theme', 'vs-dark');
+    }
+  };
+
   // Folder support state
   const [expandedFolders, setExpandedFolders] = useState(new Set());
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
@@ -1135,6 +1157,19 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
             title={rightPanelOpen ? 'Collapse Panel' : 'Expand Panel'}
           >
             {rightPanelOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
+          </button>
+
+          <button
+            onClick={toggleTheme}
+            type="button"
+            className="p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] transition-colors flex items-center justify-center"
+            title={`Switch to ${isLight ? 'Dark' : 'Light'} Mode`}
+          >
+            {isLight ? (
+              <span className="material-symbols-outlined text-[18px] text-amber-500">light_mode</span>
+            ) : (
+              <span className="material-symbols-outlined text-[18px]">dark_mode</span>
+            )}
           </button>
 
           <button
