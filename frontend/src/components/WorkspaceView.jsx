@@ -1565,7 +1565,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                     ? 'markdown'
                     : 'javascript'
                 }
-                theme="vs-dark"
+                theme={user?.theme === 'light' ? 'light' : 'vs-dark'}
                 loading="Loading Editor Workspace..."
                 onMount={handleEditorDidMount}
                 options={{
