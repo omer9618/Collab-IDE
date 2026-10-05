@@ -12,14 +12,25 @@
  * - Graceful process termination and buffer flushing (NFR-38)
  */
 
-require('dotenv').config();
+const path = require('path');
+
+if (process.env.SKIP_DOTENV !== 'true') {
+  require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+  require('dotenv').config();
+}
+
+// Fail-Fast Environment Configuration Validator (NFR-49)
+// Must execute before any subsystem, database connection, or socket initializes
+const { validateEnv } = require('./config/env');
+validateEnv(process.env, { exitOnError: true });
+
 const logger = require('./utils/logger');
 // NFR-23: Install universal console interceptor to sanitize logs and enforce chmod 640 storage
 logger.installGlobalInterceptor();
 
 const http = require('http');
 const express = require('express');
-const path = require('path');
+const fs = require('fs');
 const WebSocket = require('ws');
 const cors = require('cors');
 const compression = require('compression');
@@ -49,14 +60,19 @@ const app = express();
 app.set('trust proxy', 1);
 const server = http.createServer(app);
 
-// Initialize Socket.IO Server for Voice Signalling (FR-45 – FR-53, NFR-48)
+// Distributed Pub/Sub Messaging Subsystem (NFR-53)
+const { createPubSubAdapter } = require('./services/pubsub');
+const pubsubAdapter = createPubSubAdapter();
+
+// Initialize Socket.IO Server for Voice Signalling (FR-45 – FR-53, NFR-48, NFR-53)
 const io = new Server(server, {
   cors: {
     origin: "*",
     methods: ["GET", "POST"]
   }
 });
-voiceSignalling.initVoiceSignalling(io);
+const redisAdapter = typeof pubsubAdapter.createSocketIoAdapter === 'function' ? pubsubAdapter.createSocketIoAdapter() : null;
+voiceSignalling.initVoiceSignalling(io, { pubsubAdapter, redisAdapter });
 
 // Connect to Database with connection pooling (NFR-40)
 connectDB();
@@ -102,8 +118,32 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(csrfProtection);
 
-// Static Client Files
-app.use(express.static(path.join(__dirname, 'public')));
+// Static Client Files & Asset Caching (NFR-41)
+const publicPath = path.join(__dirname, 'public');
+const distPath = path.join(__dirname, '../frontend/dist');
+
+const staticOptions = {
+  setHeaders: (res, filePath) => {
+    // NFR-41: HTML entry point must always revalidate
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+    // NFR-41: Versioned filenames (content-hashed by Vite) cached immutable for 1 year
+    else if (
+      filePath.includes(path.sep + 'assets' + path.sep) ||
+      filePath.includes('/assets/') ||
+      /\.[a-f0-9]{8,}\.(js|css)$/i.test(filePath) ||
+      /-[A-Za-z0-9_-]{8,}\.(js|css)$/i.test(filePath)
+    ) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  },
+};
+
+app.use(express.static(publicPath, staticOptions));
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath, staticOptions));
+}
 
 // Register REST Routes (Modular architecture NFR-48)
 app.use('/api/auth',      auth.routes);
@@ -111,7 +151,10 @@ app.use('/api/rooms',     rooms.routes);
 app.use('/api/execution', execution.routes);
 app.use('/api/voice',     voiceSignalling.routes);
 
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache');
+  res.sendFile(path.join(publicPath, 'index.html'));
+});
 
 const getMaxWsPerRoom = websocketRelay.getMaxWsPerRoom;
 
@@ -134,6 +177,10 @@ app.use('/api', notFoundHandler);
 // Centralized Plain-English Error Sanitizer Middleware (NFR-47)
 app.use(errorHandler);
 
+// Stateless REST Architecture Assertion (NFR-51)
+// Enforces that session state lives exclusively in tokens and DB, with zero server memory sessions
+auth.assertStatelessPipeline(app);
+
 // Initialize Modular WebSocket Relay Subsystem (NFR-48, NFR-52, NFR-17, NFR-36)
 const {
   wss,
@@ -151,6 +198,7 @@ const {
   Room,
   publicKey,
   logger,
+  pubsubAdapter,
   getIsShuttingDown: () => isShuttingDown,
   maxWsPerRoom: getMaxWsPerRoom,
 });
@@ -230,6 +278,11 @@ async function gracefulShutdown(signal = 'SIGTERM') {
 
       io.disconnectSockets(true);
       io.close(() => console.log('🎙️  Socket.IO voice server closed.'));
+
+      if (pubsubAdapter && typeof pubsubAdapter.close === 'function') {
+        await pubsubAdapter.close();
+        console.log('📡 Pub/Sub adapter closed cleanly.');
+      }
     } catch (err) {
       console.error('Error closing real-time connections:', err.message);
     }

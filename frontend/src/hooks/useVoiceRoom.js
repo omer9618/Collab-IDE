@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { io } from 'socket.io-client';
-import { getToken, getVoiceCredentials } from '../services/api';
 import { checkNativeWebRTCSupport, getMediaErrorGuidance } from '../utils/webrtcSupport';
+import { playRemoteAudioSafely, checkBrowserSupport } from '../utils/browserSupport';
 
 export function useVoiceRoom({ roomUuid, showToast }) {
   const [inVoice, setInVoice] = useState(false);
@@ -54,6 +54,9 @@ export function useVoiceRoom({ roomUuid, showToast }) {
       if (selectedSpeakerId && typeof audio.setSinkId === 'function') {
         audio.setSinkId(selectedSpeakerId).catch(console.error);
       }
+
+      // NFR-54: Cross-browser audio autoplay unlocking (Chrome, Firefox, Edge)
+      playRemoteAudioSafely(audio);
     };
 
     // NFR-10: WebRTC Connection Retry Logic (Max 3 attempts)
@@ -138,11 +141,27 @@ export function useVoiceRoom({ roomUuid, showToast }) {
     setIsConnectingVoice(true);
 
     try {
-      const constraints = { 
-        audio: selectedMicId ? { deviceId: { exact: selectedMicId } } : true, 
-        video: false 
+      // Cross-browser audio constraints (Chrome, Firefox, Edge across Windows, macOS, Linux)
+      const audioConstraints = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        ...(selectedMicId ? { deviceId: { ideal: selectedMicId } } : {}),
       };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: false });
+      } catch (mediaErr) {
+        if (selectedMicId && (mediaErr.name === 'OverconstrainedError' || mediaErr.name === 'NotFoundError')) {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+            video: false,
+          });
+        } else {
+          throw mediaErr;
+        }
+      }
       setLocalStream(stream);
 
       const credsData = await getVoiceCredentials(roomUuid);
@@ -308,10 +327,22 @@ export function useVoiceRoom({ roomUuid, showToast }) {
       setSelectedMicId(newMicId);
       if (inVoice && localStream) {
         try {
-          const newStream = await navigator.mediaDevices.getUserMedia({
-            audio: { deviceId: { exact: newMicId } },
-            video: false
-          });
+          let newStream;
+          try {
+            newStream = await navigator.mediaDevices.getUserMedia({
+              audio: { deviceId: { ideal: newMicId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+              video: false,
+            });
+          } catch (micErr) {
+            if (micErr.name === 'OverconstrainedError') {
+              newStream = await navigator.mediaDevices.getUserMedia({
+                audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+                video: false,
+              });
+            } else {
+              throw micErr;
+            }
+          }
           
           // Stop old tracks
           localStream.getTracks().forEach(t => t.stop());
@@ -354,5 +385,6 @@ export function useVoiceRoom({ roomUuid, showToast }) {
     selectedSpeakerId,
     updateDevices,
     isWebRTCSupported: checkNativeWebRTCSupport().isSupported,
+    browserSupport: checkBrowserSupport(),
   };
 }

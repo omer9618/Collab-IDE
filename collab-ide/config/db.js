@@ -100,7 +100,10 @@ function resolvePoolConfig(env = process.env) {
 const connectDB = async (overrideEnv = null) => {
   try {
     const env = overrideEnv || process.env;
-    const connUri = env.MONGODB_URI || 'mongodb://127.0.0.1:27017/collabide';
+    const connUri = env.MONGODB_URI;
+    if (!connUri || typeof connUri !== 'string' || connUri.trim() === '') {
+      throw new Error('Fatal Configuration Error: MONGODB_URI environment variable is required (NFR-49).');
+    }
     const config = resolvePoolConfig(env);
 
     const options = {

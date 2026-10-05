@@ -121,13 +121,21 @@ async function submitToJudge0({ languageId, sourceCode, stdin }) {
   const base64Code = Buffer.from(sourceCode || '').toString('base64');
   const base64Stdin = Buffer.from(stdin || '').toString('base64');
 
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+  if (apiKey) {
+    headers['X-RapidAPI-Key'] = apiKey;
+    try {
+      headers['X-RapidAPI-Host'] = new URL(apiUrl).host;
+    } catch {
+      // Ignore URL parse error
+    }
+  }
+
   const res = await fetch(`${apiUrl}/submissions?base64_encoded=true&wait=true`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-RapidAPI-Key': apiKey,
-      'X-RapidAPI-Host': 'judge0-ce.p.rapidapi.com',
-    },
+    headers,
     body: JSON.stringify({
       language_id: languageId,
       source_code: base64Code,

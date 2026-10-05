@@ -88,7 +88,11 @@ export default function VoiceDeviceMenu({ isOpen, onClose, selectedMicId, select
             <div className="text-[10px] font-bold text-on-surface-muted uppercase px-3 pt-2 pb-1 tracking-wider">
               Speakers
             </div>
-            {audioOutputs.length === 0 && <div className="text-xs text-on-surface-variant px-3 py-1">No speakers found</div>}
+            {audioOutputs.length === 0 && (
+              <div className="text-[11px] text-on-surface-variant px-3 py-1 italic">
+                System default speaker (managed by browser)
+              </div>
+            )}
             {audioOutputs.map((d) => (
               <button
                 key={d.deviceId}

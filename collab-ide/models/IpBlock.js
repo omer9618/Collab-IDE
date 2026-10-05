@@ -34,14 +34,18 @@ const ipBlockSchema = new mongoose.Schema(
       required: true,
       default: 0,
     },
+    // NFR-14: 10-minute sliding window start for IP failed attempts
+    windowStart: {
+      type: Date,
+    },
     blockUntil: {
       type: Date,
     },
-    // TTL index to automatically remove documents after 1 hour (3600 seconds) of inactivity
+    // Housekeeping TTL index: removes inactive tracking documents after 24 hours (86400s)
     updatedAt: {
       type: Date,
       default: Date.now,
-      index: { expires: 3600 },
+      index: { expires: 86400 },
     },
   },
   {

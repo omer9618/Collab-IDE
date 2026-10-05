@@ -21,6 +21,12 @@ import {
   updateProfile,
 } from '../services/api';
 import {
+  MONOSPACE_FONT_STACK,
+  formatShortcut,
+  safeCopyToClipboard,
+  detectPlatform,
+} from '../utils/browserSupport';
+import {
   Folder,
   Users,
   MessageSquare,
@@ -715,6 +721,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     editorRef.current = editor;
     monacoRef.current = monaco;
 
+<<<<<<< HEAD
     // ─────────────────────────────────────────────────────────────────────────────
     // FR-25: Toggle Comment helper (supports HTML block comments <!-- --> )
     // ─────────────────────────────────────────────────────────────────────────────
@@ -784,6 +791,18 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
      * to preserve role security.
      * ─────────────────────────────────────────────────────────────────────────────
      */
+=======
+    // Cross-platform Monaco keybindings (NFR-54: Windows/Linux Ctrl vs macOS Cmd)
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+      handleRunCode();
+    });
+
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+      showToast('Workspace automatically synchronized via Yjs CRDT', 'info');
+    });
+
+    // Enforce read-only behavior by intercepting keyboard events, bypassing y-monaco readOnly lock issues
+>>>>>>> main
     editor.onKeyDown((e) => {
       // FR-25: Direct keydown overrides for standard editor keybindings
       if (e.ctrlKey || e.metaKey) {
@@ -1007,11 +1026,16 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     }
   };
 
-  // Copy console output to clipboard
-  const handleCopyOutput = () => {
+  // Copy console output to clipboard (NFR-54: cross-browser with fallback)
+  const handleCopyOutput = async () => {
     const textToCopy = outputLines.map(line => line.text).join('\n');
     if (textToCopy) {
-      navigator.clipboard.writeText(textToCopy).then(() => showToast('Console output copied!', 'success')).catch(() => showToast('Failed to copy output', 'error'));
+      const success = await safeCopyToClipboard(textToCopy);
+      if (success) {
+        showToast('Console output copied!', 'success');
+      } else {
+        showToast('Failed to copy output', 'error');
+      }
     }
   };
 
@@ -1101,11 +1125,48 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
         const maxConsole = Math.max(100, Math.min(300, Math.floor(winH * 0.45)));
         return Math.max(100, Math.min(prev, maxConsole));
       });
+
+      // Force Monaco layout recalculation on viewport resize across Chrome, Firefox, Edge
+      if (editorRef.current) {
+        editorRef.current.layout();
+      }
     };
 
     window.addEventListener('resize', handleViewportResize);
     return () => window.removeEventListener('resize', handleViewportResize);
   }, []);
+
+  // Global Cross-Platform Keyboard Shortcuts (NFR-54: Windows/Linux Ctrl vs macOS Cmd)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      const isMac = detectPlatform().isMac;
+      const isPrimaryMod = isMac ? e.metaKey : e.ctrlKey;
+
+      // Primary + Enter: Run code
+      if (isPrimaryMod && e.key === 'Enter') {
+        e.preventDefault();
+        handleRunCode();
+      }
+      // Primary + S: Intercept browser Save Page dialog & confirm Yjs sync
+      else if (isPrimaryMod && e.key && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        showToast('Workspace automatically synchronized via Yjs CRDT', 'info');
+      }
+      // Alt + N: New File
+      else if (e.altKey && e.key && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        handleCreateFile();
+      }
+      // Primary + B: Toggle left file explorer
+      else if (isPrimaryMod && e.key && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        setLeftPanelOpen((prev) => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [handleRunCode, handleCreateFile, showToast]);
 
   // Create new file dynamically (VS Code style inline creation)
   const handleCreateFile = (parentFolderPath = '') => {
@@ -1466,9 +1527,9 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                 </div>
                 <div className="p-2 border-t border-outline-subtle bg-black/20">
                   <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(window.location.href);
-                      showToast('Invite link copied!', 'success');
+                    onClick={async () => {
+                      const ok = await safeCopyToClipboard(window.location.href);
+                      if (ok) showToast('Invite link copied!', 'success');
                       setShowRoomDropdown(false);
                     }}
                     className="w-full text-left text-[11px] font-medium text-accent-blue hover:bg-accent-blue/10 px-2 py-1.5 rounded transition-colors flex items-center gap-1.5"
@@ -1588,6 +1649,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
           <button
             onClick={handleRunCode}
             disabled={isRunning || role === 'Viewer' || !activeFile}
+            title={`Run active code (${formatShortcut('Enter', { ctrlOrCmd: true })})`}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-white text-[9px] font-medium rounded-md transition-all shadow-sm ${
               (isRunning || role === 'Viewer' || !activeFile)
                 ? 'bg-[#2b2d30] text-on-surface-muted cursor-not-allowed'
@@ -1962,9 +2024,9 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
             <div className="p-4 border-t border-outline-subtle mt-auto">
               <button
                 className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-md border border-accent-blue/30 text-[9px] font-medium text-accent-blue hover:bg-accent-blue/10 transition-colors"
-                onClick={() => {
-                  navigator.clipboard.writeText(window.location.href);
-                  showToast('Share link copied!', 'success');
+                onClick={async () => {
+                  const ok = await safeCopyToClipboard(window.location.href);
+                  if (ok) showToast('Share link copied!', 'success');
                 }}
               >
                 <Share2 size={13} /> Share invite link
@@ -2015,7 +2077,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                     className="flex items-center justify-between px-2 py-1 bg-surface-elevated hover:bg-bg-hover border border-outline rounded-md text-[9px] text-on-surface transition-all"
                   >
                     <span>Create New File</span>
-                    <span className="text-[9px] text-on-surface-muted bg-[#252526] px-1.5 py-0.5 rounded">Alt+N</span>
+                    <span className="text-[9px] text-on-surface-muted bg-[#252526] px-1.5 py-0.5 rounded">{formatShortcut('N', { altOrOpt: true })}</span>
                   </button>
                 </div>
               </div>
@@ -2029,7 +2091,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                 onMount={handleEditorDidMount}
                 options={{
                   fontSize: editorFontSize,
-                  fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                  fontFamily: MONOSPACE_FONT_STACK,
                   minimap: { enabled: false },
                   smoothScrolling: true,
                   automaticLayout: true,
@@ -2443,7 +2505,10 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
             <span className="text-[8px] opacity-80">({currentLangConfig.judge0Id ? `ID: ${currentLangConfig.judge0Id}` : 'Web'})</span>
           </button>
           <div className="h-3 w-px bg-white/20" />
-          <span className="cursor-pointer hover:underline" onClick={() => navigator.clipboard.writeText(roomUuid)}>
+          <span className="cursor-pointer hover:underline" onClick={async () => {
+            const ok = await safeCopyToClipboard(roomUuid);
+            if (ok) showToast('Room ID copied!', 'success');
+          }}>
             Room: {roomUuid.slice(0, 8)}
           </span>
           <div className="h-3 w-px bg-white/20" />
@@ -2726,7 +2791,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                       </div>
                       <pre
                         className="font-mono text-on-surface leading-relaxed select-none overflow-x-auto custom-scrollbar p-2 rounded bg-[#0d0e0f]"
-                        style={{ fontSize: `${editorFontSize}px`, fontFamily: "'JetBrains Mono', 'Fira Code', monospace" }}
+                        style={{ fontSize: `${editorFontSize}px`, fontFamily: MONOSPACE_FONT_STACK }}
                       >
                         <span className="text-purple-400">function</span> <span className="text-blue-400">calculateMetrics</span>(<span>items</span>) &#123;{'\n'}
                         {'  '}<span className="text-purple-400">return</span> items.<span className="text-blue-400">map</span>(<span>x</span> =&gt; x * <span className="text-amber-400">2</span>);{'\n'}
@@ -2912,9 +2977,9 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                     className="flex-1 bg-surface border border-outline-subtle rounded-md px-3 py-1.5 text-xs text-on-surface select-all outline-none focus:border-accent-blue"
                   />
                   <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(window.location.href);
-                      showToast('Invite link copied to clipboard!', 'success');
+                    onClick={async () => {
+                      const ok = await safeCopyToClipboard(window.location.href);
+                      if (ok) showToast('Invite link copied to clipboard!', 'success');
                     }}
                     className="px-3 py-1.5 bg-accent-blue text-white rounded-md text-xs font-semibold hover:bg-blue-600 transition-colors flex items-center gap-1.5 shrink-0"
                   >
@@ -2936,9 +3001,9 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                     className="flex-1 bg-surface border border-outline-subtle rounded-md px-3 py-1.5 text-xs text-on-surface font-mono select-all outline-none focus:border-accent-blue"
                   />
                   <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(roomUuid);
-                      showToast('Room code copied to clipboard!', 'success');
+                    onClick={async () => {
+                      const ok = await safeCopyToClipboard(roomUuid);
+                      if (ok) showToast('Room code copied to clipboard!', 'success');
                     }}
                     className="px-3 py-1.5 bg-surface-elevated border border-outline-subtle text-on-surface hover:text-on-surface hover:bg-surface-hover rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 shrink-0"
                   >

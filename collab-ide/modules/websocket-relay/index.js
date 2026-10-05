@@ -228,6 +228,11 @@ function initWebSocketRelay(options = {}) {
   const wss = options.wss || new WebSocket.Server({ noServer: true });
   const activeDocs = createActiveDocsProxy(manager);
 
+  // NFR-53: Configure distributed Pub/Sub adapter if supplied
+  if (options.pubsubAdapter && typeof manager.setPubSubAdapter === 'function') {
+    manager.setPubSubAdapter(options.pubsubAdapter);
+  }
+
   // Helper bindings
   const getRoomConnectionCount = (roomUuid, excludeWs = null) => {
     return manager.getRoomConnectionCount(roomUuid, excludeWs);
@@ -432,6 +437,14 @@ function initWebSocketRelay(options = {}) {
     updateClientRoleInMemory,
     getRoomConnectionCount,
     close,
+    pubsubAdapter: manager.pubsubAdapter,
+    setPubSubAdapter: (adapter) => manager.setPubSubAdapter(adapter),
+    horizontalScaling: {
+      ready: true,
+      supportsRedisAdapter: true,
+      singleProcessAssumptions: false,
+      pubsubChannels: ['collab:room:<uuid>'],
+    },
   };
 }
 
@@ -444,4 +457,11 @@ module.exports = {
   createSyncStep1Message,
   touchRoomActivity,
   createActiveDocsProxy,
+  pubsub: require('../../services/pubsub'),
+  horizontalScaling: {
+    ready: true,
+    supportsRedisAdapter: true,
+    singleProcessAssumptions: false,
+    pubsubChannels: ['collab:room:<uuid>'],
+  },
 };

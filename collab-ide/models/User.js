@@ -92,6 +92,10 @@ const userSchema = new mongoose.Schema(
       required: true,
       default: 0,
     },
+    // NFR-14: 10-minute sliding window start for account lockout
+    loginAttemptsWindowStart: {
+      type: Date,
+    },
     lockUntil: {
       type: Date,
     },

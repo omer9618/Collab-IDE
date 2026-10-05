@@ -217,6 +217,10 @@ router.get('/verify', async (req, res) => {
  * If an IP accumulates 20 consecutive failed authentication attempts, it is temporarily
  * blacklisted from login endpoints for 1 hour, returning HTTP 429 Too Many Requests.
  *
+/**
+ * Express middleware to enforce per-IP brute force block (NFR-14).
+ * Rejects requests from blocked IPs with 429 Too Many Requests if under active 1-hour ban.
+ *
  * @async
  * @function ipBruteForceLimiter
  * @param {import('express').Request} req - Express request
@@ -226,58 +230,288 @@ router.get('/verify', async (req, res) => {
  */
 const ipBruteForceLimiter = async (req, res, next) => {
   try {
-    const ip = req.ip;
-    const ipBlock = await IpBlock.findOne({ ip });
-    
-    // Security: Reject traffic if IP is currently under active ban
-    if (ipBlock && ipBlock.blockUntil && ipBlock.blockUntil > new Date()) {
-      return res.status(429).json({
-        message: 'Too many failed login attempts from this IP. Please try again in 1 hour.',
-      });
+    const ip = req.ip || req.connection?.remoteAddress || '127.0.0.1';
+    const ipBlock = await IpBlock.findByIp(ip);
+
+    if (ipBlock && ipBlock.blockUntil) {
+      const now = new Date();
+      if (ipBlock.blockUntil > now) {
+        const remainingMinutes = Math.ceil((ipBlock.blockUntil - now) / 60000);
+        logger.warn(
+          `[AUDIT] [SECURITY] BLOCKED_IP_REJECTED | IP: ${ip} | Remaining: ${remainingMinutes}m | Timestamp: ${now.toISOString()}`,
+          {
+            event: 'BLOCKED_IP_REJECTED',
+            ip,
+            remainingMinutes,
+            blockUntil: ipBlock.blockUntil,
+            timestamp: now.toISOString(),
+          }
+        );
+        return res.status(429).json({
+          message: `Too many failed login attempts from this IP. Please try again in ${remainingMinutes} minute${remainingMinutes === 1 ? '' : 's'}.`,
+          retryAfter: Math.ceil((ipBlock.blockUntil - now) / 1000),
+        });
+      }
+      // If block expired, clear blockUntil in place
+      await IpBlock.updateOne(
+        { _id: ipBlock._id },
+        { $unset: { blockUntil: 1 }, $set: { failedAttempts: 0 }, $currentDate: { updatedAt: true } }
+      );
     }
     next();
   } catch (error) {
-    console.error('IP block check error:', error);
+    logger.error('IP block check error:', error);
     next();
   }
 };
 
 /**
- * Increments failed login counters for both IP address and targeted account (NFR-14).
- * Enforces dual-layer brute force throttling:
- * 1. IP level: 20 failed attempts -> 1 hour IP ban.
- * 2. Account level: 5 failed attempts -> 15 minute user account lockout with notification alert.
+ * Atomically records a failed login attempt for an IP address (NFR-14).
+ * Enforces: 20 failed attempts across any accounts in 10 minutes -> 1-hour block.
+ * Safe against concurrent races and E11000 duplicate key errors on initial upsert.
+ *
+ * @async
+ * @function recordFailedIpAttempt
+ * @param {string} ip - Client IP address
+ * @param {number} [now=Date.now()] - Timestamp
+ * @returns {Promise<{ blocked: boolean, attempts: number, blockUntil?: Date }>}
+ */
+const recordFailedIpAttempt = async (ip, now = Date.now()) => {
+  const { hashBlindIndex, encrypt } = require('../utils/encryption');
+  const ipHash = hashBlindIndex(ip);
+  const maxRetries = 3;
+
+  const ipCondition = { $or: [{ ipHash }, { ip: ip.trim() }] };
+  const notBlockedCondition = {
+    $or: [{ blockUntil: { $exists: false } }, { blockUntil: null }, { blockUntil: { $lte: new Date(now) } }],
+  };
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      // 1. Check if window expired (> 10m) or coming off an expired block -> atomically reset
+      const resetDoc = await IpBlock.findOneAndUpdate(
+        {
+          $and: [
+            ipCondition,
+            notBlockedCondition,
+            {
+              $or: [
+                { windowStart: { $lt: new Date(now - 10 * 60 * 1000) } },
+                { windowStart: { $exists: false } },
+                { blockUntil: { $lte: new Date(now) } },
+              ],
+            },
+          ],
+        },
+        {
+          $set: { failedAttempts: 1, windowStart: new Date(now), ip: encrypt(ip), ipHash },
+          $unset: { blockUntil: 1 },
+          $currentDate: { updatedAt: true },
+        },
+        { returnDocument: 'after' }
+      );
+
+      let currentAttempts = resetDoc ? 1 : 0;
+
+      // 2. If not reset, atomically increment within 10-minute active window
+      if (!resetDoc) {
+        const updated = await IpBlock.findOneAndUpdate(
+          {
+            $and: [
+              ipCondition,
+              notBlockedCondition,
+              { windowStart: { $gte: new Date(now - 10 * 60 * 1000) } },
+            ],
+          },
+          {
+            $inc: { failedAttempts: 1 },
+            $setOnInsert: { windowStart: new Date(now), ip: encrypt(ip), ipHash },
+            $currentDate: { updatedAt: true },
+          },
+          { returnDocument: 'after', upsert: true }
+        );
+        currentAttempts = updated ? updated.failedAttempts : 0;
+      }
+
+      // If document is actively blocked by a concurrent request, return without modifying
+      if (!resetDoc && currentAttempts === 0) {
+        return { blocked: false, attempts: 0 };
+      }
+
+      // 3. Atomically transition to 1-hour block if threshold of 20 attempts is reached
+      if (currentAttempts >= 20) {
+        const blockExpires = new Date(now + 60 * 60 * 1000); // 1 hour
+        const blocked = await IpBlock.findOneAndUpdate(
+          {
+            $and: [
+              ipCondition,
+              notBlockedCondition,
+              { failedAttempts: { $gte: 20 } },
+            ],
+          },
+          {
+            $set: { blockUntil: blockExpires, failedAttempts: 0 },
+            $unset: { windowStart: 1 },
+            $currentDate: { updatedAt: true },
+          },
+          { returnDocument: 'after' }
+        );
+
+        if (blocked) {
+          const timestamp = new Date(now).toISOString();
+          logger.warn(
+            `[AUDIT] [SECURITY] IP_BLOCK | IP: ${ip} | Attempts: 20 in 10m | Duration: 1h | BlockedUntil: ${blockExpires.toISOString()} | Timestamp: ${timestamp}`,
+            {
+              event: 'IP_BLOCK',
+              ip,
+              failedAttempts: 20,
+              durationHours: 1,
+              blockedUntil: blockExpires,
+              timestamp,
+            }
+          );
+          return { blocked: true, attempts: 20, blockUntil: blockExpires };
+        }
+      }
+
+      return { blocked: false, attempts: currentAttempts };
+    } catch (err) {
+      // E11000 race condition on concurrent initial insert -> retry cleanly as in-place update
+      if (err.code === 11000 || (err.message && err.message.includes('E11000'))) {
+        continue;
+      }
+      logger.error('Error in recordFailedIpAttempt:', err);
+      throw err;
+    }
+  }
+  return { blocked: false, attempts: 1 };
+};
+
+/**
+ * Atomically records a failed login attempt for a user account (NFR-14).
+ * Enforces: 5 failed attempts in 10 minutes -> 15-minute lockout.
+ * Safe against concurrent guesses against the same target email.
+ *
+ * @async
+ * @function recordFailedAccountAttempt
+ * @param {import('../models/User').UserDocument} user - User document
+ * @param {string} ip - Client IP
+ * @param {number} [now=Date.now()] - Timestamp
+ * @returns {Promise<{ locked: boolean, attempts: number, lockUntil?: Date }>}
+ */
+const recordFailedAccountAttempt = async (user, ip, now = Date.now()) => {
+  if (!user || !user._id) return { locked: false, attempts: 0 };
+
+  try {
+    const notLockedCondition = {
+      $or: [{ lockUntil: { $exists: false } }, { lockUntil: null }, { lockUntil: { $lte: new Date(now) } }],
+    };
+
+    // 1. If window expired (> 10m) or coming off an expired lock -> atomically reset window
+    const resetUser = await User.findOneAndUpdate(
+      {
+        _id: user._id,
+        $and: [
+          notLockedCondition,
+          {
+            $or: [
+              { loginAttemptsWindowStart: { $lt: new Date(now - 10 * 60 * 1000) } },
+              { loginAttemptsWindowStart: { $exists: false } },
+              { lockUntil: { $lte: new Date(now) } },
+            ],
+          },
+        ],
+      },
+      {
+        $set: { loginAttempts: 1, loginAttemptsWindowStart: new Date(now) },
+        $unset: { lockUntil: 1 },
+      },
+      { returnDocument: 'after' }
+    );
+
+    let currentAttempts = resetUser ? 1 : 0;
+
+    // 2. If not reset, atomically increment within active 10-minute window
+    if (!resetUser) {
+      const incremented = await User.findOneAndUpdate(
+        {
+          _id: user._id,
+          $and: [
+            notLockedCondition,
+            { loginAttemptsWindowStart: { $gte: new Date(now - 10 * 60 * 1000) } },
+          ],
+        },
+        {
+          $inc: { loginAttempts: 1 },
+          $setOnInsert: { loginAttemptsWindowStart: new Date(now) },
+        },
+        { returnDocument: 'after' }
+      );
+      currentAttempts = incremented ? incremented.loginAttempts : 0;
+    }
+
+    // If account was locked by a concurrent request, return without modifying
+    if (!resetUser && currentAttempts === 0) {
+      return { locked: false, attempts: 0 };
+    }
+
+    // 3. Atomically transition to 15-minute lockout if threshold of 5 attempts is reached
+    if (currentAttempts >= 5) {
+      const lockExpires = new Date(now + 15 * 60 * 1000); // 15 minutes
+      const locked = await User.findOneAndUpdate(
+        {
+          _id: user._id,
+          $and: [
+            notLockedCondition,
+            { loginAttempts: { $gte: 5 } },
+          ],
+        },
+        {
+          $set: { lockUntil: lockExpires, loginAttempts: 0 },
+          $unset: { loginAttemptsWindowStart: 1 },
+        },
+        { returnDocument: 'after' }
+      );
+
+      if (locked) {
+        const timestamp = new Date(now).toISOString();
+        logger.warn(
+          `[AUDIT] [SECURITY] ACCOUNT_LOCKOUT | IP: ${ip} | User: ${user._id} | Duration: 15m | LockedUntil: ${lockExpires.toISOString()} | Timestamp: ${timestamp}`,
+          {
+            event: 'ACCOUNT_LOCKOUT',
+            ip,
+            userId: user._id,
+            email: user.email,
+            durationMinutes: 15,
+            lockedUntil: lockExpires,
+            timestamp,
+          }
+        );
+        return { locked: true, attempts: 5, lockUntil: lockExpires };
+      }
+    }
+
+    return { locked: false, attempts: currentAttempts };
+  } catch (err) {
+    logger.error('Error in recordFailedAccountAttempt:', err);
+    throw err;
+  }
+};
+
+/**
+ * Handles failed login dispatch for both IP and Account tracking (NFR-14).
  *
  * @async
  * @function handleFailedLogin
  * @param {import('express').Request} req - Express request
- * @param {import('../models/User').UserDocument|null} user - Target user document if email matched
- * @param {import('../models/IpBlock').IpBlockDocument|null} ipBlockDoc - IP block tracker document
+ * @param {import('../models/User').UserDocument|null} user - Target user if found
  * @returns {Promise<void>}
  */
-const handleFailedLogin = async (req, user, ipBlockDoc) => {
-  const ip = req.ip;
-
-  // Increment IP block counter
-  if (ipBlockDoc) {
-    ipBlockDoc.failedAttempts += 1;
-    if (ipBlockDoc.failedAttempts >= 20) {
-      ipBlockDoc.blockUntil = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-    }
-    await ipBlockDoc.save();
-  } else {
-    await IpBlock.create({ ip, failedAttempts: 1 });
-  }
-
-  // Increment User lock counter
+const handleFailedLogin = async (req, user) => {
+  const ip = req.ip || req.connection?.remoteAddress || '127.0.0.1';
+  await recordFailedIpAttempt(ip);
   if (user) {
-    user.loginAttempts += 1;
-    if (user.loginAttempts >= 5) {
-      user.lockUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
-      
-      logger.warn('Account temporarily locked due to consecutive failed login attempts', { userId: user._id });
-    }
-    await user.save();
+    await recordFailedAccountAttempt(user, ip);
   }
 };
 
@@ -292,24 +526,46 @@ router.post('/login', authLimiter, ipBruteForceLimiter, async (req, res) => {
       return res.status(400).json({ message: 'Please enter both your email address and password.' });
     }
 
-    // Pre-fetch IP block doc to track failed attempts
-    const ipBlockDoc = await IpBlock.findOne({ ip: req.ip });
-
     const user = await User.findOne({ email });
     if (!user) {
-      await handleFailedLogin(req, null, ipBlockDoc);
+      await handleFailedLogin(req, null);
       return res.status(401).json({ message: 'Incorrect email address or password. Please try again.' });
     }
 
-    // Check if account is locked
-    if (user.lockUntil && user.lockUntil > new Date()) {
-      const lockMins = Math.ceil((user.lockUntil - new Date()) / 60000);
-      return res.status(403).json({ message: `Account is temporarily locked due to multiple failed attempts. Please try again in ${lockMins} minutes.` });
+    // Ingress Lockout Check (Pre-bcrypt): Reject locked accounts immediately without running password hash
+    if (user.lockUntil) {
+      const now = new Date();
+      if (user.lockUntil > now) {
+        const clientIp = req.ip || req.connection?.remoteAddress || '127.0.0.1';
+        const lockMins = Math.ceil((user.lockUntil - now) / 60000);
+        logger.warn(
+          `[AUDIT] [SECURITY] LOCKED_ACCOUNT_REJECTED | IP: ${clientIp} | User: ${user._id} | Remaining: ${lockMins}m | Timestamp: ${now.toISOString()}`,
+          {
+            event: 'LOCKED_ACCOUNT_REJECTED',
+            ip: clientIp,
+            userId: user._id,
+            remainingMinutes: lockMins,
+            lockUntil: user.lockUntil,
+            timestamp: now.toISOString(),
+          }
+        );
+        return res.status(403).json({
+          message: `Account is temporarily locked due to multiple failed attempts. Please try again in ${lockMins} minute${lockMins === 1 ? '' : 's'}.`,
+        });
+      }
+      // If lockout expired, atomically clear it and reset counter
+      await User.updateOne(
+        { _id: user._id },
+        { $unset: { lockUntil: 1, loginAttemptsWindowStart: 1 }, $set: { loginAttempts: 0 } }
+      );
+      user.lockUntil = undefined;
+      user.loginAttempts = 0;
+      user.loginAttemptsWindowStart = undefined;
     }
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      await handleFailedLogin(req, user, ipBlockDoc);
+      await handleFailedLogin(req, user);
       return res.status(401).json({ message: 'Incorrect email address or password. Please try again.' });
     }
 
@@ -318,10 +574,17 @@ router.post('/login', authLimiter, ipBruteForceLimiter, async (req, res) => {
     }
 
     // Reset login attempts on successful login
-    if (user.loginAttempts > 0 || user.lockUntil) {
+    if (user.loginAttempts > 0 || user.lockUntil || user.loginAttemptsWindowStart) {
+      await User.updateOne(
+        { _id: user._id },
+        {
+          $set: { loginAttempts: 0 },
+          $unset: { lockUntil: 1, loginAttemptsWindowStart: 1 },
+        }
+      );
       user.loginAttempts = 0;
       user.lockUntil = undefined;
-      await user.save();
+      user.loginAttemptsWindowStart = undefined;
     }
 
     // Generate tokens
@@ -1021,7 +1284,7 @@ router.get('/verify-mock', async (req, res) => {
 // @access  Public
 router.get('/config', (req, res) => {
   res.json({
-    googleClientId: process.env.GOOGLE_CLIENT_ID || '1017941060498-95godc626a0qvjsfpegp9dthnnafs5j6.apps.googleusercontent.com'
+    googleClientId: process.env.GOOGLE_CLIENT_ID || null
   });
 });
 
@@ -1226,6 +1489,11 @@ router.delete('/sessions', protect, async (req, res) => {
     return sendPlainEnglishError(res, error, 'An error occurred while revoking other sessions. Please try again.');
   }
 });
+
+router.ipBruteForceLimiter = ipBruteForceLimiter;
+router.recordFailedIpAttempt = recordFailedIpAttempt;
+router.recordFailedAccountAttempt = recordFailedAccountAttempt;
+router.handleFailedLogin = handleFailedLogin;
 
 module.exports = router;
 

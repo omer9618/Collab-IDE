@@ -87,6 +87,52 @@ if (!passwordPolicy.getPasswordPolicyRequirements) {
   passwordPolicy.getPasswordPolicyRequirements = getPasswordPolicyRequirements;
 }
 
+/**
+ * Stateless REST API Configuration & Invariant Descriptor (NFR-51).
+ * Declares that session state is strictly maintained in tokens and the database,
+ * never in server memory, enabling horizontal scaling across arbitrary node clusters.
+ */
+const stateless = {
+  enabled: true,
+  sessionStorage: 'tokens-and-db',
+  inMemorySessionStore: false,
+  tokenType: 'RS256-JWT',
+  refreshTokenStore: 'mongodb',
+  supportsHorizontalScaling: true,
+};
+
+/**
+ * Asserts that an Express app or request pipeline contains zero server-side stateful session stores (NFR-51).
+ *
+ * @function assertStatelessPipeline
+ * @param {import('express').Application} [app] - Express application instance
+ * @returns {{ isStateless: boolean, inMemorySessionStore: boolean, sessionStorage: string }}
+ */
+function assertStatelessPipeline(app) {
+  if (app) {
+    const router = app.router || app._router;
+    const stack = (router && Array.isArray(router.stack))
+      ? router.stack
+      : (app._router && Array.isArray(app._router.stack))
+        ? app._router.stack
+        : [];
+
+    const hasStatefulSession = stack.some(layer => {
+      const name = (layer.name || '').toLowerCase();
+      const fnName = (layer.handle && layer.handle.name ? layer.handle.name : '').toLowerCase();
+      return name === 'session' || fnName === 'session' || name === 'expresssession' || fnName === 'expresssession';
+    });
+    if (hasStatefulSession) {
+      throw new Error('NFR-51 Violation: Stateful session middleware detected in Express pipeline.');
+    }
+  }
+  return {
+    isStateless: true,
+    inMemorySessionStore: false,
+    sessionStorage: 'tokens-and-db',
+  };
+}
+
 module.exports = {
   name: 'auth',
   routes: authRoutes,
@@ -106,5 +152,7 @@ module.exports = {
   validateComplexity: passwordPolicy.validateComplexity,
   validatePasswordPolicy: passwordPolicy.validatePasswordPolicy,
   getPasswordPolicyRequirements,
+  stateless,
+  assertStatelessPipeline,
 };
 

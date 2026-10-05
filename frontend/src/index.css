@@ -15,9 +15,17 @@ body {
   flex-direction: column;
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scrollbar-width: thin;
+  scrollbar-color: #404751 transparent;
 }
 
-/* Custom Scrollbars */
+/* Cross-browser scrollbars (Firefox standard + WebKit / Chromium) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #404751 transparent;
+}
+
 ::-webkit-scrollbar {
   width: 4px;
   height: 4px;

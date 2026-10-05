@@ -99,10 +99,7 @@ function csrfProtection(req, res, next) {
   const cookieToken = req.cookies && (req.cookies['XSRF-TOKEN'] || req.cookies['_csrf']);
   const hasCookies = req.cookies && Object.keys(req.cookies).length > 0;
   const hasBearerAuth = Boolean(req.headers.authorization && req.headers.authorization.startsWith('Bearer '));
-  
-  console.log(`[CSRF Debug] Method: ${method}, Path: ${req.path}`);
-  console.log(`[CSRF Debug] Submitted: ${submittedToken}, Cookie: ${cookieToken}`);
-  console.log(`[CSRF Debug] Headers:`, req.headers);
+
 
   // Branch 1: Pure programmatic API requests presenting Authorization: Bearer with ZERO ambient cookies
   // Browser CSRF cannot occur when no cookies are attached, and browsers cannot set Authorization: Bearer cross-origin without CORS approval.

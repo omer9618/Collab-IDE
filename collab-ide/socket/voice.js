@@ -47,6 +47,110 @@ const logger = require('../utils/logger');
  */
 const voiceRooms = new Map();
 
+// ─── Distributed Pub/Sub State (NFR-53) ───────────────────────────────────────
+let globalVoicePubSub = null;
+let globalVoiceNodeId = process.env.NODE_ID || 'voice_node_' + Math.random().toString(36).substring(2, 9);
+const subscribedVoiceChannels = new Set();
+
+/**
+ * Sets or replaces the Pub/Sub adapter for distributed voice signalling (NFR-53).
+ *
+ * @function setVoicePubSubAdapter
+ * @param {import('../services/pubsub').PubSubAdapter|null} adapter
+ */
+function setVoicePubSubAdapter(adapter) {
+  globalVoicePubSub = adapter || null;
+}
+
+/**
+ * Returns current active Pub/Sub adapter for voice signalling.
+ *
+ * @function getVoicePubSubAdapter
+ * @returns {object|null}
+ */
+function getVoicePubSubAdapter() {
+  return globalVoicePubSub;
+}
+
+/**
+ * Subscribes to the distributed pub/sub channel for a voice room (NFR-53).
+ *
+ * @function ensureVoiceChannelSubscribed
+ * @param {string} roomUuid
+ * @param {import('socket.io').Namespace} voiceNs
+ */
+function ensureVoiceChannelSubscribed(roomUuid, voiceNs) {
+  if (!globalVoicePubSub || subscribedVoiceChannels.has(roomUuid) || typeof globalVoicePubSub.subscribe !== 'function') return;
+  subscribedVoiceChannels.add(roomUuid);
+
+  const channel = `collab:voice:${roomUuid}`;
+  globalVoicePubSub.subscribe(channel, (chan, msg) => {
+    if (!msg || msg.originNodeId === globalVoiceNodeId) return;
+
+    const voiceRoom = getVoiceRoom(roomUuid);
+
+    if (msg.type === 'participant_joined') {
+      voiceRoom.participants.set(msg.socketId, msg.participant);
+      voiceNs.to(roomUuid).emit('voice:participant-joined', {
+        joined: { ...msg.participant, socketId: msg.socketId },
+        participants: serializeParticipants(voiceRoom),
+      });
+    } else if (msg.type === 'participant_left') {
+      voiceRoom.participants.delete(msg.socketId);
+      voiceNs.to(roomUuid).emit('voice:participant-left', {
+        userId: msg.userId,
+        socketId: msg.socketId,
+        displayName: msg.displayName,
+        participants: serializeParticipants(voiceRoom),
+      });
+      if (voiceRoom.participants.size === 0) {
+        voiceRooms.delete(roomUuid);
+      }
+    } else if (msg.type === 'signal') {
+      // Direct peer signal to target socket if connected to this local instance
+      let targetSocket = null;
+      if (voiceNs.sockets) {
+        if (typeof voiceNs.sockets.get === 'function') {
+          targetSocket = voiceNs.sockets.get(msg.to);
+        } else {
+          targetSocket = voiceNs.sockets[msg.to];
+        }
+      }
+      if (targetSocket) {
+        targetSocket.emit(msg.event, msg.data);
+      }
+    } else if (msg.type === 'mute_changed') {
+      const p = voiceRoom.participants.get(msg.socketId);
+      if (p) {
+        p.isMuted = msg.isMuted;
+        p.isHardMuted = msg.isHardMuted;
+      }
+      voiceNs.to(roomUuid).emit('voice:mute-changed', {
+        userId: msg.userId,
+        socketId: msg.socketId,
+        isMuted: msg.isMuted,
+        isHardMuted: msg.isHardMuted,
+      });
+    } else if (msg.type === 'mute_all') {
+      voiceRoom.participants.forEach((participant, sid) => {
+        if (sid !== msg.exceptSocketId) {
+          participant.isMuted = true;
+        }
+      });
+      voiceNs.to(roomUuid).emit('voice:participants-update', {
+        participants: serializeParticipants(voiceRoom),
+        event: 'mute-all',
+        by: msg.by || 'Room Leader',
+      });
+    } else if (msg.type === 'editor_only') {
+      voiceRoom.editorOnlyMode = Boolean(msg.enabled);
+      voiceNs.to(roomUuid).emit('voice:room-settings', {
+        editorOnlyMode: voiceRoom.editorOnlyMode,
+      });
+    }
+  });
+}
+
 /**
  * Retrieves an existing voice room state or initializes an empty one.
  *
@@ -123,8 +227,19 @@ function isLeader(role) {
  *
  * @function initVoiceSignalling
  * @param {import('socket.io').Server} io - Root Socket.IO server instance
+ * @param {object} [options={}] - Optional configuration including pubsubAdapter, nodeId, redisAdapter (NFR-53)
  */
-function initVoiceSignalling(io) {
+function initVoiceSignalling(io, options = {}) {
+  if (options.nodeId) {
+    globalVoiceNodeId = options.nodeId;
+  }
+  if (options.pubsubAdapter) {
+    globalVoicePubSub = options.pubsubAdapter;
+  }
+  if (options.redisAdapter && typeof io.adapter === 'function') {
+    io.adapter(options.redisAdapter);
+  }
+
   const voiceNs = io.of('/voice');
 
   // ── Auth Middleware (NFR-17) ────────────────────────────────────────────────
@@ -212,6 +327,18 @@ function initVoiceSignalling(io) {
 
         voiceRoom.participants.set(socket.id, participant);
 
+        // NFR-53: Subscribe this room to distributed pub/sub and broadcast to other cluster nodes
+        ensureVoiceChannelSubscribed(roomUuid, voiceNs);
+        if (globalVoicePubSub && typeof globalVoicePubSub.publish === 'function') {
+          globalVoicePubSub.publish(`collab:voice:${roomUuid}`, {
+            originNodeId: globalVoiceNodeId,
+            type: 'participant_joined',
+            roomUuid,
+            socketId: socket.id,
+            participant,
+          });
+        }
+
         logger.info(`Participant joined voice channel (${voiceRoom.participants.size} active)`, { userId: socket.user._id, roomId: roomUuid });
 
         // Broadcast updated participant roster to all room members
@@ -244,14 +371,27 @@ function initVoiceSignalling(io) {
       if (!socket.roomUuid) return;
       const voiceRoom = voiceRooms.get(socket.roomUuid);
       if (!voiceRoom) return;
-      // Security: Validate target socket is actively present in the same voice room
+      // Security: Validate target socket is actively present in the same voice room (local or distributed)
       if (!voiceRoom.participants.has(to)) return;
 
-      voiceNs.to(to).emit('voice:offer', {
+      const offerPayload = {
         from: socket.id,
         fromUserId: socket.user._id.toString(),
         sdp,
-      });
+      };
+
+      voiceNs.to(to).emit('voice:offer', offerPayload);
+
+      // NFR-53: Route signal to peer on remote cluster node via Pub/Sub
+      if (globalVoicePubSub && typeof globalVoicePubSub.publish === 'function') {
+        globalVoicePubSub.publish(`collab:voice:${socket.roomUuid}`, {
+          originNodeId: globalVoiceNodeId,
+          type: 'signal',
+          event: 'voice:offer',
+          to,
+          data: offerPayload,
+        });
+      }
     });
 
     // voice:answer — SDP answer relay
@@ -260,11 +400,24 @@ function initVoiceSignalling(io) {
       const voiceRoom = voiceRooms.get(socket.roomUuid);
       if (!voiceRoom || !voiceRoom.participants.has(to)) return;
 
-      voiceNs.to(to).emit('voice:answer', {
+      const answerPayload = {
         from: socket.id,
         fromUserId: socket.user._id.toString(),
         sdp,
-      });
+      };
+
+      voiceNs.to(to).emit('voice:answer', answerPayload);
+
+      // NFR-53: Route signal to peer on remote cluster node via Pub/Sub
+      if (globalVoicePubSub && typeof globalVoicePubSub.publish === 'function') {
+        globalVoicePubSub.publish(`collab:voice:${socket.roomUuid}`, {
+          originNodeId: globalVoiceNodeId,
+          type: 'signal',
+          event: 'voice:answer',
+          to,
+          data: answerPayload,
+        });
+      }
     });
 
     // voice:ice-candidate — ICE candidate relay
@@ -273,11 +426,24 @@ function initVoiceSignalling(io) {
       const voiceRoom = voiceRooms.get(socket.roomUuid);
       if (!voiceRoom || !voiceRoom.participants.has(to)) return;
 
-      voiceNs.to(to).emit('voice:ice-candidate', {
+      const candidatePayload = {
         from: socket.id,
         fromUserId: socket.user._id.toString(),
         candidate,
-      });
+      };
+
+      voiceNs.to(to).emit('voice:ice-candidate', candidatePayload);
+
+      // NFR-53: Route signal to peer on remote cluster node via Pub/Sub
+      if (globalVoicePubSub && typeof globalVoicePubSub.publish === 'function') {
+        globalVoicePubSub.publish(`collab:voice:${socket.roomUuid}`, {
+          originNodeId: globalVoiceNodeId,
+          type: 'signal',
+          event: 'voice:ice-candidate',
+          to,
+          data: candidatePayload,
+        });
+      }
     });
 
     // ── voice:mute-self ────────────────────────────────────────────────── FR-47
@@ -299,6 +465,19 @@ function initVoiceSignalling(io) {
       }
 
       participant.isMuted = Boolean(isMuted);
+
+      // NFR-53: Publish mute change across cluster nodes via Pub/Sub
+      if (globalVoicePubSub && typeof globalVoicePubSub.publish === 'function') {
+        globalVoicePubSub.publish(`collab:voice:${socket.roomUuid}`, {
+          originNodeId: globalVoiceNodeId,
+          type: 'mute_changed',
+          roomUuid: socket.roomUuid,
+          socketId: socket.id,
+          userId: participant.userId,
+          isMuted: participant.isMuted,
+          isHardMuted: participant.isHardMuted,
+        });
+      }
 
       voiceNs.to(socket.roomUuid).emit('voice:mute-changed', {
         userId:     participant.userId,
@@ -326,6 +505,19 @@ function initVoiceSignalling(io) {
 
       target.isMuted     = true;
       target.isHardMuted = Boolean(hard);
+
+      // NFR-53: Publish target mute change across cluster nodes via Pub/Sub
+      if (globalVoicePubSub && typeof globalVoicePubSub.publish === 'function') {
+        globalVoicePubSub.publish(`collab:voice:${socket.roomUuid}`, {
+          originNodeId: globalVoiceNodeId,
+          type: 'mute_changed',
+          roomUuid: socket.roomUuid,
+          socketId: targetSocketId,
+          userId: target.userId,
+          isMuted: target.isMuted,
+          isHardMuted: target.isHardMuted,
+        });
+      }
 
       // Notify the muted user with personal alert message
       const myInfo = voiceRoom.participants.get(socket.id);
@@ -364,6 +556,19 @@ function initVoiceSignalling(io) {
       target.isMuted     = false;
       target.isHardMuted = false;
 
+      // NFR-53: Publish unmute change across cluster nodes via Pub/Sub
+      if (globalVoicePubSub && typeof globalVoicePubSub.publish === 'function') {
+        globalVoicePubSub.publish(`collab:voice:${socket.roomUuid}`, {
+          originNodeId: globalVoiceNodeId,
+          type: 'mute_changed',
+          roomUuid: socket.roomUuid,
+          socketId: targetSocketId,
+          userId: target.userId,
+          isMuted: false,
+          isHardMuted: false,
+        });
+      }
+
       voiceNs.to(socket.roomUuid).emit('voice:mute-changed', {
         userId:     target.userId,
         socketId:   targetSocketId,
@@ -394,6 +599,17 @@ function initVoiceSignalling(io) {
         }
       });
 
+      // NFR-53: Publish mute-all event across cluster nodes via Pub/Sub
+      if (globalVoicePubSub && typeof globalVoicePubSub.publish === 'function') {
+        globalVoicePubSub.publish(`collab:voice:${socket.roomUuid}`, {
+          originNodeId: globalVoiceNodeId,
+          type: 'mute_all',
+          roomUuid: socket.roomUuid,
+          by: myInfo?.displayName || 'Room Leader',
+          exceptSocketId: socket.id,
+        });
+      }
+
       voiceNs.to(socket.roomUuid).emit('voice:participants-update', {
         participants: serializeParticipants(voiceRoom),
         event: 'mute-all',
@@ -416,6 +632,16 @@ function initVoiceSignalling(io) {
       }
 
       voiceRoom.editorOnlyMode = Boolean(enabled);
+
+      // NFR-53: Publish editor-only mode event across cluster nodes via Pub/Sub
+      if (globalVoicePubSub && typeof globalVoicePubSub.publish === 'function') {
+        globalVoicePubSub.publish(`collab:voice:${socket.roomUuid}`, {
+          originNodeId: globalVoiceNodeId,
+          type: 'editor_only',
+          roomUuid: socket.roomUuid,
+          enabled: voiceRoom.editorOnlyMode,
+        });
+      }
 
       voiceNs.to(socket.roomUuid).emit('voice:room-settings', {
         editorOnlyMode: voiceRoom.editorOnlyMode,
@@ -460,6 +686,18 @@ function leaveVoiceRoom(socket, voiceNs) {
 
   logger.info(`Participant left voice channel (${voiceRoom.participants.size} remaining)`, { userId: departed.userId, roomId: roomUuid });
 
+  // NFR-53: Publish participant departure to other cluster nodes via Pub/Sub
+  if (globalVoicePubSub && typeof globalVoicePubSub.publish === 'function') {
+    globalVoicePubSub.publish(`collab:voice:${roomUuid}`, {
+      originNodeId: globalVoiceNodeId,
+      type: 'participant_left',
+      roomUuid,
+      socketId: socket.id,
+      userId: departed.userId,
+      displayName: departed.displayName,
+    });
+  }
+
   voiceNs.to(roomUuid).emit('voice:participant-left', {
     userId:       departed.userId,
     socketId:     socket.id,
@@ -480,4 +718,7 @@ module.exports = {
   serializeParticipants,
   getSocketRole,
   leaveVoiceRoom,
+  setVoicePubSubAdapter,
+  getVoicePubSubAdapter,
+  ensureVoiceChannelSubscribed,
 };

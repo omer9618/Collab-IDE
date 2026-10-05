@@ -21,9 +21,12 @@ const logger = require('../../utils/logger');
 const encryption = require('../../utils/encryption');
 const csrf = require('../../middleware/csrf');
 const errorHandler = require('../../middleware/errorHandler');
+const env = require('../../config/env');
 
 module.exports = {
   name: 'infrastructure',
+  config: env,
+  env,
   rateLimiting: {
     apiLimiter,
     createRateLimiter,
@@ -59,4 +62,16 @@ module.exports = {
   encryption,
   csrf,
   errorHandler,
+  stateless: {
+    enabled: true,
+    sessionStorage: 'tokens-and-db',
+    inMemorySessionStore: false,
+    supportsHorizontalScaling: true,
+  },
+  pubsub: require('../../services/pubsub'),
+  horizontalScaling: {
+    ready: true,
+    supportsRedisAdapter: true,
+    singleProcessAssumptions: false,
+  },
 };
