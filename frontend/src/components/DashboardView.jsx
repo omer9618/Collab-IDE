@@ -315,7 +315,7 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
       {/* Top Bar (56px) */}
       <header className="h-top-bar-height shrink-0 bg-surface border-b border-outline-subtle flex items-center justify-between px-4 z-50">
         <div className="flex items-center cursor-pointer" onClick={() => window.location.href = '/'}>
-          <img src="/logo.png" className="h-10 object-contain" alt="CollabIDE Logo" />
+          <span className="text-[17px] font-bold tracking-tight app-logo px-1" style={{ color: 'var(--text-primary)' }}>collide.</span>
         </div>
         <div className="flex items-center gap-4">
           <div

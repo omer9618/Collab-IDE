@@ -177,6 +177,7 @@ export function useVoiceRoom({ roomUuid, showToast }) {
 
       const socket = io(backendUrl + '/voice', {
         auth: { token: freshToken },
+        query: { token: freshToken },
         transports: ['websocket'],
         forceNew: true,
         timeout: 10000,

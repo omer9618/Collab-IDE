@@ -347,18 +347,23 @@ router.put('/:uuid/roles', protect, apiLimiter, async (req, res) => {
       room.participants.forEach(p => {
         if (p.role === 'Room Leader') {
           p.role = 'Editor'; // Demote previous leader back to Editor
+          if (global.updateClientRoleInMemory) {
+            global.updateClientRoleInMemory(room.uuid, p.user.toString(), 'Editor');
+          }
         }
       });
     }
 
     // Update target participant's role
     targetParticipant.role = newRole;
-    await room.save();
-
+    
     // Security: Atomic in-memory synchronization prevents race conditions on open WebSockets (NFR-19)
+    // Must be updated atomically before DB save and broadcast
     if (global.updateClientRoleInMemory) {
       global.updateClientRoleInMemory(room.uuid, targetUserId, newRole);
     }
+
+    await room.save();
 
     // Broadcast updated roster to all connected room clients
     if (global.broadcastRoomParticipants) {

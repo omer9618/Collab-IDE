@@ -397,7 +397,7 @@ export default function AuthView({ onAuthSuccess, initialResetToken, onClearRese
               onClearResetToken?.();
             }}
           >
-            <img src={isLight ? '/logo-light.png' : '/logo.png'} alt="CollabIDE Logo" className="h-12 object-contain app-logo" />
+            <span className="text-2xl font-bold tracking-tight app-logo" style={{ color: 'var(--text-primary)' }}>collide.</span>
           </div>
 
           {/* Tab Switcher (Visible in Signin / Signup mode) */}

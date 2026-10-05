@@ -1593,8 +1593,8 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
       {/* Top Bar (56px) */}
       <header className="h-top-bar-height shrink-0 bg-surface border-b border-outline-subtle flex items-center justify-between px-4 z-40">
         <div className="flex items-center gap-1">
-          <div className="flex items-center cursor-pointer" onClick={() => { leaveVoice(); onBack(); }}>
-            <img src="/logo.png" className="h-10 object-contain" alt="CollabIDE Logo" />
+          <div className="flex items-center cursor-pointer px-1" onClick={() => { leaveVoice(); onBack(); }}>
+            <span className="text-[17px] font-bold tracking-tight app-logo" style={{ color: 'var(--text-primary)' }}>collide.</span>
           
       </div>
           <div className="h-4 w-px bg-outline mx-1" />
@@ -2198,7 +2198,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
           <div className="flex-1 min-h-[200px] relative overflow-hidden">
             {!activeFile ? (
               <div className="w-full h-full flex flex-col items-center justify-center bg-surface-panel select-none">
-                <img src="/logo.png" className="h-20 object-contain mb-8 opacity-40 filter grayscale" alt="CollabIDE Logo" />
+                <div className="text-5xl font-bold tracking-tight mb-8 opacity-20 filter grayscale app-logo" style={{ color: 'var(--text-primary)' }}>collide.</div>
                 <h2 className="text-lg font-semibold text-on-surface mb-2">No File Open</h2>
                 <p className="text-[9px] text-on-surface-muted max-w-xs text-center mb-6">
                   Select a file from the explorer sidebar, or click the new file button to create one.
@@ -2574,49 +2574,70 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
             )}
 
             {rightPanelTab === 'chat' && (
-              <div className="flex flex-col flex-1 overflow-hidden">
+              <div className="flex flex-col flex-1 overflow-hidden bg-[#e6e8ec] dark:bg-[#1e1f22]">
+                {/* Antigravity Header */}
+                <div className="flex items-center justify-between px-3 py-2 border-b border-gray-300 dark:border-gray-700/50 text-gray-600 dark:text-gray-400 bg-transparent shrink-0">
+                  <div className="text-[13px] font-medium text-gray-800 dark:text-gray-200">Room Chat</div>
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-[16px] cursor-pointer hover:text-gray-900 dark:hover:text-white transition-colors">history</span>
+                    <span className="material-symbols-outlined text-[16px] cursor-pointer hover:text-gray-900 dark:hover:text-white transition-colors">more_horiz</span>
+                    <span className="material-symbols-outlined text-[16px] cursor-pointer hover:text-gray-900 dark:hover:text-white transition-colors" onClick={() => setRightPanelTab('participants')}>close</span>
+                  </div>
+                </div>
+
                 <div
                   id="chat-msg-container"
-                  className="flex-1 p-4 overflow-y-auto flex flex-col gap-1 bg-[#121414]"
+                  className="flex-1 p-3 overflow-y-auto flex flex-col gap-4"
                 >
                   {chatMessages.map((msg, idx) => {
                     const isMine = msg.userId === (user.id || user._id);
                     const msgColor = getUserColor(msg.userId, msg.displayName);
                     return (
-                      <div key={idx} className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1">
-                          <div
-                            className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-white text-[9px] font-bold"
-                            style={{ backgroundColor: msgColor }}
-                          >
-                            {msg.displayName.charAt(0).toUpperCase()}
-                          </div>
-                          <span className="text-[9px] font-semibold" style={{ color: msgColor }}>
-                            {msg.displayName}
-                          </span>
-                          <span className="text-[9px] text-on-surface-muted ml-auto">{msg.time}</span>
+                      <div key={idx} className={`flex flex-col w-full group ${isMine ? 'items-end' : 'items-start'}`}>
+                        <div className="bg-[#f0f2f5] dark:bg-[#2b2d31] rounded-2xl p-3 text-[13px] text-gray-800 dark:text-gray-200 w-full max-w-[90%] shadow-sm">
+                          <div className="font-semibold text-[11px] mb-1" style={{ color: msgColor }}>{msg.displayName}</div>
+                          <div className="whitespace-pre-wrap leading-relaxed">{msg.text}</div>
                         </div>
-                        <div className="pl-8 text-sm text-text-primary whitespace-pre-wrap">{msg.text}</div>
+                        <div className={`flex items-center mt-1 px-1 gap-3 text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity ${isMine ? 'flex-row-reverse' : ''}`}>
+                          <span className="text-[10px] font-medium">{msg.time}</span>
+                          <span className="material-symbols-outlined text-[14px] cursor-pointer hover:text-gray-600 dark:hover:text-gray-300">content_copy</span>
+                        </div>
                       </div>
                     );
                   })}
                 </div>
 
-                <div className="p-3 border-t border-outline-subtle bg-surface-panel flex items-center gap-1">
-                  <input
-                    type="text"
-                    className="flex-1 min-w-0 bg-surface border border-outline rounded-md px-2 py-1.5 text-sm text-on-surface focus:border-accent-blue focus:ring-0 outline-none transition-colors"
-                    placeholder="Type a message..."
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
-                  />
-                  <button
-                    onClick={handleSendChat}
-                    className="p-1.5 bg-accent-blue text-white rounded-md hover:opacity-90"
-                  >
-                    <span className="material-symbols-outlined text-[12px]">arrow_upward</span>
-                  </button>
+                <div className="px-3 pb-3 pt-1 bg-transparent flex flex-col gap-2 shrink-0">
+                  {/* Antigravity Input Box */}
+                  <div className="relative bg-[#f0f2f5] dark:bg-[#2b2d31] rounded-2xl flex flex-col border border-gray-300 dark:border-gray-700/50 shadow-sm focus-within:border-gray-400 dark:focus-within:border-gray-500 transition-colors">
+                    <input
+                      type="text"
+                      className="w-full bg-transparent border-none focus:ring-0 text-[13px] px-3 pt-3 pb-1 text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 outline-none rounded-t-2xl"
+                      placeholder="Type a message..."
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
+                    />
+                    <div className="flex items-center justify-between px-2 pb-2 pt-1">
+                      <div className="flex items-center gap-1">
+                        <div className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer text-gray-500 transition-colors">
+                          <span className="material-symbols-outlined text-[16px]">add</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer text-gray-500 transition-colors">
+                          <span className="material-symbols-outlined text-[16px]">mic</span>
+                        </div>
+                        <button
+                          onClick={handleSendChat}
+                          disabled={!chatInput.trim()}
+                          className={`w-6 h-6 flex items-center justify-center rounded-full transition-colors ${chatInput.trim() ? 'bg-gray-200 text-gray-800 dark:bg-[#404249] dark:text-white hover:bg-gray-300 dark:hover:bg-[#4f5159]' : 'text-gray-400 bg-transparent'}`}
+                        >
+                          <span className="material-symbols-outlined text-[14px]">arrow_upward</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

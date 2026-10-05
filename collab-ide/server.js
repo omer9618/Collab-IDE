@@ -36,6 +36,7 @@ const cors = require('cors');
 const compression = require('compression');
 const cookieParser = require('cookie-parser');
 const { Server } = require('socket.io');
+const jwt = require('jsonwebtoken');
 
 // CollabIDE Independent Modules (NFR-48)
 const {
@@ -69,6 +70,26 @@ const io = new Server(server, {
   cors: {
     origin: "*",
     methods: ["GET", "POST"]
+  },
+  allowRequest: (req, callback) => {
+    // NFR-17: Authenticate Socket.IO handshake
+    if (isShuttingDown) {
+      return callback('Server is shutting down', false);
+    }
+    
+    try {
+      const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+      const token = url.searchParams.get('token');
+      
+      if (!token) {
+        return callback('No token provided', false);
+      }
+      
+      jwt.verify(token, publicKey, { algorithms: ['RS256'] });
+      callback(null, true);
+    } catch (err) {
+      callback('Invalid or expired token', false);
+    }
   }
 });
 const redisAdapter = typeof pubsubAdapter.createSocketIoAdapter === 'function' ? pubsubAdapter.createSocketIoAdapter() : null;

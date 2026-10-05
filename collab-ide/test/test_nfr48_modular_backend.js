@@ -210,7 +210,7 @@ async function runTests() {
 
     check(typeof RoomManager === 'function', 'rooms exports RoomManager class');
     check(typeof RoomSession === 'function', 'rooms exports RoomSession class');
-    check(constants.MAX_WS_FRAME_BYTES === 5 * 1024 * 1024, 'MAX_WS_FRAME_BYTES is 5MB');
+    check(constants.MAX_WS_FRAME_BYTES === 512 * 1024, 'MAX_WS_FRAME_BYTES is 512KB');
     check(constants.MAX_MSGS_PER_SEC_PER_CLIENT === 100, 'MAX_MSGS_PER_SEC_PER_CLIENT is 100');
     check(constants.FLOOD_THRESHOLD_PER_SEC === 300, 'FLOOD_THRESHOLD_PER_SEC is 300');
 

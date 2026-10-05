@@ -37,8 +37,8 @@ const WebSocket = require('ws');
 const Room = require('../models/Room');
 const logger = require('../utils/logger');
 
-// Maximum payload size per WebSocket frame (5MB) to prevent memory allocation spikes
-const MAX_WS_FRAME_BYTES = 5 * 1024 * 1024;
+// Maximum payload size per WebSocket frame (512KB) to prevent memory allocation spikes
+const MAX_WS_FRAME_BYTES = 512 * 1024;
 
 // Maximum messages per second per WebSocket client to prevent CPU / event loop spikes
 const MAX_MSGS_PER_SEC_PER_CLIENT = 100;
@@ -442,7 +442,7 @@ class RoomSession {
           JSON.stringify({
             type: 'error',
             code: 'FRAME_TOO_LARGE',
-            message: 'Message payload exceeds maximum allowable size (5MB).',
+            message: 'Message payload exceeds maximum allowable size (512KB).',
           })
         );
         return;
