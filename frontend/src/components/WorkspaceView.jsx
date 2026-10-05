@@ -1417,7 +1417,9 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     const fileNames = yfiles.toArray();
     const idx = fileNames.indexOf(deleteConfirmFile);
     if (idx !== -1) {
-      yfiles.delete(idx, 1);
+      ydoc.transact(() => {
+        yfiles.delete(idx, 1);
+      });
     }
 
     if (activeFile === deleteConfirmFile) {

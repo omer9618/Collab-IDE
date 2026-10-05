@@ -665,8 +665,19 @@ class RoomManager {
    * @returns {Promise<RoomSession>}
    */
   async getOrCreateRoom(roomUuid) {
-    if (this.rooms.has(roomUuid)) {
-      return this.rooms.get(roomUuid);
+    let session = this.rooms.get(roomUuid);
+    
+    // If a session is currently being destroyed (e.g. from a recent disconnect),
+    // wait for it to finish and be removed from the map so we don't connect to a dying session.
+    if (session && session.isDestroyed) {
+      while (this.rooms.has(roomUuid)) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      session = null;
+    }
+
+    if (session) {
+      return session;
     }
 
     let room = null;
@@ -683,13 +694,8 @@ class RoomManager {
     if (room) {
       if (room.ydocState) {
         try {
-          const bufferData = room.ydocState;
-          const uint8Array = new Uint8Array(
-            bufferData.buffer,
-            bufferData.byteOffset,
-            bufferData.length
-          );
-          Y.applyUpdate(ydoc, uint8Array);
+          // room.ydocState is a Node.js Buffer (which extends Uint8Array)
+          Y.applyUpdate(ydoc, room.ydocState);
         } catch (err) {
           logger.error('Failed to apply ydocState snapshot: ' + err.message, { roomId: roomUuid });
         }
