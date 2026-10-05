@@ -1134,6 +1134,23 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     return () => window.removeEventListener('resize', handleViewportResize);
   }, []);
 
+  // Create new file dynamically (VS Code style inline creation)
+  const handleCreateFile = (parentFolderPath = '') => {
+    if (role === 'Viewer') {
+      showToast('Viewers cannot create files. Ask the Room Leader to promote you.', 'warning');
+      return;
+    }
+    if (!ydoc) return;
+    setCreateInsideFolder(parentFolderPath);
+    setIsCreatingFile(true);
+    setNewFileNameInput('');
+    isCommittingFileRef.current = false;
+    // Auto-expand the target folder
+    if (parentFolderPath) {
+      setExpandedFolders(prev => new Set([...prev, parentFolderPath]));
+    }
+  };
+
   // Global Cross-Platform Keyboard Shortcuts (NFR-54: Windows/Linux Ctrl vs macOS Cmd)
   useEffect(() => {
     const handleGlobalKeyDown = (e) => {
@@ -1165,23 +1182,6 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [handleRunCode, handleCreateFile, showToast]);
-
-  // Create new file dynamically (VS Code style inline creation)
-  const handleCreateFile = (parentFolderPath = '') => {
-    if (role === 'Viewer') {
-      showToast('Viewers cannot create files. Ask the Room Leader to promote you.', 'warning');
-      return;
-    }
-    if (!ydoc) return;
-    setCreateInsideFolder(parentFolderPath);
-    setIsCreatingFile(true);
-    setNewFileNameInput('');
-    isCommittingFileRef.current = false;
-    // Auto-expand the target folder
-    if (parentFolderPath) {
-      setExpandedFolders(prev => new Set([...prev, parentFolderPath]));
-    }
-  };
 
   // Create new folder (inserts a .gitkeep placeholder to represent it)
   const handleCreateFolder = (parentFolderPath = '') => {
