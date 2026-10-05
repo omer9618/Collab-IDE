@@ -1281,15 +1281,16 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
       return;
     }
 
-    // Push new file path to shared Yjs array
-    yfiles.push([fullPath]);
-
     // Write boilerplate content into the Yjs text document for this new file
     const ytext = ydoc.getText(`${roomUuid}:${fullPath}`);
-    if (ytext.toString().length === 0) {
-      const boilerplate = DEFAULT_CODE[fullPath] || getBoilerplate(fullPath);
-      ytext.insert(0, boilerplate);
-    }
+    const boilerplate = DEFAULT_CODE[fullPath] || getBoilerplate(fullPath);
+    
+    ydoc.transact(() => {
+      yfiles.push([fullPath]);
+      if (ytext.toString().length === 0) {
+        ytext.insert(0, boilerplate);
+      }
+    });
 
     setActiveFile(fullPath);
     setOpenedFiles(prev => prev.includes(fullPath) ? prev : [...prev, fullPath]);
@@ -1501,7 +1502,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                       e.stopPropagation();
                       setShowRoomDropdown(false);
                     }}
-                    className="p-0.5 text-on-surface-muted hover:text-on-surface hover:bg-[#2b2d30] rounded"
+                    className="p-0.5 text-on-surface-muted hover:text-on-surface hover:bg-surface-hover rounded"
                   >
                     <X size={12} />
                   </button>
@@ -1510,7 +1511,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                   {joinedRooms.map(r => (
                     <button
                       key={r.uuid}
-                      className={`w-full text-left px-3 py-1.5 text-[11.5px] font-medium hover:bg-[#2b2d30] transition-colors ${r.uuid === roomUuid ? 'text-[#9fcaff] bg-[#1c2b41]/30' : 'text-on-surface'}`}
+                      className={`w-full text-left px-3 py-1.5 text-[11.5px] font-medium hover:bg-surface-hover transition-colors ${r.uuid === roomUuid ? 'text-[#9fcaff] bg-[#1c2b41]/30' : 'text-on-surface'}`}
                       onClick={() => {
                         setShowRoomDropdown(false);
                         if (r.uuid !== roomUuid && onRoomSelect) {
@@ -1549,7 +1550,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                 className={`px-3 h-[36px] text-[9.5px] flex items-center gap-1 border-b-[3px] transition-all group/tab shrink-0 ${
                   activeFile === fileName
                     ? 'text-accent-blue border-accent-blue bg-transparent'
-                    : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] border-transparent'
+                    : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover border-transparent'
                 }`}
               >
                 <button
@@ -1560,7 +1561,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                   <span title={fileName}>{fileName.split('/').pop()}</span>
                 </button>
                 <button
-                  className="text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] rounded p-0.5 ml-1 flex items-center justify-center opacity-40 hover:opacity-100 transition-all"
+                  className="text-on-surface-variant hover:text-on-surface hover:bg-surface-hover rounded p-0.5 ml-1 flex items-center justify-center opacity-40 hover:opacity-100 transition-all"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleCloseFile(fileName);
@@ -1652,7 +1653,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
             title={`Run active code (${formatShortcut('Enter', { ctrlOrCmd: true })})`}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-white text-[9px] font-medium rounded-md transition-all shadow-sm ${
               (isRunning || role === 'Viewer' || !activeFile)
-                ? 'bg-[#2b2d30] text-on-surface-muted cursor-not-allowed'
+                ? 'bg-surface-hover text-on-surface-muted cursor-not-allowed'
                 : 'bg-accent-blue hover:bg-accent-blue/90 shadow-accent-blue/20'
             }`}
           >
@@ -1673,7 +1674,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
           <button
             onClick={() => setRightPanelOpen(!rightPanelOpen)}
             className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${
-              rightPanelOpen ? 'bg-[#1c2b41]/60 text-[#9fcaff]' : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
+              rightPanelOpen ? 'bg-[#1c2b41]/60 text-[#9fcaff]' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover'
             }`}
             title={rightPanelOpen ? 'Collapse Panel' : 'Expand Panel'}
           >
@@ -1682,7 +1683,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
           <button
             onClick={toggleFullscreen}
             type="button"
-            className="p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] transition-colors flex items-center justify-center"
+            className="p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-hover transition-colors flex items-center justify-center"
             title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
           >
             {isFullscreen ? (
@@ -1695,7 +1696,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
           <button
             onClick={toggleTheme}
             type="button"
-            className="p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] transition-colors flex items-center justify-center"
+            className="p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-hover transition-colors flex items-center justify-center"
             title={`Switch to ${isLight ? 'Dark' : 'Light'} Mode`}
           >
             {isLight ? (
@@ -1721,7 +1722,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
           <div className="flex flex-col gap-2 w-full items-center">
             <button
               className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
-                sidebarOpen ? 'bg-[#1c2b41]/60 text-[#9fcaff]' : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
+                sidebarOpen ? 'bg-[#1c2b41]/60 text-[#9fcaff]' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover'
               }`}
               onClick={() => setSidebarOpen(!sidebarOpen)}
               title="Explorer"
@@ -1732,7 +1733,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
 
           <div className="mt-auto flex flex-col gap-2 w-full items-center">
             <button 
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] transition-colors" 
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-hover transition-colors" 
               title="Settings"
               onClick={() => {
                 setSettingsTab('editor');
@@ -2140,7 +2141,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                 <div className="flex h-full">
                   <button
                     className={`px-3 text-[9px] font-medium h-full transition-colors ${
-                      consoleTab === 'output' ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent' : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
+                      consoleTab === 'output' ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover'
                     }`}
                     onClick={() => setConsoleTab('output')}
                   >
@@ -2148,7 +2149,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                   </button>
                   <button
                     className={`px-3 text-[9px] font-medium h-full transition-colors ${
-                      consoleTab === 'terminal' ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent' : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
+                      consoleTab === 'terminal' ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover'
                     }`}
                     onClick={() => setConsoleTab('terminal')}
                   >
@@ -2156,7 +2157,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                   </button>
                   <button
                     className={`px-3 text-[9px] font-medium h-full transition-colors ${
-                      consoleTab === 'problems' ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent' : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
+                      consoleTab === 'problems' ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover'
                     }`}
                     onClick={() => setConsoleTab('problems')}
                   >
@@ -2165,7 +2166,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                   {(currentLangConfig.id === 'html' || activeFile?.endsWith('.html') || activeFile?.endsWith('.htm')) && (
                     <button
                       className={`px-3 text-[9px] font-medium h-full transition-colors flex items-center gap-1.5 ${
-                        consoleTab === 'preview' ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent' : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
+                        consoleTab === 'preview' ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover'
                       }`}
                       onClick={() => setConsoleTab('preview')}
                     >
@@ -2176,7 +2177,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                 </div>
                 <div className="flex items-center gap-1">
                   <button
-                    className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] rounded transition-colors"
+                    className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-hover rounded transition-colors"
                     onClick={handleCopyOutput}
                     title="Copy Output"
                   >
@@ -2190,7 +2191,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                     <Trash2 size={12} />
                   </button>
                   <button
-                    className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30] rounded transition-colors"
+                    className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-hover rounded transition-colors"
                     onClick={() => setConsoleOpen(false)}
                     title="Minimize Console"
                   >
@@ -2271,7 +2272,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                   className={`flex-1 py-1.5 text-[9.5px] font-medium transition-colors ${
                     rightPanelTab === 'participants'
                       ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent'
-                      : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
+                      : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover'
                   }`}
                   onClick={() => setRightPanelTab('participants')}
                 >
@@ -2281,7 +2282,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                   className={`flex-1 py-1.5 text-[9.5px] font-medium transition-colors ${
                     rightPanelTab === 'chat'
                       ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent'
-                      : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2b2d30]'
+                      : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover'
                   }`}
                   onClick={() => setRightPanelTab('chat')}
                 >
@@ -2326,7 +2327,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                   <div className="flex flex-col gap-1">
 
                 {/* Local user entry */}
-                <div className="flex items-center gap-1.5 p-2 rounded-lg hover:bg-[#2b2d30]">
+                <div className="flex items-center gap-1.5 p-2 rounded-lg hover:bg-surface-hover">
                   <div className="relative">
                     <div
                       className="w-8 h-8 rounded-full shrink-0 bg-accent-blue flex items-center justify-center text-white text-[9px] font-bold"
@@ -2730,7 +2731,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                         type="button"
                         onClick={() => handleFontSizeChange(editorFontSize - 1)}
                         disabled={editorFontSize <= 10 || fontSizeSaving}
-                        className="w-8 h-8 rounded-md bg-[#252626] hover:bg-[#2e3032] disabled:opacity-30 disabled:hover:bg-[#252626] text-on-surface flex items-center justify-center transition-colors shadow-sm"
+                        className="w-8 h-8 rounded-md bg-surface-hover hover:bg-[#2e3032] disabled:opacity-30 disabled:hover:bg-surface-hover text-on-surface flex items-center justify-center transition-colors shadow-sm"
                         title="Decrease font size (-1px)"
                       >
                         <Minus size={14} />
@@ -2750,7 +2751,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                         type="button"
                         onClick={() => handleFontSizeChange(editorFontSize + 1)}
                         disabled={editorFontSize >= 32 || fontSizeSaving}
-                        className="w-8 h-8 rounded-md bg-[#252626] hover:bg-[#2e3032] disabled:opacity-30 disabled:hover:bg-[#252626] text-on-surface flex items-center justify-center transition-colors shadow-sm"
+                        className="w-8 h-8 rounded-md bg-surface-hover hover:bg-[#2e3032] disabled:opacity-30 disabled:hover:bg-surface-hover text-on-surface flex items-center justify-center transition-colors shadow-sm"
                         title="Increase font size (+1px)"
                       >
                         <Plus size={14} />
@@ -2921,7 +2922,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
       {/* Room Deleted Modal */}
       {showRoomDeletedModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in duration-200">
-          <div className="bg-[#1f2020] border border-[#404751] w-full max-w-sm max-h-[85vh] overflow-y-auto rounded-xl shadow-2xl flex flex-col text-center p-6">
+          <div className="bg-surface-panel border border-outline w-full max-w-sm max-h-[85vh] overflow-y-auto rounded-xl shadow-2xl flex flex-col text-center p-6">
             <div className="w-12 h-12 rounded-full bg-red-950/30 flex items-center justify-center text-red-500 mx-auto mb-4">
               <span className="material-symbols-outlined text-[24px]">warning</span>
             </div>
@@ -3034,7 +3035,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
       {/* Room Capacity Exceeded Modal (NFR-36) */}
       {showCapacityModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in duration-200">
-          <div className="bg-[#1f2020] border border-amber-500/40 w-full max-w-sm max-h-[85vh] overflow-y-auto rounded-xl shadow-2xl flex flex-col text-center p-6">
+          <div className="bg-surface-panel border border-amber-500/40 w-full max-w-sm max-h-[85vh] overflow-y-auto rounded-xl shadow-2xl flex flex-col text-center p-6">
             <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto mb-4 border border-amber-500/20">
               <Users size={24} />
             </div>
