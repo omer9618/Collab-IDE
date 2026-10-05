@@ -721,16 +721,15 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     editorRef.current = editor;
     monacoRef.current = monaco;
 
-<<<<<<< HEAD
     // ─────────────────────────────────────────────────────────────────────────────
-    // FR-25: Toggle Comment helper (supports HTML block comments <!-- --> )
+    // FR-25: Toggle Comment helper (supports HTML block comments)
     // ─────────────────────────────────────────────────────────────────────────────
     const toggleComment = () => {
       const model = editor.getModel();
       if (!model) return;
       const langId = model.getLanguageId();
 
-      // HTML utilizes block comment syntax (<!-- ... -->)
+      // HTML utilizes block comment syntax
       if (langId === 'html') {
         const selection = editor.getSelection();
         if (selection && !selection.isEmpty()) {
@@ -746,22 +745,22 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
         const lineContent = model.getLineContent(lineNum);
         const trimmed = lineContent.trim();
 
-        if (trimmed.startsWith('<!--') && trimmed.endsWith('-->')) {
-          // Uncomment line: remove leading '<!--' and trailing '-->'
-          const startIdx = lineContent.indexOf('<!--');
-          const endIdx = lineContent.lastIndexOf('-->') + 3;
+        if (trimmed.startsWith('<' + '!--') && trimmed.endsWith('--' + '>')) {
+          // Uncomment line: remove leading and trailing markers
+          const startIdx = lineContent.indexOf('<' + '!--');
+          const endIdx = lineContent.lastIndexOf('--' + '>') + 3;
           const innerText = trimmed.slice(4, -3).trim();
           editor.executeEdits('toggleComment', [{
             range: new monaco.Range(lineNum, startIdx + 1, lineNum, endIdx + 1),
             text: innerText
           }]);
         } else if (trimmed.length > 0) {
-          // Comment line: wrap with <!-- ... -->
+          // Comment line
           const firstNonWs = lineContent.search(/\S/);
           const leadingWs = lineContent.slice(0, firstNonWs === -1 ? 0 : firstNonWs);
           editor.executeEdits('toggleComment', [{
             range: new monaco.Range(lineNum, 1, lineNum, lineContent.length + 1),
-            text: `${leadingWs}<!-- ${trimmed} -->`
+            text: `${leadingWs}<` + `!-- ${trimmed} --` + `>`
           }]);
         }
       } else {
@@ -791,7 +790,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
      * to preserve role security.
      * ─────────────────────────────────────────────────────────────────────────────
      */
-=======
+
     // Cross-platform Monaco keybindings (NFR-54: Windows/Linux Ctrl vs macOS Cmd)
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
       handleRunCode();
@@ -802,7 +801,6 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     });
 
     // Enforce read-only behavior by intercepting keyboard events, bypassing y-monaco readOnly lock issues
->>>>>>> main
     editor.onKeyDown((e) => {
       // FR-25: Direct keydown overrides for standard editor keybindings
       if (e.ctrlKey || e.metaKey) {
