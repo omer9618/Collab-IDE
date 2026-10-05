@@ -91,6 +91,14 @@ export default function App() {
       localStorage.setItem('collabide_theme', activeTheme);
     }
 
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'vs-dark';
+    if (currentTheme !== activeTheme) {
+      document.documentElement.classList.add('theme-transition');
+      setTimeout(() => {
+        document.documentElement.classList.remove('theme-transition');
+      }, 300);
+    }
+
     const isLight = activeTheme === 'light';
     if (isLight) {
       document.documentElement.classList.remove('dark');

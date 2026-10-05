@@ -5,6 +5,7 @@ import { useVoiceRoom } from '../hooks/useVoiceRoom';
 import VoiceDeviceMenu from './VoiceDeviceMenu';
 import { WebsocketProvider } from 'y-websocket';
 import { io } from 'socket.io-client';
+import { VscNewFile, VscNewFolder, VscRefresh, VscCollapseAll, VscDesktopDownload, VscWarning, VscAdd, VscChevronDown, VscSplitHorizontal, VscTrash, VscEllipsis, VscChromeMaximize, VscClose } from 'react-icons/vsc';
 import {
   getRoomDetails,
   getVoiceCredentials,
@@ -54,6 +55,10 @@ import {
   Type,
   RotateCcw,
   Loader2,
+  Download,
+  PanelLeft,
+  PanelBottom,
+  PanelRight,
 } from 'lucide-react';
 
 // WhatsApp strategy color palette for distinguishable user colors in group chat (contrasty in dark mode)
@@ -274,6 +279,21 @@ function buildFileTree(files) {
   return root;
 }
 
+const FileIcon = ({ name }) => {
+  if (!name) return <FileCode size={12} className="text-gray-400 shrink-0" />;
+  if (name.endsWith('.js') || name.endsWith('.jsx')) return <span className="text-[#eab308] font-bold text-[9px] w-3.5 text-center shrink-0">JS</span>;
+  if (name.endsWith('.ts') || name.endsWith('.tsx')) return <span className="text-[#3b82f6] font-bold text-[9px] w-3.5 text-center shrink-0">TS</span>;
+  if (name.endsWith('.py')) return <span className="text-[#3b82f6] font-bold text-[9px] w-3.5 text-center shrink-0">PY</span>;
+  if (name.endsWith('.java')) return <span className="text-[#ef4444] font-bold text-[9px] w-3.5 text-center shrink-0">J</span>;
+  if (name.endsWith('.cpp') || name.endsWith('.cc')) return <span className="text-[#a855f7] font-bold text-[9px] w-3.5 text-center shrink-0">C++</span>;
+  if (name.endsWith('.html')) return <span className="text-[#f97316] font-bold text-[9px] w-3.5 text-center shrink-0"><>&lt;/&gt;</></span>;
+  if (name.endsWith('.css')) return <span className="text-[#ec4899] font-bold text-[9px] w-3.5 text-center shrink-0">#</span>;
+  if (name.endsWith('.md')) return <span className="text-[#60a5fa] font-bold text-[9px] w-3.5 text-center shrink-0">M&#8595;</span>;
+  if (name.endsWith('.json')) return <span className="text-[#fef08a] font-bold text-[9px] w-3.5 text-center shrink-0">&#123;&#125;</span>;
+  if (name === '.env') return <Settings size={12} className="text-gray-400 shrink-0" />;
+  return <FileCode size={12} className="text-gray-400 shrink-0" />;
+};
+
 export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, onUserUpdate }) {
   const [room, setRoom] = useState(null);
   const [joinedRooms, setJoinedRooms] = useState([]);
@@ -366,6 +386,11 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
   }, []);
 
   const toggleTheme = async () => {
+    document.documentElement.classList.add('theme-transition');
+    setTimeout(() => {
+      document.documentElement.classList.remove('theme-transition');
+    }, 300);
+
     const nextIsLight = !isLight;
     setIsLight(nextIsLight);
     const themeStr = nextIsLight ? 'light' : 'vs-dark';
@@ -392,6 +417,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
 
   // Folder support state
   const [expandedFolders, setExpandedFolders] = useState(new Set());
+  const [deletingPaths, setDeletingPaths] = useState(new Set());
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderNameInput, setNewFolderNameInput] = useState('');
   const [createInsideFolder, setCreateInsideFolder] = useState('');
@@ -1245,16 +1271,32 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
       .map((name, idx) => ({ name, idx }))
       .filter(({ name }) => name === `${folderPath}/.gitkeep` || name.startsWith(`${folderPath}/`))
       .map(({ idx }) => idx);
-    ydoc.transact(() => {
-      [...indices].sort((a, b) => b - a).forEach(idx => yfiles.delete(idx, 1));
-    });
-    setOpenedFiles(prev => prev.filter(f => !f.startsWith(`${folderPath}/`)));
-    if (activeFile.startsWith(`${folderPath}/`)) {
-      const remaining = fileNames.filter(f => !f.startsWith(`${folderPath}/`) && f !== `${folderPath}/.gitkeep`);
-      setActiveFile(remaining[0] || '');
-    }
-    setExpandedFolders(prev => { const s = new Set(prev); s.delete(folderPath); return s; });
-    showToast(`Folder "${folderPath.split('/').pop()}" deleted`, 'success');
+      
+    const filesToDelete = indices.map(idx => fileNames[idx]);
+    setDeletingPaths(prev => new Set([...prev, folderPath, ...filesToDelete]));
+
+    setTimeout(() => {
+      ydoc.transact(() => {
+        [...indices].sort((a, b) => b - a).forEach(idx => {
+          const currentFileNames = yfiles.toArray();
+          const freshIdx = currentFileNames.indexOf(fileNames[idx]);
+          if (freshIdx !== -1) yfiles.delete(freshIdx, 1);
+        });
+      });
+      setOpenedFiles(prev => prev.filter(f => !f.startsWith(`${folderPath}/`)));
+      if (activeFile.startsWith(`${folderPath}/`)) {
+        const remaining = fileNames.filter(f => !f.startsWith(`${folderPath}/`) && f !== `${folderPath}/.gitkeep`);
+        setActiveFile(remaining[0] || '');
+      }
+      setExpandedFolders(prev => { const s = new Set(prev); s.delete(folderPath); return s; });
+      setDeletingPaths(prev => {
+        const next = new Set(prev);
+        next.delete(folderPath);
+        filesToDelete.forEach(f => next.delete(f));
+        return next;
+      });
+      showToast(`Folder "${folderPath.split('/').pop()}" deleted`, 'success');
+    }, 200);
   };
 
   const handleCommitNewFile = () => {
@@ -1425,19 +1467,32 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     const fileNames = yfiles.toArray();
     const idx = fileNames.indexOf(deleteConfirmFile);
     if (idx !== -1) {
-      ydoc.transact(() => {
-        yfiles.delete(idx, 1);
-      });
-    }
+      const fileToDelete = deleteConfirmFile;
+      setDeletingPaths(prev => new Set([...prev, fileToDelete]));
+      setDeleteConfirmFile(null);
+      
+      setTimeout(() => {
+        ydoc.transact(() => {
+          const currentFileNames = yfiles.toArray();
+          const freshIdx = currentFileNames.indexOf(fileToDelete);
+          if (freshIdx !== -1) yfiles.delete(freshIdx, 1);
+        });
 
-    if (activeFile === deleteConfirmFile) {
-      const remaining = fileNames.filter(name => name !== deleteConfirmFile);
-      setActiveFile(remaining[0]);
-    }
+        if (activeFile === fileToDelete) {
+          const remaining = fileNames.filter(name => name !== fileToDelete);
+          setActiveFile(remaining[0]);
+        }
 
-    // Remove from opened tabs list if present
-    setOpenedFiles(prev => prev.filter(name => name !== deleteConfirmFile));
-    setDeleteConfirmFile(null);
+        // Remove from opened tabs list if present
+        setOpenedFiles(prev => prev.filter(name => name !== fileToDelete));
+        
+        setDeletingPaths(prev => {
+          const next = new Set(prev);
+          next.delete(fileToDelete);
+          return next;
+        });
+      }, 200);
+    }
   };
 
   // Close an opened tab
@@ -1453,6 +1508,56 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
       }
     }
   };
+
+  // FR-57: Export single active file
+  const handleExportFile = () => {
+    if (!activeFile || !ydoc) return;
+    const ytext = ydoc.getText(`${roomUuid}:${activeFile}`);
+    const content = ytext.toString();
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = activeFile.split('/').pop() || 'export.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast(`Exported ${a.download}`, 'success');
+  };
+
+  // FR-57: Export whole workspace as ZIP
+  const handleExportWorkspace = async () => {
+    if (!ydoc) return;
+    try {
+      showToast('Preparing workspace export...', 'info');
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+      
+      const yfiles = ydoc.getArray(`${roomUuid}:files`);
+      const filePaths = yfiles.toArray();
+      
+      filePaths.forEach(path => {
+        const ytext = ydoc.getText(`${roomUuid}:${path}`);
+        zip.file(path, ytext.toString());
+      });
+      
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(room?.name || 'Workspace').replace(/[^a-zA-Z0-9]/g, '_')}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Workspace exported successfully!', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to export workspace', 'error');
+    }
+  };
+
 
   // Chat message sender
   const handleSendChat = () => {
@@ -1552,32 +1657,30 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
           </div>
           
           {/* File tabs inside Top Bar */}
-          <div className="flex items-center gap-1.5 ml-3 overflow-x-auto no-scrollbar min-w-0 flex-1">
+          <div className="flex items-end h-[36px] ml-3 overflow-x-auto no-scrollbar min-w-0 flex-1 bg-surface-panel">
             {openedFiles.map((fileName) => (
               <div
                 key={fileName}
-                className={`px-3 h-[36px] text-[9.5px] flex items-center gap-1 border-b-[3px] transition-all group/tab shrink-0 ${
+                className={`px-3 h-full text-[11px] flex items-center border-r border-outline-subtle gap-2 cursor-pointer select-none transition-colors group/tab shrink-0 ${
                   activeFile === fileName
-                    ? 'text-accent-blue border-accent-blue bg-transparent'
-                    : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover border-transparent'
+                    ? 'bg-surface text-on-surface border-b-2 border-b-accent-blue'
+                    : 'bg-surface-panel text-on-surface-muted hover:bg-surface-hover hover:text-on-surface border-b-2 border-b-transparent'
                 }`}
+                onClick={() => setActiveFile(fileName)}
               >
-                <button
-                  className="flex items-center gap-1 h-full outline-none focus:outline-none"
-                  onClick={() => setActiveFile(fileName)}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-accent-blue" />
+                <div className="flex items-center gap-1.5 h-full outline-none focus:outline-none">
+                  <FileIcon name={fileName.split('/').pop()} />
                   <span title={fileName}>{fileName.split('/').pop()}</span>
-                </button>
+                </div>
                 <button
-                  className="text-on-surface-variant hover:text-on-surface hover:bg-surface-hover rounded p-0.5 ml-1 flex items-center justify-center opacity-40 hover:opacity-100 transition-all"
+                  className="text-on-surface-variant hover:text-on-surface hover:bg-surface-hover rounded p-0.5 ml-1 flex items-center justify-center opacity-0 group-hover/tab:opacity-100 transition-opacity"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleCloseFile(fileName);
                   }}
                   title="Close Tab"
                 >
-                  <X size={12} />
+                  <X size={14} />
                 </button>
               </div>
             ))}
@@ -1585,6 +1688,17 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0 ml-2">
+          <button
+            onClick={() => handleExportFile()}
+            disabled={!activeFile}
+            className={`flex items-center gap-1.5 px-3 py-1.5 border text-[9px] font-medium rounded-md transition-all shadow-sm ${
+              !activeFile ? 'opacity-50 cursor-not-allowed border-outline-subtle text-on-surface-muted bg-surface-elevated' : 'text-on-surface hover:bg-surface-hover border-outline bg-surface-elevated'
+            }`}
+            title="Download active file"
+          >
+            <Download size={12} />
+            <span>Download</span>
+          </button>
           <button
             onClick={() => setShowInviteModal(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-accent-blue bg-accent-blue/10 hover:bg-accent-blue/20 border border-accent-blue/30 text-[9px] font-medium rounded-md transition-all shadow-sm"
@@ -1678,17 +1792,31 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
               </>
             )}
           </button>
+          {/* Layout Controls */}
+          <div className="flex items-center bg-surface-base border border-outline-subtle rounded-md p-0.5 ml-1 mr-1">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className={`p-1 rounded flex items-center justify-center transition-colors ${sidebarOpen ? 'bg-surface-hover text-on-surface shadow-sm border border-outline-subtle/50' : 'text-on-surface-variant hover:text-on-surface border border-transparent'}`}
+              title="Toggle Primary Side Bar"
+            >
+              <PanelLeft size={15} strokeWidth={2.5} />
+            </button>
+            <button
+              onClick={() => setConsoleOpen(!consoleOpen)}
+              className={`p-1 rounded flex items-center justify-center transition-colors ${consoleOpen ? 'bg-surface-hover text-on-surface shadow-sm border border-outline-subtle/50' : 'text-on-surface-variant hover:text-on-surface border border-transparent'}`}
+              title="Toggle Panel"
+            >
+              <PanelBottom size={15} strokeWidth={2.5} />
+            </button>
+            <button
+              onClick={() => setRightPanelOpen(!rightPanelOpen)}
+              className={`p-1 rounded flex items-center justify-center transition-colors ${rightPanelOpen ? 'bg-surface-hover text-on-surface shadow-sm border border-outline-subtle/50' : 'text-on-surface-variant hover:text-on-surface border border-transparent'}`}
+              title="Toggle Secondary Side Bar"
+            >
+              <PanelRight size={15} strokeWidth={2.5} />
+            </button>
+          </div>
 
-
-          <button
-            onClick={() => setRightPanelOpen(!rightPanelOpen)}
-            className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${
-              rightPanelOpen ? 'bg-[#1c2b41]/60 text-[#9fcaff]' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover'
-            }`}
-            title={rightPanelOpen ? 'Collapse Panel' : 'Expand Panel'}
-          >
-            {rightPanelOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
-          </button>
           <button
             onClick={toggleFullscreen}
             type="button"
@@ -1762,14 +1890,15 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
         </aside>
 
         {/* Sidebar explorer panel */}
-          {sidebarOpen && (
-            <nav style={{ width: `${leftPanelWidth}px` }} className="h-full bg-[#181818] border-r border-outline-subtle flex flex-col shrink-0 select-none relative">
+          <nav 
+            style={{ width: sidebarOpen ? `${leftPanelWidth}px` : '0px' }} 
+            className={`h-full bg-[#181818] border-r border-outline-subtle flex flex-col shrink-0 select-none relative transition-all duration-300 ease-in-out overflow-hidden ${!sidebarOpen ? 'border-r-0 opacity-0' : ''}`}
+          >
               <div className="absolute top-0 right-0 w-[4px] h-full bg-transparent hover:bg-accent-blue cursor-col-resize transition-colors z-50 translate-x-1/2" onMouseDown={handleLeftPanelResize} />
               
               {/* Explorer Top Header */}
               <div className="px-5 py-2.5 flex items-center justify-between text-on-surface-muted">
                 <span className="text-[11px] text-on-surface uppercase tracking-wide">Explorer</span>
-                <button className="p-0.5 hover:bg-[#2a2d2e] rounded"><MoreHorizontal size={12} /></button>
               </div>
 
               <div className="flex-1 overflow-y-auto outline-none custom-scrollbar pb-4" tabIndex={0}>
@@ -1796,28 +1925,35 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                         onClick={(e) => { e.stopPropagation(); handleCreateFile(''); }}
                         title="New File"
                       >
-                        <span className="material-symbols-outlined text-[15px]">note_add</span>
+                        <VscNewFile size={15} />
                       </button>
                       <button
                         className="p-0.5 text-on-surface-muted hover:text-on-surface rounded"
                         onClick={(e) => { e.stopPropagation(); handleCreateFolder(''); }}
                         title="New Folder"
                       >
-                        <span className="material-symbols-outlined text-[15px]">create_new_folder</span>
+                        <VscNewFolder size={15} />
                       </button>
                       <button
                         className="p-0.5 text-on-surface-muted hover:text-on-surface rounded"
                         onClick={(e) => { e.stopPropagation(); showToast('Explorer synced', 'info'); }}
                         title="Refresh Explorer"
                       >
-                        <span className="material-symbols-outlined text-[15px]">sync</span>
+                        <VscRefresh size={15} />
                       </button>
                       <button
                         className="p-0.5 text-on-surface-muted hover:text-on-surface rounded"
                         onClick={(e) => { e.stopPropagation(); setExpandedFolders(new Set()); }}
                         title="Collapse All"
                       >
-                        <span className="material-symbols-outlined text-[15px]">collapse_all</span>
+                        <VscCollapseAll size={15} />
+                      </button>
+                      <button
+                        className="p-0.5 text-on-surface-muted hover:text-on-surface rounded"
+                        onClick={(e) => { e.stopPropagation(); handleExportWorkspace(); }}
+                        title="Download Workspace (ZIP)"
+                      >
+                        <VscDesktopDownload size={15} />
                       </button>
                     </div>
                   )}
@@ -1825,20 +1961,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
 
                 {/* File/Folder Tree */}
               {isFilesTreeOpen && (() => {
-                const FileIcon = ({ name }) => {
-                    if (!name) return <FileCode size={12} className="text-gray-400 shrink-0" />;
-                    if (name.endsWith('.js') || name.endsWith('.jsx')) return <span className="text-[#eab308] font-bold text-[9px] w-3.5 text-center shrink-0">JS</span>;
-                    if (name.endsWith('.ts') || name.endsWith('.tsx')) return <span className="text-[#3b82f6] font-bold text-[9px] w-3.5 text-center shrink-0">TS</span>;
-                    if (name.endsWith('.py')) return <span className="text-[#3b82f6] font-bold text-[9px] w-3.5 text-center shrink-0">PY</span>;
-                    if (name.endsWith('.java')) return <span className="text-[#ef4444] font-bold text-[9px] w-3.5 text-center shrink-0">J</span>;
-                    if (name.endsWith('.cpp') || name.endsWith('.cc')) return <span className="text-[#a855f7] font-bold text-[9px] w-3.5 text-center shrink-0">C++</span>;
-                    if (name.endsWith('.html')) return <span className="text-[#f97316] font-bold text-[9px] w-3.5 text-center shrink-0"><>&lt;/&gt;</></span>;
-                    if (name.endsWith('.css')) return <span className="text-[#ec4899] font-bold text-[9px] w-3.5 text-center shrink-0">#</span>;
-                    if (name.endsWith('.md')) return <span className="text-[#60a5fa] font-bold text-[9px] w-3.5 text-center shrink-0">M&#8595;</span>;
-                    if (name.endsWith('.json')) return <span className="text-[#fef08a] font-bold text-[9px] w-3.5 text-center shrink-0">&#123;&#125;</span>;
-                    if (name === '.env') return <Settings size={12} className="text-gray-400 shrink-0" />;
-                    return <FileCode size={12} className="text-gray-400 shrink-0" />;
-                  };
+
 
                 const renderTree = (nodes, depth = 0) => (
                     <div className="flex flex-col">
@@ -1850,7 +1973,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                             <div key={node.path}>
                               {/* Folder Row */}
                               <div
-                                className="flex items-center py-[1px] cursor-pointer text-on-surface-variant hover:text-on-surface hover:bg-[#2a2d2e] group/folder transition-colors"
+                                className={`flex items-center py-[1px] cursor-pointer text-on-surface-variant hover:text-on-surface hover:bg-[#2a2d2e] group/folder transition-all duration-200 animate-in zoom-in-95 fade-in ${deletingPaths.has(node.path) ? 'scale-90 opacity-0' : ''}`}
                                 style={{ paddingLeft: `${indent}px`, paddingRight: '8px' }}
                                 onClick={() => setExpandedFolders(prev => {
                                   const s = new Set(prev);
@@ -1877,14 +2000,14 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                                       onClick={(e) => { e.stopPropagation(); handleCreateFile(node.path); }}
                                       title="New File"
                                     >
-                                      <span className="material-symbols-outlined text-[13px]">note_add</span>
+                                      <VscNewFile size={14} />
                                     </button>
                                     <button
                                       className="p-0.5 hover:bg-[#3e3e42] rounded text-on-surface-muted hover:text-on-surface"
                                       onClick={(e) => { e.stopPropagation(); handleCreateFolder(node.path); }}
                                       title="New Folder"
                                     >
-                                      <span className="material-symbols-outlined text-[13px]">create_new_folder</span>
+                                      <VscNewFolder size={14} />
                                     </button>
                                     <button
                                       className="p-0.5 hover:bg-red-500/20 rounded text-on-surface-muted hover:text-red-400"
@@ -1945,11 +2068,11 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                         return (
                           <div
                             key={node.path}
-                            className={`flex items-center py-[1px] cursor-pointer transition-colors group/file ${
+                            className={`flex items-center py-[1px] cursor-pointer transition-all duration-200 animate-in zoom-in-95 fade-in group/file ${
                               activeFile === node.path
                                 ? 'bg-[#37373d] text-on-surface shadow-sm'
                                 : 'text-on-surface-variant hover:text-on-surface hover:bg-[#2a2d2e]'
-                            }`}
+                            } ${deletingPaths.has(node.path) ? 'scale-90 opacity-0' : ''}`}
                             style={{ paddingLeft: `${indent + 20}px`, paddingRight: '8px' }}
                             onClick={() => {
                               setActiveFile(node.path);
@@ -2043,7 +2166,6 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
               </button>
             </div>
           </nav>
-        )}
 
         {/* Editor center workspace */}
         <main className="flex-1 flex flex-col min-w-[380px] bg-surface relative overflow-hidden">
@@ -2137,45 +2259,44 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
           </div>
 
           {/* Console / Output area */}
-          {consoleOpen && (
              <section 
-               className="border-t border-outline flex flex-col bg-surface-panel relative shrink-0"
-               style={{ height: `${consoleHeight}px` }}
+               className={`border-t border-outline flex flex-col bg-surface-panel relative shrink-0 transition-all duration-300 ease-in-out overflow-hidden ${!consoleOpen ? 'border-t-0 opacity-0' : ''}`}
+               style={{ height: consoleOpen ? `${consoleHeight}px` : '0px' }}
              >
                <div 
                  className="absolute top-0 left-0 w-full h-[4px] bg-outline-subtle hover:bg-accent-blue cursor-row-resize transition-colors" 
                  onMouseDown={handleConsoleResize}
                />
-              <div className="flex items-center justify-between px-2 h-8 border-b border-outline-subtle">
-                <div className="flex h-full">
+              <div className="flex items-center justify-between px-2 h-9 border-b border-outline-subtle">
+                <div className="flex h-full items-center gap-0.5">
                   <button
-                    className={`px-3 text-[9px] font-medium h-full transition-colors ${
-                      consoleTab === 'output' ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover'
+                    className={`px-2.5 py-1 text-[11px] rounded-md transition-colors ${
+                      consoleTab === 'problems' ? 'bg-[#e4e6f1] dark:bg-[#3e3e42] text-black dark:text-white' : 'text-on-surface-variant hover:text-on-surface'
+                    }`}
+                    onClick={() => setConsoleTab('problems')}
+                  >
+                    Problems
+                  </button>
+                  <button
+                    className={`px-2.5 py-1 text-[11px] rounded-md transition-colors ${
+                      consoleTab === 'output' ? 'bg-[#e4e6f1] dark:bg-[#3e3e42] text-black dark:text-white' : 'text-on-surface-variant hover:text-on-surface'
                     }`}
                     onClick={() => setConsoleTab('output')}
                   >
                     Output
                   </button>
                   <button
-                    className={`px-3 text-[9px] font-medium h-full transition-colors ${
-                      consoleTab === 'terminal' ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover'
+                    className={`px-2.5 py-1 text-[11px] rounded-md transition-colors ${
+                      consoleTab === 'terminal' ? 'bg-[#e4e6f1] dark:bg-[#3e3e42] text-black dark:text-white' : 'text-on-surface-variant hover:text-on-surface'
                     }`}
                     onClick={() => setConsoleTab('terminal')}
                   >
                     Terminal
                   </button>
-                  <button
-                    className={`px-3 text-[9px] font-medium h-full transition-colors ${
-                      consoleTab === 'problems' ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover'
-                    }`}
-                    onClick={() => setConsoleTab('problems')}
-                  >
-                    Problems
-                  </button>
                   {(currentLangConfig.id === 'html' || activeFile?.endsWith('.html') || activeFile?.endsWith('.htm')) && (
                     <button
-                      className={`px-3 text-[9px] font-medium h-full transition-colors flex items-center gap-1.5 ${
-                        consoleTab === 'preview' ? 'text-accent-blue border-b-[3px] border-accent-blue bg-transparent' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover'
+                      className={`px-2.5 py-1 text-[11px] rounded-md transition-colors flex items-center gap-1.5 ${
+                        consoleTab === 'preview' ? 'bg-[#e4e6f1] dark:bg-[#3e3e42] text-black dark:text-white' : 'text-on-surface-variant hover:text-on-surface'
                       }`}
                       onClick={() => setConsoleTab('preview')}
                     >
@@ -2184,27 +2305,36 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                     </button>
                   )}
                 </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-hover rounded transition-colors"
-                    onClick={handleCopyOutput}
-                    title="Copy Output"
-                  >
-                    <Copy size={12} />
+                <div className="flex items-center gap-0.5 mr-1">
+                  <button className="p-1 text-[#cca700] hover:bg-surface-hover rounded transition-colors" title="Show Problems">
+                    <VscWarning size={14} />
                   </button>
-                  <button
-                    className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-accent-red hover:bg-red-950/30 rounded transition-colors"
-                    onClick={handleClearOutput}
-                    title="Clear Output"
-                  >
-                    <Trash2 size={12} />
+                  <div className="flex items-center hover:bg-surface-hover rounded transition-colors cursor-pointer text-on-surface-variant">
+                    <button className="p-1 pl-1.5 pr-0.5" title="New Terminal">
+                      <VscAdd size={14} />
+                    </button>
+                    <button className="p-1 pr-1.5 pl-0.5" title="Launch Profile">
+                      <VscChevronDown size={14} />
+                    </button>
+                  </div>
+                  <button className="p-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-hover rounded transition-colors font-mono font-medium text-[12px] leading-none flex items-center justify-center" title="Filter">
+                    @
                   </button>
-                  <button
-                    className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-hover rounded transition-colors"
-                    onClick={() => setConsoleOpen(false)}
-                    title="Minimize Console"
-                  >
-                    <ChevronDown size={16} />
+                  <button className="p-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-hover rounded transition-colors" title="Split Terminal">
+                    <VscSplitHorizontal size={14} />
+                  </button>
+                  <button className="p-1 text-on-surface-variant hover:text-accent-red hover:bg-red-950/30 rounded transition-colors" onClick={handleClearOutput} title="Kill Terminal">
+                    <VscTrash size={14} />
+                  </button>
+                  <button className="p-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-hover rounded transition-colors" title="More Actions...">
+                    <VscEllipsis size={14} />
+                  </button>
+                  <div className="w-[1px] h-3.5 bg-outline mx-1"></div>
+                  <button className="p-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-hover rounded transition-colors" onClick={() => setConsoleHeight(consoleHeight > 300 ? 250 : window.innerHeight - 150)} title="Maximize Panel Size">
+                    <VscChromeMaximize size={14} />
+                  </button>
+                  <button className="p-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-hover rounded transition-colors" onClick={() => setConsoleOpen(false)} title="Close Panel">
+                    <VscClose size={14} />
                   </button>
                 </div>
               </div>
@@ -2268,12 +2398,13 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                 )}
               </div>
             </section>
-          )}
         </main>
 
         {/* Right side tab panels (Participants / Chat) */}
-        {rightPanelOpen && (
-          <aside style={{ width: `${rightPanelWidth}px` }} className="h-full bg-surface-panel border-l border-outline-subtle flex flex-col shrink-0 relative">
+          <aside 
+            style={{ width: rightPanelOpen ? `${rightPanelWidth}px` : '0px' }} 
+            className={`h-full bg-surface-panel border-l border-outline-subtle flex flex-col shrink-0 relative transition-all duration-300 ease-in-out overflow-hidden ${!rightPanelOpen ? 'border-l-0 opacity-0' : ''}`}
+          >
             <div className="absolute top-0 left-0 w-[4px] h-full bg-transparent hover:bg-accent-blue cursor-col-resize transition-colors z-50 -translate-x-1/2" onMouseDown={handleRightPanelResize} />
             <div className="flex items-center justify-between border-b border-outline-subtle pr-2 bg-surface-panel">
               <div className="flex flex-1">
@@ -2323,9 +2454,9 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                     <span>Online ({onlineCount})</span>
                   </button>
                   {isUserLeader && (
-                    <div className="flex gap-2 text-[9px] font-medium">
-                      <button onClick={handleMuteAll} className="px-2 py-1 rounded border border-accent-red/30 text-accent-red hover:bg-accent-red/10 transition-colors">Mute all</button>
-                      <button onClick={toggleEditorOnlyVoice} className="px-2 py-1 rounded border border-accent-blue/30 text-accent-blue hover:bg-accent-blue/10 transition-colors">
+                    <div className="flex gap-1.5 text-[10px] font-medium">
+                      <button onClick={handleMuteAll} className="px-2.5 py-1 rounded bg-surface-hover hover:bg-red-900/60 hover:text-red-300 text-on-surface transition-colors shadow-sm">Mute All</button>
+                      <button onClick={toggleEditorOnlyVoice} className="px-2.5 py-1 rounded bg-surface-hover hover:bg-blue-900/60 hover:text-blue-300 text-on-surface transition-colors shadow-sm">
                         {editorOnlyMode ? 'Unlock Voice' : 'Lock Voice'}
                       </button>
                     </div>
@@ -2490,7 +2621,6 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
               </div>
             )}
           </aside>
-        )}
       </div>
 
 
@@ -2562,16 +2692,16 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
             <div className="w-px h-6 bg-outline mx-2" />
 
             {isUserLeader && (
-              <div className="flex items-center gap-1 mr-1">
+              <div className="flex items-center gap-1.5 mr-2">
                 <button 
                   onClick={handleMuteAll} 
-                  className="px-3 h-9 text-xs font-medium text-accent-red hover:bg-accent-red/10 rounded-md transition-colors"
+                  className="px-3 h-8 text-[11px] font-medium text-on-surface bg-surface-hover hover:bg-red-900/60 hover:text-red-300 rounded-md transition-colors shadow-sm"
                 >
                   Mute all
                 </button>
                 <button 
                   onClick={toggleEditorOnlyVoice} 
-                  className="px-3 h-9 text-xs font-medium text-accent-blue hover:bg-accent-blue/10 rounded-md transition-colors"
+                  className="px-3 h-8 text-[11px] font-medium text-on-surface bg-surface-hover hover:bg-blue-900/60 hover:text-blue-300 rounded-md transition-colors shadow-sm"
                 >
                   {editorOnlyMode ? 'Unlock voice' : 'Lock voice'}
                 </button>

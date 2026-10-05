@@ -368,8 +368,9 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
         </aside>
 
         {/* Sidebar (240px) */}
-        {sidebarOpen && (
-        <aside className="w-sidebar-width bg-surface-panel border-r border-outline-subtle flex flex-col shrink-0">
+        <aside 
+          className={`bg-surface-panel border-r border-outline-subtle flex flex-col shrink-0 overflow-hidden transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-sidebar-width' : 'w-0 border-r-0 opacity-0'}`}
+        >
           {/* Profile Panel */}
           <div
             className="p-4 border-b border-outline-subtle cursor-pointer hover:bg-surface-elevated transition-colors group"
@@ -468,8 +469,6 @@ export default function DashboardView({ user, onRoomSelect, onLogout, onUserUpda
             </button>
           </div>
         </aside>
-
-                )}
 
         {/* Main Content Area */}
         <main className="flex-1 bg-surface overflow-y-auto">

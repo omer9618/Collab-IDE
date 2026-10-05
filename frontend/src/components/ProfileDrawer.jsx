@@ -196,7 +196,7 @@ export default function ProfileDrawer({
     }
   };
 
-  if (!isOpen || !user) return null;
+  if (!user) return null;
 
   const initials = (user.displayName || 'U')
     .split(' ')
@@ -301,7 +301,7 @@ export default function ProfileDrawer({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div className={`fixed inset-0 z-50 flex justify-end transition-all duration-300 ease-in-out ${isOpen ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'}`}>
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
@@ -309,7 +309,7 @@ export default function ProfileDrawer({
       />
 
       {/* Slide-out Panel */}
-      <div className="relative w-full max-w-[420px] h-full bg-surface border-l border-outline-subtle shadow-2xl flex flex-col z-10 animate-in slide-in-from-right duration-300 ease-out">
+      <div className={`relative w-full max-w-[420px] h-full bg-surface border-l border-outline-subtle shadow-2xl flex flex-col z-10 transition-transform duration-300 ease-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         {/* Top Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-outline-subtle bg-surface/60">
           <div className="flex items-center gap-2.5">
