@@ -729,7 +729,7 @@ class RoomManager {
       }
     }
 
-    const session = new RoomSession(roomUuid, ydoc, {
+    session = new RoomSession(roomUuid, ydoc, {
       pubsubAdapter: this.pubsubAdapter,
       nodeId: this.nodeId,
     });
