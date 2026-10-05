@@ -54,9 +54,9 @@ const LANGUAGE_MAP = {
  * @type {{ cpu_time_limit: number, wall_time_limit: number, memory_limit: number, max_file_size: number }}
  */
 const JUDGE0_LIMITS = {
-  cpu_time_limit:       10,      // Max 10 CPU seconds per run
-  wall_time_limit:      12,      // Max 12 wall-clock seconds before timeout kill
-  memory_limit:         128000,  // Max 128 MB RAM allocation
+  cpu_time_limit:       10.0,    // Max 10 CPU seconds per run
+  wall_time_limit:      12.0,    // Max 12 wall-clock seconds before timeout kill
+  memory_limit:         131072,  // Max 128 MB RAM allocation (128 * 1024)
   max_file_size:        64,      // Max 64 KB stdout/stderr buffer to prevent memory exhaustion
 };
 
@@ -124,7 +124,7 @@ async function submitToJudge0({ languageId, sourceCode, stdin }) {
   const headers = {
     'Content-Type': 'application/json',
   };
-  if (apiKey) {
+  if (apiKey && apiKey.toLowerCase() !== 'none') {
     headers['X-RapidAPI-Key'] = apiKey;
     try {
       headers['X-RapidAPI-Host'] = new URL(apiUrl).host;

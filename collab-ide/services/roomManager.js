@@ -643,6 +643,19 @@ class RoomManager {
     // NFR-53: Horizontal Scaling Readiness
     this.nodeId = options.nodeId || process.env.NODE_ID || 'node_' + Math.random().toString(36).substring(2, 9);
     this.pubsubAdapter = options.pubsubAdapter || null;
+
+    // NFR-37: Memory-Efficient Yjs Document Management
+    // Sweep for inactive rooms (no connected clients for > 30 mins)
+    this.inactiveRoomSweepTimer = setInterval(() => {
+      const now = Date.now();
+      for (const [roomUuid, session] of this.rooms.entries()) {
+        if (session.clients.size === 0 && (now - session.lastActiveAt.getTime() >= 30 * 60 * 1000)) {
+          this.unloadRoom(roomUuid).catch(err => {
+            logger.error('Error unloading inactive room: ' + err.message, { roomId: roomUuid });
+          });
+        }
+      }
+    }, 60 * 1000); // Check every minute
   }
 
   /**

@@ -355,6 +355,19 @@ function initWebSocketRelay(options = {}) {
       return;
     }
 
+    // Buffer frames that arrive while the room session is loading asynchronously.
+    // y-websocket clients send SyncStep1 immediately on open; without this buffer
+    // that frame is dropped and the client never receives the server document state.
+    const pendingFrames = [];
+    let roomSessionRef = null;
+    ws.on('message', (data, isBinary) => {
+      if (roomSessionRef) {
+        roomSessionRef.handleMessage(ws, data, isBinary);
+      } else {
+        pendingFrames.push([data, isBinary]);
+      }
+    });
+
     // Isolated room session (NFR-52)
     const roomSession = await manager.getOrCreateRoom(roomUuid);
     roomSession.addClient(ws, user, role);
@@ -370,8 +383,9 @@ function initWebSocketRelay(options = {}) {
     const step1Payload = createSyncStep1Message(roomSession.ydoc);
     roomSession.safeSend(ws, step1Payload, true);
 
-    // Route messages into room session boundary
-    ws.on('message', (data, isBinary) => {
+    // Route messages into room session boundary (flush frames buffered during room load)
+    roomSessionRef = roomSession;
+    pendingFrames.splice(0).forEach(([data, isBinary]) => {
       roomSession.handleMessage(ws, data, isBinary);
     });
 
@@ -382,10 +396,7 @@ function initWebSocketRelay(options = {}) {
       }
       touchRoomActivity(roomUuid, { Room: RoomModel, logger: log });
 
-      const remaining = roomSession.removeClient(ws);
-      if (remaining === 0) {
-        await manager.unloadRoom(roomUuid);
-      }
+      roomSession.removeClient(ws);
     });
 
     // Handle socket errors

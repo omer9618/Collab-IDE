@@ -351,16 +351,19 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
   const [isFilesTreeOpen, setIsFilesTreeOpen] = useState(true);
   const [activeMenuDropdown, setActiveMenuDropdown] = useState(null);
 
-  // Theme state
-  const [isLight, setIsLight] = useState(
-    () => user?.theme ? user.theme === 'light' : (document.documentElement.classList.contains('light') || localStorage.getItem('collabide_theme') === 'light')
-  );
+  // Theme state — the <html> class (managed by App.jsx from localStorage) is the single
+  // source of truth, so the Monaco editor always matches the rest of the UI.
+  const readIsLightFromDocument = () =>
+    document.documentElement.classList.contains('light') ||
+    (!document.documentElement.classList.contains('dark') && localStorage.getItem('collabide_theme') === 'light');
+  const [isLight, setIsLight] = useState(readIsLightFromDocument);
 
   useEffect(() => {
-    if (user?.theme) {
-      setIsLight(user.theme === 'light');
-    }
-  }, [user?.theme]);
+    setIsLight(readIsLightFromDocument());
+    const observer = new MutationObserver(() => setIsLight(readIsLightFromDocument()));
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] });
+    return () => observer.disconnect();
+  }, []);
 
   const toggleTheme = async () => {
     const nextIsLight = !isLight;
@@ -584,12 +587,18 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
 
     const yfilesInstance = yDocInstance.getArray(`${roomUuid}:files`);
     const updateFilesFromYjs = () => {
+      // Keep the REST-loaded list until the server document state has arrived,
+      // otherwise a partially-synced (empty) Yjs array would wipe the sidebar.
+      if (!providerInstance.synced) return;
       const currentNames = yfilesInstance.toArray();
       // Deduplicate file names to prevent concurrent client initialization race conditions
       const uniqueNames = Array.from(new Set(currentNames));
       setFiles(uniqueNames.map(name => ({ name })));
     };
     yfilesInstance.observe(updateFilesFromYjs);
+    providerInstance.on('sync', (isSynced) => {
+      if (isSynced) updateFilesFromYjs();
+    });
 
     providerInstance.on('status', ({ status }) => {
       if (status === 'connecting') {
