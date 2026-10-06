@@ -316,7 +316,17 @@ router.post('/:uuid/run', protect, execLimiter, async (req, res) => {
       ranAt:       new Date().toISOString(),
     };
 
-    // ── Persist to Room.executionHistory (FR-35, capped at MAX_EXEC_HISTORY) ────
+    // ── Broadcast to all room WebSocket connections (FR-29) ───────────────────
+    if (typeof global.broadcastToRoom === 'function') {
+      global.broadcastToRoom(uuid, JSON.stringify({ type: 'exec:result', payload: result }));
+    }
+
+    logger.info(`Execution in room [${result.language}] — ${result.status} (${isMock ? 'MOCK' : 'REAL'})`, { userId: req.user._id, roomId: uuid });
+
+    // Respond immediately to eliminate DB latency from execution response time (NFR-03)
+    res.status(200).json({ result });
+
+    // ── Persist to Room.executionHistory in background (FR-35, capped at MAX_EXEC_HISTORY) ────
     room.executionHistory.push({
       triggeredBy: result.triggeredBy,
       language:    langEntry.name,
@@ -333,16 +343,11 @@ router.post('/:uuid/run', protect, execLimiter, async (req, res) => {
       room.executionHistory = room.executionHistory.slice(-MAX_EXEC_HISTORY);
     }
 
-    await room.save();
-
-    // ── Broadcast to all room WebSocket connections (FR-29) ───────────────────
-    if (typeof global.broadcastToRoom === 'function') {
-      global.broadcastToRoom(uuid, JSON.stringify({ type: 'exec:result', payload: result }));
-    }
-
-    logger.info(`Execution in room [${result.language}] — ${result.status} (${isMock ? 'MOCK' : 'REAL'})`, { userId: req.user._id, roomId: uuid });
-
-    return res.status(200).json({ result });
+    room.save().catch(err => {
+      logger.error(`Failed to background-save execution history: ${err.message}`, { roomId: uuid });
+    });
+    
+    return;
   } catch (err) {
     return sendPlainEnglishError(res, err, 'An error occurred while executing your code. Please try again.');
   }
