@@ -127,7 +127,7 @@ async function verifyUpgradeToken(token, roomUuid, options = {}) {
       return { valid: false, status: 500, error: 'Room model unavailable' };
     }
 
-    const room = await RoomModel.findOne({ uuid: roomUuid });
+    const room = await RoomModel.findOne({ uuid: roomUuid }).select('participants');
     if (!room) {
       if (log && log.warn) log.warn('Upgrade rejected: Room not found', { userId: user._id, roomId: roomUuid });
       return { valid: false, status: 404, error: 'Room not found' };

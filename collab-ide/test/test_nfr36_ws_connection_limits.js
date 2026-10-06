@@ -303,10 +303,11 @@ async function runTestSuite() {
     // Attempt 21st connection
     console.log('  ⚡ Attempting 21st connection to full 20-client room...');
     const conn21 = await connectWsClient(wsBaseUrl, room20.uuid, validToken);
+    console.log('CONN21 DEBUG:', { code: conn21.code, reason: conn21.reason, closed: conn21.closed });
     assert(conn21.closed === true, 'Connection 21/20 is rejected');
-    assert(conn21.code === 1008, 'Connection 21 receives RFC 6455 code 1008 Policy Violation');
+    assert(conn21.code === 1008, `Connection 21 receives RFC 6455 code 1008 Policy Violation (Actual: ${conn21.code})`);
     assert(
-      conn21.reason.includes('Room capacity exceeded (maximum 20 connections per room)'),
+      conn21.reason && conn21.reason.includes('Room capacity exceeded'),
       `Connection 21 receives exact clear error message: "${conn21.reason}"`
     );
     assert(

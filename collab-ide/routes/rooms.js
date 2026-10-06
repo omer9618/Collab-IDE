@@ -266,12 +266,19 @@ router.post('/:uuid/join', protect, apiLimiter, async (req, res) => {
     }
 
     // Security: Default new joiners to Viewer to prevent immediate tampering (least privilege)
-    room.participants.push({
+    const newParticipant = {
       user: req.user._id,
       role: 'Viewer',
-    });
+    };
+    
+    // Update local memory for the response
+    room.participants.push(newParticipant);
 
-    await room.save();
+    // Atomic push prevents race conditions on concurrent joins
+    await Room.updateOne(
+      { _id: room._id },
+      { $push: { participants: newParticipant } }
+    );
 
     // Broadcast participant list update to active room connections
     if (global.broadcastRoomParticipants) {
@@ -362,7 +369,7 @@ router.put('/:uuid/roles', protect, apiLimiter, async (req, res) => {
       });
     }
 
-    // Update target participant's role
+    // Update target participant's role in local memory
     targetParticipant.role = newRole;
     
     // Security: Atomic in-memory synchronization prevents race conditions on open WebSockets (NFR-19)
@@ -371,7 +378,11 @@ router.put('/:uuid/roles', protect, apiLimiter, async (req, res) => {
       global.updateClientRoleInMemory(room.uuid, targetUserId, newRole);
     }
 
-    await room.save();
+    // Atomic database update using positional operator to prevent array index shifting bugs
+    await Room.updateOne(
+      { _id: room._id, 'participants.user': targetUserId },
+      { $set: { 'participants.$.role': newRole } }
+    );
 
     // Broadcast updated roster to all connected room clients
     if (global.broadcastRoomParticipants) {
@@ -411,7 +422,7 @@ router.post('/:uuid/roles/grant-all', protect, apiLimiter, async (req, res) => {
       return res.status(403).json({ message: 'Only the room Owner or Room Leader can grant editor permissions.' });
     }
 
-    // Atomically promote all current Viewers to Editors
+    // Atomically promote all current Viewers to Editors in local memory
     room.participants.forEach(p => {
       if (p.role === 'Viewer') {
         p.role = 'Editor';
@@ -423,7 +434,12 @@ router.post('/:uuid/roles/grant-all', protect, apiLimiter, async (req, res) => {
       }
     });
 
-    await room.save();
+    // Atomic database update to prevent concurrency bugs
+    await Room.updateOne(
+      { _id: room._id },
+      { $set: { 'participants.$[elem].role': 'Editor' } },
+      { arrayFilters: [ { 'elem.role': 'Viewer' } ] }
+    );
 
     if (global.broadcastRoomParticipants) {
       global.broadcastRoomParticipants(room.uuid);
@@ -462,7 +478,7 @@ router.post('/:uuid/roles/revoke-all', protect, apiLimiter, async (req, res) => 
       return res.status(403).json({ message: 'Only the room Owner or Room Leader can revoke editor permissions.' });
     }
 
-    // Demote all Editors back to Viewer (preserving Owner and Room Leader)
+    // Demote all Editors back to Viewer in local memory (preserving Owner and Room Leader)
     room.participants.forEach(p => {
       if (p.role === 'Editor') {
         p.role = 'Viewer';
@@ -474,7 +490,12 @@ router.post('/:uuid/roles/revoke-all', protect, apiLimiter, async (req, res) => 
       }
     });
 
-    await room.save();
+    // Atomic database update to prevent concurrency bugs
+    await Room.updateOne(
+      { _id: room._id },
+      { $set: { 'participants.$[elem].role': 'Viewer' } },
+      { arrayFilters: [ { 'elem.role': 'Editor' } ] }
+    );
 
     if (global.broadcastRoomParticipants) {
       global.broadcastRoomParticipants(room.uuid);
@@ -507,7 +528,7 @@ router.post('/:uuid/close', protect, apiLimiter, async (req, res) => {
     }
 
     room.isClosed = true;
-    await room.save();
+    await Room.updateOne({ _id: room._id }, { $set: { isClosed: true } });
 
     // Broadcast room_closed signal to all active room clients
     if (global.broadcastToRoom) {
@@ -540,7 +561,7 @@ router.post('/:uuid/open', protect, apiLimiter, async (req, res) => {
     }
 
     room.isClosed = false;
-    await room.save();
+    await Room.updateOne({ _id: room._id }, { $set: { isClosed: false } });
 
     if (global.broadcastToRoom) {
       global.broadcastToRoom(room.uuid, JSON.stringify({ type: 'room_opened' }));

@@ -115,7 +115,8 @@ router.post('/register', authLimiter, async (req, res) => {
     }
 
     // Check if user already exists
-    const userExists = await User.findOne({ email });
+    // Fix: Cast email to string to prevent NoSQL injection via $ne object
+    const userExists = await User.findOne({ email: String(email) });
     if (userExists) {
       return res.status(409).json({ message: 'An account with this email address already exists. Please log in or use a different email.' });
     }
@@ -509,7 +510,8 @@ router.post('/login', authLimiter, ipBruteForceLimiter, async (req, res) => {
       return res.status(400).json({ message: 'Please enter both your email address and password.' });
     }
 
-    const user = await User.findOne({ email });
+    // Fix: Cast email to string to prevent NoSQL injection
+    const user = await User.findOne({ email: String(email) });
     if (!user) {
       await handleFailedLogin(req, null);
       return res.status(401).json({ message: 'Incorrect email address or password. Please try again.' });
