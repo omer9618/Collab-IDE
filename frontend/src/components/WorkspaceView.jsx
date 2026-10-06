@@ -516,7 +516,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
   const monacoRef = useRef(null);
   const [ydoc, setYdoc] = useState(null);
   const [provider, setProvider] = useState(null);
-  const monacoBindingRef = useRef(null);
+  const fileModelsRef = useRef({});
   const voiceSocketRef = useRef(null);
   const peerConnectionsRef = useRef(new Map()); // socketId -> RTCPeerConnection
   const roomRef = useRef(null);
@@ -705,9 +705,15 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     });
 
     return () => {
-      if (monacoBindingRef.current) {
-        monacoBindingRef.current.destroy();
-        monacoBindingRef.current = null;
+      if (fileModelsRef.current) {
+        Object.values(fileModelsRef.current).forEach(data => {
+          if (data.binding) {
+            if (data.isReadOnlyBinding) data.ytext?.unobserve(data.binding);
+            else if (typeof data.binding.destroy === 'function') data.binding.destroy();
+          }
+          if (data.model) data.model.dispose();
+        });
+        fileModelsRef.current = {};
       }
       yfilesInstance.unobserve(updateFilesFromYjs);
       providerInstance.off('connection-close', handleConnectionClose);
@@ -959,53 +965,88 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
   };
 
   const bindEditorModel = (fileName) => {
-    if (!editorRef.current || !ydoc || !provider) return;
-
-    const ytext = ydoc.getText(`${roomUuid}:${fileName}`);
+    if (!editorRef.current || !ydoc || !provider || !monacoRef.current) return;
 
     const editor = editorRef.current;
-    const model = editor.getModel();
-    if (!model) return;
-    model.setEOL(0); // Enforce LF line endings (0) to prevent cursor offset misalignment between CRLF and LF clients
-
-    // Instant update of language highlighting for current model (FR-23)
-    const activeLangId = fileLanguages[fileName] || getDefaultLanguage(fileName);
-    const langConfig = SUPPORTED_LANGUAGES.find((l) => l.id === activeLangId) || SUPPORTED_LANGUAGES[0];
-    if (monacoRef.current && langConfig) {
-      monacoRef.current.editor.setModelLanguage(model, langConfig.monaco);
-    }
-
+    const monaco = monacoRef.current;
+    const ytext = ydoc.getText(`${roomUuid}:${fileName}`);
     const isReadOnly = room?.isClosed || role === 'Viewer' || (editorOnlyMode && role === 'Editor' && !inVoice);
 
-    if (monacoBindingRef.current) {
-      if (typeof monacoBindingRef.current.destroy === 'function') {
-        monacoBindingRef.current.destroy();
-      } else {
-        ytext.unobserve(monacoBindingRef.current);
+    if (!fileModelsRef.current[fileName]) {
+      const activeLangId = fileLanguages[fileName] || getDefaultLanguage(fileName);
+      const langConfig = SUPPORTED_LANGUAGES.find((l) => l.id === activeLangId) || SUPPORTED_LANGUAGES[0];
+      
+      const uri = monaco.Uri.parse(`file:///${fileName}`);
+      let model = monaco.editor.getModel(uri);
+      if (!model) {
+        model = monaco.editor.createModel(ytext.toString(), langConfig.monaco, uri);
       }
-      monacoBindingRef.current = null;
+      model.setEOL(0); // Enforce LF line endings
+
+      let binding = null;
+      if (isReadOnly) {
+        binding = () => {
+          const text = ytext.toString();
+          if (model.getValue() !== text) {
+            model.setValue(text);
+          }
+        };
+        binding();
+        ytext.observe(binding);
+      } else {
+        import('y-monaco').then(({ MonacoBinding }) => {
+          if (!fileModelsRef.current[fileName]) return;
+          binding = new MonacoBinding(
+            ytext,
+            model,
+            new Set([editor]),
+            provider.awareness
+          );
+          fileModelsRef.current[fileName].binding = binding;
+        });
+      }
+      fileModelsRef.current[fileName] = { model, binding, isReadOnlyBinding: isReadOnly, ytext };
+    } else {
+      // Re-evaluate binding if role changed
+      const fileData = fileModelsRef.current[fileName];
+      if (fileData.isReadOnlyBinding !== isReadOnly) {
+        if (fileData.binding) {
+          if (fileData.isReadOnlyBinding) fileData.ytext.unobserve(fileData.binding);
+          else if (typeof fileData.binding.destroy === 'function') fileData.binding.destroy();
+        }
+        let binding = null;
+        if (isReadOnly) {
+          binding = () => {
+            const text = ytext.toString();
+            if (fileData.model.getValue() !== text) {
+              fileData.model.setValue(text);
+            }
+          };
+          binding();
+          ytext.observe(binding);
+          fileData.binding = binding;
+        } else {
+          import('y-monaco').then(({ MonacoBinding }) => {
+            if (!fileModelsRef.current[fileName]) return;
+            binding = new MonacoBinding(
+              ytext,
+              fileData.model,
+              new Set([editor]),
+              provider.awareness
+            );
+            fileModelsRef.current[fileName].binding = binding;
+          });
+        }
+        fileData.isReadOnlyBinding = isReadOnly;
+      }
     }
 
-    if (isReadOnly) {
-      const updateModel = () => {
-        const text = ytext.toString();
-        if (model.getValue() !== text) {
-          model.setValue(text);
-        }
-      };
-      updateModel();
-      ytext.observe(updateModel);
-      monacoBindingRef.current = updateModel;
-    } else {
-      import('y-monaco').then(({ MonacoBinding }) => {
-        if (monacoBindingRef.current) return;
-        monacoBindingRef.current = new MonacoBinding(
-          ytext,
-          model,
-          new Set([editor]),
-          provider.awareness
-        );
-      });
+    const fileData = fileModelsRef.current[fileName];
+    if (fileData && fileData.model) {
+      editor.setModel(fileData.model);
+      const activeLangId = fileLanguages[fileName] || getDefaultLanguage(fileName);
+      const langConfig = SUPPORTED_LANGUAGES.find((l) => l.id === activeLangId) || SUPPORTED_LANGUAGES[0];
+      monaco.editor.setModelLanguage(fileData.model, langConfig.monaco);
     }
   };
 
