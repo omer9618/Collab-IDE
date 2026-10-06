@@ -507,6 +507,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
 
   // Code run/output
   const [outputLines, setOutputLines] = useState([]);
+  const [stdinVal, setStdinVal] = useState('');
   const [isRunning, setIsRunning] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
@@ -1091,7 +1092,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
 
     try {
       const code = editorRef.current.getValue();
-      const result = await apiRunCode(roomUuid, { code, language: langConfig.id });
+      const result = await apiRunCode(roomUuid, { code, language: langConfig.id, stdin: stdinVal });
 
       const newLines = [];
       if (result.stdout) newLines.push({ text: result.stdout, type: 'success' });
@@ -2392,25 +2393,36 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
 
               <div className="flex-1 p-2 font-code text-[9.5px] overflow-hidden bg-[#0d0e0f] flex flex-col">
                 {consoleTab === 'output' && (
-                  <div className="text-on-surface overflow-y-auto flex-1 p-1">
-                    {outputLines.length === 0 ? (
-                      <div className="text-on-surface-muted italic">Click Run to compile code.</div>
-                    ) : (
-                      outputLines.map((line, idx) => (
-                        <div
-                          key={idx}
-                          className={`output-line ${
-                            line.type === 'success'
-                              ? 'text-accent-green'
-                              : line.type === 'err'
-                              ? 'text-accent-red font-semibold'
-                              : 'text-on-surface-muted'
-                          } mt-1`}
-                        >
-                          {line.text}
-                        </div>
-                      ))
-                    )}
+                  <div className="flex flex-col flex-1 h-full gap-2 p-1">
+                    <div className="flex-1 overflow-y-auto text-on-surface">
+                      {outputLines.length === 0 ? (
+                        <div className="text-on-surface-muted italic">Click Run to compile code.</div>
+                      ) : (
+                        outputLines.map((line, idx) => (
+                          <div
+                            key={idx}
+                            className={`output-line ${
+                              line.type === 'success'
+                                ? 'text-accent-green'
+                                : line.type === 'err'
+                                ? 'text-accent-red font-semibold'
+                                : 'text-on-surface-muted'
+                            } mt-1`}
+                          >
+                            {line.text}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div className="shrink-0 pt-2 border-t border-outline/30">
+                      <div className="text-[10px] text-on-surface-muted font-bold mb-1 uppercase tracking-wider">Standard Input (stdin)</div>
+                      <textarea
+                        className="w-full h-16 bg-[#1e1e1e] border border-outline/50 rounded-md text-[11px] text-on-surface p-1.5 focus:border-accent-blue outline-none resize-none font-mono"
+                        placeholder="Provide inputs for prompts (e.g. scanf, input()) here..."
+                        value={stdinVal}
+                        onChange={(e) => setStdinVal(e.target.value)}
+                      />
+                    </div>
                   </div>
                 )}
 

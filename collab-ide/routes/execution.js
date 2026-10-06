@@ -175,9 +175,9 @@ async function submitToJudge0({ languageId, sourceCode, stdin }) {
  * @function getMockResult
  * @param {string} languageKey - Language identifier
  * @param {string} sourceCode - Submitted code
- * @returns {{ stdout: string, stderr: string, status: { description: string }, time: string|null, memory: number|null }}
+ * @param {string} [stdin] - Standard input
  */
-function getMockResult(languageKey, sourceCode) {
+function getMockResult(languageKey, sourceCode, stdin) {
   // Simulate a timeout for code containing 'while True' or 'for(;;)'
   if (/while\s*\(\s*true\s*\)/i.test(sourceCode) || /while\s+True/.test(sourceCode)) {
     return {
@@ -211,7 +211,7 @@ function getMockResult(languageKey, sourceCode) {
   };
 
   return {
-    stdout: outputs[languageKey] || 'Program executed successfully.\n',
+    stdout: (outputs[languageKey] || 'Program executed successfully.\n') + (stdin ? `\n[Mock Stdin Received: ${stdin}]\n` : ''),
     stderr: '',
     status: { description: 'Accepted' },
     time: (Math.random() * 0.1 + 0.01).toFixed(3),
@@ -288,7 +288,7 @@ router.post('/:uuid/run', protect, execLimiter, async (req, res) => {
     } else if (isMock) {
       // Small simulated delay for realism in mock mode
       await new Promise(r => setTimeout(r, 300 + Math.random() * 400));
-      rawResult = getMockResult(languageKey, code);
+      rawResult = getMockResult(languageKey, code, stdin);
     } else {
       rawResult = await submitToJudge0({
         languageId: langEntry.id,
