@@ -136,6 +136,9 @@ async function submitToJudge0({ languageId, sourceCode, stdin }) {
   const res = await fetch(`${apiUrl}/submissions?base64_encoded=true&wait=true`, {
     method: 'POST',
     headers,
+    // Provide a 15-second network timeout (12s Judge0 wall limit + 3s buffer) to prevent
+    // event-loop exhaustion if the external API blackholes the TCP connection.
+    signal: AbortSignal.timeout(15000),
     body: JSON.stringify({
       language_id: languageId,
       source_code: base64Code,
