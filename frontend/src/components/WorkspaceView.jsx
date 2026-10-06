@@ -684,6 +684,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     };
     providerInstance.on('connection-close', handleConnectionClose);
 
+    let lastUsersJson = '';
     providerInstance.awareness.on('change', () => {
       const states = providerInstance.awareness.getStates();
       setOnlineCount(states.size);
@@ -694,7 +695,15 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
           usersMap.set(state.user.id, state.user);
         }
       });
-      setActiveWorkspaceUsers(Array.from(usersMap.values()));
+      
+      const nextUsers = Array.from(usersMap.values());
+      const nextUsersJson = JSON.stringify(nextUsers);
+      
+      // Prevent React re-render storms on remote cursor movements (NFR-04)
+      if (nextUsersJson !== lastUsersJson) {
+        lastUsersJson = nextUsersJson;
+        setActiveWorkspaceUsers(nextUsers);
+      }
     });
 
     const ychat = yDocInstance.getArray(`${roomUuid}:chat`);
