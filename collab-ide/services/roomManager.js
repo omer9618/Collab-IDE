@@ -133,6 +133,7 @@ class RoomSession {
     // Debounced persistence state
     this.saveTimer = null;
     this.isSaving = false;
+    this.lastSaveTime = Date.now();
 
     // Room-level diagnostics & telemetry
     this.createdAt = new Date();
@@ -548,16 +549,26 @@ class RoomSession {
 
   /**
    * Schedules a debounced database write for this room document (NFR-26).
+   * Incorporates a max-wait throttle to prevent starvation if activity is continuous (NFR-08).
    */
   scheduleSave() {
     if (this.isDestroyed) return;
+
+    const now = Date.now();
+    
+    // Force a save if 10 seconds have passed since the last save, even if activity never stops
+    if (now - this.lastSaveTime > 10000 && !this.isSaving) {
+      if (this.saveTimer) clearTimeout(this.saveTimer);
+      this.saveToDB();
+      return;
+    }
 
     if (this.saveTimer) {
       clearTimeout(this.saveTimer);
     }
 
-    this.saveTimer = setTimeout(async () => {
-      await this.saveToDB();
+    this.saveTimer = setTimeout(() => {
+      if (!this.isSaving) this.saveToDB();
     }, 2000);
   }
 
@@ -568,10 +579,11 @@ class RoomSession {
    * @returns {Promise<void>}
    */
   async saveToDB() {
-    if (this.isDestroyed) return;
+    if (this.isDestroyed || this.isSaving) return;
     this.isSaving = true;
     try {
       await saveRoomStateToDB(this.roomUuid, this.ydoc);
+      this.lastSaveTime = Date.now();
     } finally {
       this.isSaving = false;
     }
