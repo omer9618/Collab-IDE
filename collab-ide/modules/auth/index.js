@@ -12,7 +12,7 @@
  * - Express authentication and authorization route handlers and middleware
  */
 
-const jwt = require('jsonwebtoken');
+const { generateAccessToken, verifyAccessToken } = require('../../utils/jwt');
 const authRoutes = require('../../routes/auth');
 const authMiddleware = require('../../middleware/auth');
 const passwordPolicy = require('../../utils/passwordPolicy');
@@ -21,33 +21,7 @@ const User = require('../../models/User');
 const RefreshToken = require('../../models/RefreshToken');
 const IpBlock = require('../../models/IpBlock');
 
-/**
- * Generates an asymmetric RS256 access token for an authenticated user ID.
- *
- * @function generateAccessToken
- * @param {string} userId - User identifier
- * @param {object} [options={}] - Custom options (e.g. expiresIn)
- * @returns {string} Signed RS256 JWT
- */
-function generateAccessToken(userId, options = {}) {
-  const expiresIn = options.expiresIn || process.env.JWT_EXPIRES_IN || '15m';
-  return jwt.sign(
-    { userId, type: 'access' },
-    keys.privateKey,
-    { algorithm: 'RS256', expiresIn }
-  );
-}
 
-/**
- * Verifies an RS256 access token against the server's public key.
- *
- * @function verifyAccessToken
- * @param {string} token - Bearer JWT token
- * @returns {object} Decoded token payload
- */
-function verifyAccessToken(token) {
-  return jwt.verify(token, keys.publicKey, { algorithms: ['RS256'] });
-}
 
 /**
  * Validates a plaintext password against the strict CollabIDE policy (NFR-11).

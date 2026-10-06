@@ -16,7 +16,7 @@
 
 const crypto = require('crypto');
 const express = require('express');
-const jwt = require('jsonwebtoken');
+const { generateAccessToken } = require('../utils/jwt');
 const rateLimit = require('express-rate-limit');
 const { generateCsrfToken, setCsrfCookie, clearCsrfCookie } = require('../middleware/csrf');
 const bcrypt = require('bcrypt');
@@ -59,24 +59,7 @@ const verifyLimiter = rateLimit({
   },
 });
 
-/**
- * Generates an asymmetric RS256 JWT access token with 15-minute expiration (NFR-12, NFR-13).
- *
- * SECURITY REASONING:
- * Uses RS256 with the private key to sign the token. Downstream microservices, WebSocket gateways,
- * and reverse proxies can verify authenticity using the public key alone without possessing the private key.
- * The short 15-minute lifetime minimizes the impact of token interception.
- *
- * @function generateAccessToken
- * @param {string|import('mongoose').Types.ObjectId} userId - User identifier
- * @returns {string} Signed RS256 JWT string
- */
-function generateAccessToken(userId) {
-  return jwt.sign({ userId, type: 'access' }, privateKey, {
-    algorithm: 'RS256',
-    expiresIn: '15m',
-  });
-}
+
 
 /**
  * Sets the Refresh Token HttpOnly cookie with strict security flags (FR-02, NFR-12).
