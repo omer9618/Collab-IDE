@@ -182,7 +182,9 @@ export function useVoiceRoom({ roomUuid, showToast }) {
         transports: ['websocket'],
         forceNew: true,
         timeout: 10000,
-        reconnection: false,
+        reconnection: true,
+        reconnectionDelay: 1000, // NFR-07: initial 1s backoff
+        reconnectionDelayMax: 30000, // NFR-07: max 30s backoff
       });
       voiceSocketRef.current = socket;
 

@@ -608,6 +608,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
 
     const providerInstance = new WebsocketProvider(wsUrl, roomUuid, yDocInstance, {
       params: { token: getToken() },
+      maxBackoffTime: 30000, // NFR-07: max 30s backoff for CRDT sync
     });
     setProvider(providerInstance);
 
