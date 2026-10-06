@@ -56,7 +56,7 @@ const LANGUAGE_MAP = {
 const JUDGE0_LIMITS = {
   cpu_time_limit:       10.0,    // Max 10 CPU seconds per run
   wall_time_limit:      12.0,    // Max 12 wall-clock seconds before timeout kill
-  memory_limit:         131072,  // Max 128 MB RAM allocation (128 * 1024)
+  memory_limit:         128000,  // Max 128 MB RAM allocation
   max_file_size:        64,      // Max 64 KB stdout/stderr buffer to prevent memory exhaustion
 };
 

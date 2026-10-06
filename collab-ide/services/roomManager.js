@@ -41,8 +41,8 @@ const logger = require('../utils/logger');
 const MAX_WS_FRAME_BYTES = 512 * 1024;
 
 // Maximum messages per second per WebSocket client to prevent CPU / event loop spikes
-const MAX_MSGS_PER_SEC_PER_CLIENT = 300;
-const FLOOD_THRESHOLD_PER_SEC = 1000;
+const MAX_MSGS_PER_SEC_PER_CLIENT = 100;
+const FLOOD_THRESHOLD_PER_SEC = 300;
 
 /**
  * Persists live in-memory Yjs document state and files to MongoDB (NFR-26, NFR-52).
