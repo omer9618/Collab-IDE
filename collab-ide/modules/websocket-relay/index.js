@@ -224,8 +224,19 @@ function initWebSocketRelay(options = {}) {
       ? () => options.maxWsPerRoom
       : getMaxWsPerRoom;
 
-  // Initialize or adopt WebSocket server
-  const wss = options.wss || new WebSocket.Server({ noServer: true });
+  // Initialize or adopt WebSocket server with compression for sub-200ms latency (NFR-01)
+  const wss = options.wss || new WebSocket.Server({ 
+    noServer: true,
+    perMessageDeflate: {
+      zlibDeflateOptions: { chunkSize: 1024, memLevel: 7, level: 3 },
+      zlibInflateOptions: { chunkSize: 10 * 1024 },
+      clientNoContextTakeover: true,
+      serverNoContextTakeover: true,
+      serverMaxWindowBits: 10,
+      concurrencyLimit: 10,
+      threshold: 1024,
+    }
+  });
   const activeDocs = createActiveDocsProxy(manager);
 
   // NFR-53: Configure distributed Pub/Sub adapter if supplied
@@ -301,6 +312,10 @@ function initWebSocketRelay(options = {}) {
       request.roomUuid = authResult.roomUuid;
 
       // Complete protocol upgrade
+      // NFR-01: Explicitly disable Nagle's algorithm for sub-200ms real-time sync latency
+      if (socket.setNoDelay) {
+        socket.setNoDelay(true);
+      }
       wss.handleUpgrade(request, socket, head, (ws) => {
         wss.emit('connection', ws, request);
       });
