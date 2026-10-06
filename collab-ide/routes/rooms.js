@@ -207,19 +207,24 @@ router.get('/presence', protect, apiLimiter, async (req, res) => {
  */
 router.get('/:uuid', protect, apiLimiter, async (req, res) => {
   try {
-    const room = await Room.findOne({ uuid: req.params.uuid })
+    const roomExists = await Room.exists({ uuid: req.params.uuid });
+    if (!roomExists) {
+      return res.status(404).json({ message: 'The requested room could not be found.' });
+    }
+
+    const room = await Room.findOne({ 
+      uuid: req.params.uuid, 
+      'participants.user': req.user._id 
+    })
       .populate('owner', 'displayName email')
       .populate('participants.user', 'displayName email avatarColor');
 
     if (!room) {
-      return res.status(404).json({ message: 'The requested room could not be found.' });
-    }
-
-    // Security: Verify user is a member of the room before returning project files
-    const myRole = getMemberRole(room, req.user._id);
-    if (!myRole) {
       return res.status(403).json({ message: 'You do not have access to this room. Please request an invite to join.' });
     }
+
+    // Security: Extract role from the safely fetched document
+    const myRole = getMemberRole(room, req.user._id);
 
     res.json({
       room,
@@ -243,7 +248,7 @@ router.get('/:uuid', protect, apiLimiter, async (req, res) => {
  */
 router.post('/:uuid/join', protect, apiLimiter, async (req, res) => {
   try {
-    const room = await Room.findOne({ uuid: req.params.uuid });
+    const room = await Room.findOne({ uuid: req.params.uuid }).select('-files');
 
     if (!room) {
       return res.status(404).json({ message: 'The requested room could not be found.' });
@@ -307,9 +312,12 @@ router.put('/:uuid/roles', protect, apiLimiter, async (req, res) => {
       return res.status(400).json({ message: 'The specified role is invalid. Allowed roles are: Owner, Room Leader, Editor, or Viewer.' });
     }
 
-    const room = await Room.findOne({ uuid: req.params.uuid });
+    const roomExists = await Room.exists({ uuid: req.params.uuid });
+    if (!roomExists) return res.status(404).json({ message: 'The requested room could not be found.' });
+
+    const room = await Room.findOne({ uuid: req.params.uuid, 'participants.user': req.user._id }).select('-files');
     if (!room) {
-      return res.status(404).json({ message: 'The requested room could not be found.' });
+      return res.status(403).json({ message: 'You do not have permission to view or manage roles in this room.' });
     }
 
     const requesterRole = getMemberRole(room, req.user._id);
@@ -387,9 +395,12 @@ router.put('/:uuid/roles', protect, apiLimiter, async (req, res) => {
  */
 router.post('/:uuid/roles/grant-all', protect, apiLimiter, async (req, res) => {
   try {
-    const room = await Room.findOne({ uuid: req.params.uuid });
+    const roomExists = await Room.exists({ uuid: req.params.uuid });
+    if (!roomExists) return res.status(404).json({ message: 'The requested room could not be found.' });
+
+    const room = await Room.findOne({ uuid: req.params.uuid, 'participants.user': req.user._id }).select('-files');
     if (!room) {
-      return res.status(404).json({ message: 'The requested room could not be found.' });
+      return res.status(403).json({ message: 'Only the room Owner or Room Leader can grant editor permissions.' });
     }
 
     const requesterRole = getMemberRole(room, req.user._id);
@@ -435,9 +446,12 @@ router.post('/:uuid/roles/grant-all', protect, apiLimiter, async (req, res) => {
  */
 router.post('/:uuid/roles/revoke-all', protect, apiLimiter, async (req, res) => {
   try {
-    const room = await Room.findOne({ uuid: req.params.uuid });
+    const roomExists = await Room.exists({ uuid: req.params.uuid });
+    if (!roomExists) return res.status(404).json({ message: 'The requested room could not be found.' });
+
+    const room = await Room.findOne({ uuid: req.params.uuid, 'participants.user': req.user._id }).select('-files');
     if (!room) {
-      return res.status(404).json({ message: 'The requested room could not be found.' });
+      return res.status(403).json({ message: 'Only the room Owner or Room Leader can revoke editor permissions.' });
     }
 
     const requesterRole = getMemberRole(room, req.user._id);
@@ -483,11 +497,12 @@ router.post('/:uuid/roles/revoke-all', protect, apiLimiter, async (req, res) => 
  */
 router.post('/:uuid/close', protect, apiLimiter, async (req, res) => {
   try {
-    const room = await Room.findOne({ uuid: req.params.uuid });
-    if (!room) return res.status(404).json({ message: 'The requested room could not be found.' });
+    const roomExists = await Room.exists({ uuid: req.params.uuid });
+    if (!roomExists) return res.status(404).json({ message: 'The requested room could not be found.' });
     
-    // Security: Only Owner can close the room
-    if (room.owner.toString() !== req.user._id.toString()) {
+    // Security: Only Owner can close the room, enforced at DB level
+    const room = await Room.findOne({ uuid: req.params.uuid, owner: req.user._id }).select('-files');
+    if (!room) {
       return res.status(403).json({ message: 'Only the room Owner can close this room.' });
     }
 
@@ -515,11 +530,12 @@ router.post('/:uuid/close', protect, apiLimiter, async (req, res) => {
  */
 router.post('/:uuid/open', protect, apiLimiter, async (req, res) => {
   try {
-    const room = await Room.findOne({ uuid: req.params.uuid });
-    if (!room) return res.status(404).json({ message: 'The requested room could not be found.' });
+    const roomExists = await Room.exists({ uuid: req.params.uuid });
+    if (!roomExists) return res.status(404).json({ message: 'The requested room could not be found.' });
     
-    // Security: Only Owner can reopen the room
-    if (room.owner.toString() !== req.user._id.toString()) {
+    // Security: Only Owner can reopen the room, enforced at DB level
+    const room = await Room.findOne({ uuid: req.params.uuid, owner: req.user._id }).select('-files');
+    if (!room) {
       return res.status(403).json({ message: 'Only the room Owner can re-open this room.' });
     }
 
@@ -548,11 +564,12 @@ router.post('/:uuid/open', protect, apiLimiter, async (req, res) => {
  */
 router.delete('/:uuid', protect, apiLimiter, async (req, res) => {
   try {
-    const room = await Room.findOne({ uuid: req.params.uuid });
-    if (!room) return res.status(404).json({ message: 'The requested room could not be found.' });
+    const roomExists = await Room.exists({ uuid: req.params.uuid });
+    if (!roomExists) return res.status(404).json({ message: 'The requested room could not be found.' });
     
-    // Security: Only Owner can delete the room
-    if (room.owner.toString() !== req.user._id.toString()) {
+    // Security: Only Owner can delete the room, enforced at DB level
+    const room = await Room.findOne({ uuid: req.params.uuid, owner: req.user._id }).select('-files');
+    if (!room) {
       return res.status(403).json({ message: 'Only the room Owner can delete this room.' });
     }
 
