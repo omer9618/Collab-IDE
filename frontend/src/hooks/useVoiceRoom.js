@@ -146,6 +146,7 @@ export function useVoiceRoom({ roomUuid, showToast }) {
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl: true,
+        latency: 0, // NFR-06: Instruct browser audio stack to prioritize low latency
         ...(selectedMicId ? { deviceId: { ideal: selectedMicId } } : {}),
       };
 
@@ -155,7 +156,7 @@ export function useVoiceRoom({ roomUuid, showToast }) {
       } catch (mediaErr) {
         if (selectedMicId && (mediaErr.name === 'OverconstrainedError' || mediaErr.name === 'NotFoundError')) {
           stream = await navigator.mediaDevices.getUserMedia({
-            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, latency: 0 },
             video: false,
           });
         } else {
