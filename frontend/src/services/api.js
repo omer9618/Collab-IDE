@@ -907,5 +907,31 @@ export async function getVoiceParticipants(uuid) {
   return data;
 }
 
+/**
+ * Manually force a save snapshot of the room's Y.Doc state to MongoDB (FR-37).
+ *
+ * @async
+ * @function forceRoomSnapshot
+ * @param {string} uuid - Room UUID
+ * @returns {Promise<object>} Status object
+ */
+export async function getRoomSnapshots(uuid) {
+  const res = await request(`/rooms/${uuid}/snapshots`);
+  const data = await safeJson(res);
+  if (!res.ok) throw new Error(data.message || 'Failed to fetch snapshots');
+  return data.snapshots;
+}
 
+export async function restoreRoomSnapshot(uuid, snapshotId) {
+  const res = await request(`/rooms/${uuid}/snapshots/${snapshotId}/restore`, { method: 'POST' });
+  const data = await safeJson(res);
+  if (!res.ok) throw new Error(data.message || 'Failed to restore snapshot');
+  return data;
+}
 
+export async function forceRoomSnapshot(uuid) {
+  const res = await request(`/rooms/${uuid}/snapshot`, { method: 'POST' });
+  const data = await safeJson(res);
+  if (!res.ok) throw new Error(data.message || 'Failed to save room snapshot');
+  return data;
+}

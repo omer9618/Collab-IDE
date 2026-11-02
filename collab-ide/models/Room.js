@@ -61,6 +61,14 @@ const executionResultSchema = new mongoose.Schema({
 });
 
 /**
+ * Stores historical snapshots of the Yjs document state (FR-38).
+ */
+const snapshotSchema = new mongoose.Schema({
+  createdAt: { type: Date, default: Date.now },
+  ydocState: { type: Buffer, required: true },
+});
+
+/**
  * Root Room schema definition.
  */
 const roomSchema = new mongoose.Schema(
@@ -92,6 +100,8 @@ const roomSchema = new mongoose.Schema(
       type: Buffer,
       default: null,
     },
+    // Historical snapshots of the Yjs state (FR-38)
+    snapshots: [snapshotSchema],
     // Last 20 execution results for this room (NFR-37 compliant — capped in route handler)
     executionHistory: [executionResultSchema],
     /**

@@ -36,6 +36,7 @@ const decoding = require('lib0/decoding');
 const WebSocket = require('ws');
 const Room = require('../models/Room');
 const logger = require('../utils/logger');
+const { evaluateUpdate, trimChatHistory, CHAT_TRIM_ORIGIN } = require('./yjsUpdateGuard');
 
 // Maximum payload size per WebSocket frame (512KB) to prevent memory allocation spikes
 const MAX_WS_FRAME_BYTES = 512 * 1024;
@@ -135,6 +136,11 @@ class RoomSession {
     this.isSaving = false;
     this.lastSaveTime = Date.now();
 
+    // FR-37: Automatic Snapshots every 10 minutes
+    this.snapshotTimer = setInterval(() => {
+      if (!this.isSaving) this.saveToDB();
+    }, 10 * 60 * 1000);
+
     // Room-level diagnostics & telemetry
     this.createdAt = new Date();
     this.lastActiveAt = new Date();
@@ -150,6 +156,24 @@ class RoomSession {
     // Auto-save on document modification
     this.ydoc.on('update', () => {
       this.scheduleSave();
+    });
+
+    // Server-originated chat trims (FR-34) are not relayed client frames, so they must be
+    // encoded and broadcast explicitly to local clients and other cluster nodes.
+    this.ydoc.on('update', (update, origin) => {
+      if (origin !== CHAT_TRIM_ORIGIN || this.isDestroyed) return;
+      const encoder = encoding.createEncoder();
+      encoding.writeVarUint(encoder, 0); // messageSync
+      syncProtocol.writeUpdate(encoder, update);
+      const frame = encoding.toUint8Array(encoder);
+      this.relay(null, frame, true);
+      if (this.pubsubAdapter) {
+        this.pubsubAdapter.publish(this.pubsubChannel, {
+          originNodeId: this.nodeId,
+          type: 'yjs_update',
+          payload: frame,
+        });
+      }
     });
   }
 
@@ -228,6 +252,9 @@ class RoomSession {
   addClient(ws, user, role) {
     ws.roomUuid = this.roomUuid;
     ws.userId = user._id.toString();
+    // Authoritative display name used to bind chat messages to the sender (FR-34).
+    // A profile rename recreates the client's provider, so this is refreshed on reconnect.
+    ws.displayName = typeof user.displayName === 'string' ? user.displayName : undefined;
     ws.role = role;
     ws.isAlive = true;
 
@@ -458,45 +485,36 @@ class RoomSession {
       const cleanData = new Uint8Array(dataLength);
       cleanData.set(rawData);
 
-      // ─── 3. VIEWER ROLE WRITE BARRIER (NFR-18) ─────────────────────────────
-      if (ws.role === 'Viewer') {
-        const isWrite =
-          cleanData &&
-          cleanData.length > 1 &&
-          cleanData[0] === 0 &&
-          (cleanData[1] === 1 || cleanData[1] === 2);
+      // ─── 3. WRITE BARRIER: VIEWER READ-ONLY (NFR-18) + CHAT INTEGRITY (FR-34) ─
+      // Every SyncStep2 (1) / Update (2) frame is resolved against the server document so that
+      // Viewers can only append chat entries and chat entries are bound to the sender's identity.
+      let touchesChat = false;
+      const isWrite =
+        cleanData.length > 1 && cleanData[0] === 0 && (cleanData[1] === 1 || cleanData[1] === 2);
 
-        if (isWrite) {
-          try {
-            const decoder = decoding.createDecoder(cleanData);
-            decoding.readVarUint(decoder); // skip messageSync (0)
-            const msgType = decoding.readVarUint(decoder);
+      if (isWrite) {
+        // Malformed frames throw here and are handled by the room error boundary below (NFR-52).
+        const decoder = decoding.createDecoder(cleanData);
+        decoding.readVarUint(decoder); // skip messageSync (0)
+        decoding.readVarUint(decoder); // skip sync message type (1 | 2)
+        const extractedUpdate = decoding.readVarUint8Array(decoder);
+        const verdict = evaluateUpdate(extractedUpdate, this.ydoc, {
+          roomUuid: this.roomUuid,
+          role: ws.role,
+          userId: ws.userId,
+          displayName: ws.displayName,
+        });
 
-            if (msgType === 1 || msgType === 2) {
-              const extractedUpdate = decoding.readVarUint8Array(decoder);
-              const decoded = Y.decodeUpdate(extractedUpdate);
-
-              // Allow chat messages, drop file mutations
-              const isEditingFile = decoded.structs.some((struct) => {
-                const parent = struct.parent;
-                return typeof parent === 'string' && !parent.endsWith(':chat');
-              });
-
-              if (isEditingFile) {
-                // Drop write silently for Viewers
-                return;
-              }
-            } else {
-              return;
-            }
-          } catch (err) {
-            logger.error('Error parsing Viewer write check: ' + err.message, {
-              userId: ws.userId,
-              roomId: this.roomUuid,
-            });
-            return;
-          }
+        if (!verdict.allowed) {
+          // Dropped without relay or persistence; legitimate clients never produce these frames.
+          logger.warn('Rejected collaborative update: ' + verdict.reason, {
+            userId: ws.userId,
+            roomId: this.roomUuid,
+            role: ws.role,
+          });
+          return;
         }
+        touchesChat = verdict.touchesChat;
       }
 
       // ─── 4. CRDT DOCUMENT UPDATE & RELAY ───────────────────────────────────
@@ -526,6 +544,11 @@ class RoomSession {
           type: 'yjs_update',
           payload: cleanData,
         });
+      }
+
+      // FR-34: bound persisted chat history (relayed after the triggering frame to keep ordering)
+      if (touchesChat) {
+        trimChatHistory(this.ydoc, this.roomUuid);
       }
     } catch (err) {
       this.errorCount++;
@@ -601,6 +624,11 @@ class RoomSession {
     if (this.saveTimer) {
       clearTimeout(this.saveTimer);
       this.saveTimer = null;
+    }
+
+    if (this.snapshotTimer) {
+      clearInterval(this.snapshotTimer);
+      this.snapshotTimer = null;
     }
 
     // Perform final state persistence unless explicitly skipped (e.g. unit tests)

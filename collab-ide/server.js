@@ -116,6 +116,27 @@ app.use((req, res, next) => {
 });
 
 // Global Middlewares
+const helmet = require('helmet');
+app.use(helmet({
+  hsts: true,
+  noSniff: true,
+  frameguard: { action: 'deny' },
+  referrerPolicy: { policy: 'no-referrer' },
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.tailwindcss.com", "https://accounts.google.com", "https://unpkg.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      connectSrc: ["'self'", "ws:", "wss:", "http:", "https:"],
+      frameSrc: ["'self'", "https://accounts.google.com"],
+      workerSrc: ["'self'", "blob:"],
+      childSrc: ["'self'", "blob:"],
+    }
+  }
+}));
+
 app.use(cors({
   origin: true,
   credentials: true

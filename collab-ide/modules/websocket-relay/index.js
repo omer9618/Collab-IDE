@@ -270,6 +270,7 @@ function initWebSocketRelay(options = {}) {
   global.broadcastRoomParticipants = broadcastRoomParticipants;
   global.getRoomPresence = getRoomPresence;
   global.updateClientRoleInMemory = updateClientRoleInMemory;
+  global.roomManager = manager;
 
   // HTTP Upgrade Request Handler
   const handleUpgrade = async (request, socket, head) => {

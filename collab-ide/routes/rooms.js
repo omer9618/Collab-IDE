@@ -357,6 +357,8 @@ router.put('/:uuid/roles', protect, apiLimiter, async (req, res) => {
       return res.status(400).json({ message: "The room Owner's role cannot be changed." });
     }
 
+    const bulkOps = [];
+
     // Security Rule 3: Single Leader Invariant — demote former Room Leader when a new one is selected
     if (newRole === 'Room Leader') {
       room.participants.forEach(p => {
@@ -365,6 +367,12 @@ router.put('/:uuid/roles', protect, apiLimiter, async (req, res) => {
           if (global.updateClientRoleInMemory) {
             global.updateClientRoleInMemory(room.uuid, p.user.toString(), 'Editor');
           }
+          bulkOps.push({
+            updateOne: {
+              filter: { _id: room._id, 'participants.user': p.user },
+              update: { $set: { 'participants.$.role': 'Editor' } }
+            }
+          });
         }
       });
     }
@@ -378,11 +386,15 @@ router.put('/:uuid/roles', protect, apiLimiter, async (req, res) => {
       global.updateClientRoleInMemory(room.uuid, targetUserId, newRole);
     }
 
-    // Atomic database update using positional operator to prevent array index shifting bugs
-    await Room.updateOne(
-      { _id: room._id, 'participants.user': targetUserId },
-      { $set: { 'participants.$.role': newRole } }
-    );
+    bulkOps.push({
+      updateOne: {
+        filter: { _id: room._id, 'participants.user': targetUserId },
+        update: { $set: { 'participants.$.role': newRole } }
+      }
+    });
+
+    // Atomic database update using bulkWrite to prevent array index shifting bugs and handle multiple updates
+    await Room.bulkWrite(bulkOps);
 
     // Broadcast updated roster to all connected room clients
     if (global.broadcastRoomParticipants) {
@@ -570,6 +582,106 @@ router.post('/:uuid/open', protect, apiLimiter, async (req, res) => {
     res.json({ message: 'Room opened successfully', room });
   } catch (error) {
     return sendPlainEnglishError(res, error, 'An error occurred while opening the room. Please try again.');
+  }
+});
+
+/**
+ * @route   POST /api/rooms/:uuid/snapshot
+ * @desc    Manually trigger a save snapshot of the room's Y.Doc state to MongoDB (FR-37).
+ * @access  Private (Owner only)
+ */
+router.post('/:uuid/snapshot', protect, apiLimiter, async (req, res) => {
+  try {
+    const roomExists = await Room.exists({ uuid: req.params.uuid });
+    if (!roomExists) return res.status(404).json({ message: 'The requested room could not be found.' });
+
+    // Security: Only Owner can manually trigger a snapshot
+    const room = await Room.findOne({ uuid: req.params.uuid, owner: req.user._id }).select('uuid');
+    if (!room) {
+      return res.status(403).json({ message: 'Only the room Owner can trigger a manual snapshot.' });
+    }
+
+    if (global.roomManager) {
+      const session = global.roomManager.getRoom(req.params.uuid);
+      if (session) {
+        await session.saveToDB(); // Sync current state
+        
+        const updatedRoom = await Room.findOne({ uuid: req.params.uuid }).select('ydocState');
+        if (updatedRoom && updatedRoom.ydocState) {
+          await Room.updateOne(
+            { uuid: req.params.uuid },
+            { 
+              $push: { 
+                snapshots: { 
+                  $each: [{ ydocState: updatedRoom.ydocState }],
+                  $slice: -20
+                } 
+              } 
+            }
+          );
+        }
+        
+        return res.json({ message: 'Room snapshot saved successfully.' });
+      }
+    }
+
+    res.status(400).json({ message: 'Room is not currently active in memory.' });
+  } catch (error) {
+    return sendPlainEnglishError(res, error, 'An error occurred while saving the snapshot. Please try again.');
+  }
+});
+
+/**
+ * @route   GET /api/rooms/:uuid/snapshots
+ * @desc    Get the list of snapshots for a room
+ * @access  Private (Owner only)
+ */
+router.get('/:uuid/snapshots', protect, async (req, res) => {
+  try {
+    const room = await Room.findOne({ uuid: req.params.uuid, owner: req.user._id }).select('snapshots.createdAt snapshots._id');
+    if (!room) {
+      return res.status(403).json({ message: 'Only the room Owner can view snapshots.' });
+    }
+    return res.json({ snapshots: room.snapshots || [] });
+  } catch (error) {
+    return sendPlainEnglishError(res, error, 'Failed to fetch snapshots.');
+  }
+});
+
+/**
+ * @route   POST /api/rooms/:uuid/snapshots/:snapshotId/restore
+ * @desc    Restore a room to a specific snapshot
+ * @access  Private (Owner only)
+ */
+router.post('/:uuid/snapshots/:snapshotId/restore', protect, apiLimiter, async (req, res) => {
+  try {
+    const room = await Room.findOne({ uuid: req.params.uuid, owner: req.user._id });
+    if (!room) {
+      return res.status(403).json({ message: 'Only the room Owner can restore snapshots.' });
+    }
+
+    const snapshot = room.snapshots.id(req.params.snapshotId);
+    if (!snapshot) {
+      return res.status(404).json({ message: 'Snapshot not found.' });
+    }
+
+    // Overwrite the current ydocState with the snapshot's ydocState
+    room.ydocState = snapshot.ydocState;
+    await room.save();
+
+    // Kill the active room session in memory so it re-syncs from DB
+    if (global.roomManager) {
+      const session = global.roomManager.getRoom(req.params.uuid);
+      if (session) {
+        // Destroy the session, this closes all WebSockets with code 1001
+        await session.destroy(true); // pass true to skip persistence of the old state
+        global.roomManager.rooms.delete(req.params.uuid);
+      }
+    }
+
+    return res.json({ message: 'Room restored successfully. Clients will reconnect.' });
+  } catch (error) {
+    return sendPlainEnglishError(res, error, 'Failed to restore snapshot.');
   }
 });
 

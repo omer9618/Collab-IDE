@@ -57,3 +57,9 @@
 - Take a backup or confirm one exists before any migration or bulk data change. Test migrations on non-production data first.
 - Never touch production resources, real user data, or paid external services without explicit approval.
 - Make operations idempotent where possible so retries are safe.
+
+## CollabIDE Custom Testing Patterns
+- **NFR-Centric Verification**: Explicitly verify Non-Functional Requirements (NFRs) using structured, numbered phase-based integration testing flows.
+- **Aggressive Fault & Boundary Isolation**: Stress-test extreme edge cases by artificially simulating resource exhaustion (e.g., maximum allowed connections), malformed payloads, message flooding, and abrupt socket terminations.
+- **Horizontal Scale Awareness**: Tests must validate distributed system consistency, ensuring components (like WebSockets and CRDT synchronization) function across process boundaries via message brokers like Redis, not just single-process memory.
+- **Native Lightweight Assertions**: Default to using simple native `assert(condition, message)` implementations with emoji-based (`✅ PASS` / `❌ FAIL`) counter tracking instead of introducing heavy testing frameworks.

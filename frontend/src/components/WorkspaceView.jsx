@@ -20,6 +20,9 @@ import {
   openRoom,
   deleteRoom,
   updateProfile,
+  forceRoomSnapshot,
+  getRoomSnapshots,
+  restoreRoomSnapshot,
 } from '../services/api';
 import {
   MONOSPACE_FONT_STACK,
@@ -298,6 +301,12 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
   const [room, setRoom] = useState(null);
   const [joinedRooms, setJoinedRooms] = useState([]);
   const [showRoomDropdown, setShowRoomDropdown] = useState(false);
+  
+  // FR-38: Snapshots
+  const [leftPanelTab, setLeftPanelTab] = useState('explorer');
+  const [snapshots, setSnapshots] = useState([]);
+  const [isSnapshotsLoading, setIsSnapshotsLoading] = useState(false);
+  const [restoreSnapshotId, setRestoreSnapshotId] = useState(null);
 
   useEffect(() => {
     getRooms().then(rooms => setJoinedRooms(rooms)).catch(console.error);
@@ -675,7 +684,7 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
       }
     });
 
-    const handleConnectionClose = ([event]) => {
+    const handleConnectionClose = (event, ws) => {
       if (event && (event.code === 1008 || (typeof event.reason === 'string' && (event.reason.includes('capacity') || event.reason.includes('limit'))))) {
         console.warn('[WS] Connection closed due to room capacity:', event.reason);
         providerInstance.shouldConnect = false;
@@ -849,7 +858,11 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     });
 
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-      showToast('Workspace automatically synchronized via Yjs CRDT', 'info');
+      if (window._collabIdeRole === 'Owner') {
+        handleManualSnapshot();
+      } else {
+        showToast('Workspace changes are saved automatically.', 'info');
+      }
     });
 
     // Enforce read-only behavior by intercepting keyboard events, bypassing y-monaco readOnly lock issues
@@ -1249,10 +1262,14 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
         e.preventDefault();
         handleRunCode();
       }
-      // Primary + S: Intercept browser Save Page dialog & confirm Yjs sync
+      // Primary + S: Intercept browser Save Page dialog & trigger snapshot or inform
       else if (isPrimaryMod && e.key && e.key.toLowerCase() === 's') {
         e.preventDefault();
-        showToast('Workspace automatically synchronized via Yjs CRDT', 'info');
+        if (role === 'Owner') {
+          handleManualSnapshot();
+        } else {
+          showToast('Workspace changes are saved automatically.', 'info');
+        }
       }
       // Alt + N: New File
       else if (e.altKey && e.key && e.key.toLowerCase() === 'n') {
@@ -1610,6 +1627,58 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
     }
   };
 
+  // FR-37: Manual Snapshot Trigger
+  async function handleManualSnapshot() {
+    try {
+      showToast('Saving workspace...', 'info');
+      await forceRoomSnapshot(roomUuid);
+      showToast('Workspace saved.', 'success');
+      if (leftPanelTab === 'snapshots') loadSnapshots();
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to save workspace', 'error');
+    }
+  }
+
+  const loadSnapshots = async () => {
+    setIsSnapshotsLoading(true);
+    try {
+      const data = await getRoomSnapshots(roomUuid);
+      setSnapshots(data || []);
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to load snapshots', 'error');
+    } finally {
+      setIsSnapshotsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (leftPanelTab === 'snapshots' && role === 'Owner') {
+      loadSnapshots();
+    }
+  }, [leftPanelTab, role, roomUuid]);
+
+  const handleRestoreSnapshot = async () => {
+    if (!restoreSnapshotId) return;
+    try {
+      showToast('Restoring snapshot...', 'info');
+      if (provider) {
+        provider.disconnect();
+      }
+      await restoreRoomSnapshot(roomUuid, restoreSnapshotId);
+      showToast('Snapshot restored! Reloading...', 'success');
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to restore snapshot', 'error');
+      if (provider && !provider.shouldConnect) {
+        provider.connect();
+      }
+    } finally {
+      setRestoreSnapshotId(null);
+    }
+  };
 
   // Chat message sender
   const handleSendChat = () => {
@@ -1911,13 +1980,30 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
           <div className="flex flex-col gap-2 w-full items-center">
             <button
               className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
-                sidebarOpen ? 'bg-[#1c2b41]/60 text-[#9fcaff]' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover'
+                sidebarOpen && leftPanelTab === 'explorer' ? 'bg-[#1c2b41]/60 text-[#9fcaff]' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover'
               }`}
-              onClick={() => setSidebarOpen(!sidebarOpen)}
+              onClick={() => {
+                if (sidebarOpen && leftPanelTab === 'explorer') setSidebarOpen(false);
+                else { setSidebarOpen(true); setLeftPanelTab('explorer'); }
+              }}
               title="Explorer"
             >
               <Folder size={18} strokeWidth={2.5} />
             </button>
+            {role === 'Owner' && (
+              <button
+                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                  sidebarOpen && leftPanelTab === 'snapshots' ? 'bg-[#1c2b41]/60 text-[#9fcaff]' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-hover'
+                }`}
+                onClick={() => {
+                  if (sidebarOpen && leftPanelTab === 'snapshots') setSidebarOpen(false);
+                  else { setSidebarOpen(true); setLeftPanelTab('snapshots'); }
+                }}
+                title="Snapshots (Version History)"
+              >
+                <RotateCcw size={18} strokeWidth={2.5} />
+              </button>
+            )}
           </div>
 
           <div className="mt-auto flex flex-col gap-2 w-full items-center">
@@ -1944,14 +2030,16 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
         {/* Sidebar explorer panel */}
           <nav 
             style={{ width: sidebarOpen ? `${leftPanelWidth}px` : '0px' }} 
-            className={`h-full bg-[#181818] border-r border-outline-subtle flex flex-col shrink-0 select-none relative transition-all duration-300 ease-in-out overflow-hidden ${!sidebarOpen ? 'border-r-0 opacity-0' : ''}`}
+            className={`h-full bg-surface-panel border-r border-outline-subtle flex flex-col shrink-0 select-none relative transition-all duration-300 ease-in-out overflow-hidden ${!sidebarOpen ? 'border-r-0 opacity-0' : ''}`}
           >
               <div className="absolute top-0 right-0 w-[4px] h-full bg-transparent hover:bg-accent-blue cursor-col-resize transition-colors z-50 translate-x-1/2" onMouseDown={handleLeftPanelResize} />
               
-              {/* Explorer Top Header */}
-              <div className="px-5 py-2.5 flex items-center justify-between text-on-surface-muted">
-                <span className="text-[11px] text-on-surface uppercase tracking-wide">Explorer</span>
-              </div>
+              {leftPanelTab === 'explorer' && (
+                <>
+                  {/* Explorer Top Header */}
+                  <div className="px-5 py-2.5 flex items-center justify-between text-on-surface-muted">
+                    <span className="text-[11px] text-on-surface uppercase tracking-wide">Explorer</span>
+                  </div>
 
               <div className="flex-1 overflow-y-auto outline-none custom-scrollbar pb-4" tabIndex={0}>
                 {/* Workspace Root Row */}
@@ -2217,6 +2305,41 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
                 <Share2 size={13} /> Share invite link
               </button>
             </div>
+            </>
+          )}
+
+          {leftPanelTab === 'snapshots' && (
+            <>
+              <div className="px-5 py-2.5 flex items-center justify-between text-on-surface-muted border-b border-outline/30">
+                <span className="text-[11px] text-on-surface uppercase tracking-wide">Snapshots</span>
+              </div>
+              <div className="flex-1 overflow-y-auto outline-none custom-scrollbar p-3 flex flex-col gap-2">
+                {isSnapshotsLoading ? (
+                  <div className="flex items-center justify-center py-4 text-on-surface-muted text-[11px]">
+                    <Loader2 className="animate-spin mr-2" size={14} /> Loading...
+                  </div>
+                ) : snapshots.length === 0 ? (
+                  <div className="text-[11px] text-on-surface-muted p-2 text-center mt-4 border border-dashed border-outline/50 rounded p-4 bg-surface-elevated/30">
+                    No snapshots available.<br/><br/>Trigger a manual save with Ctrl+S.
+                  </div>
+                ) : (
+                  [...snapshots].reverse().map(snap => (
+                    <div key={snap._id} className="bg-surface-elevated p-3 rounded flex flex-col gap-2 border border-outline/30 hover:border-accent-blue/30 transition-colors">
+                      <div className="text-[10px] text-on-surface font-semibold flex items-center gap-1.5 text-accent-blue overflow-hidden whitespace-nowrap text-ellipsis">
+                        <RotateCcw size={11} className="shrink-0" /> <span className="truncate">{new Date(snap.createdAt).toLocaleString()}</span>
+                      </div>
+                      <button
+                        onClick={() => setRestoreSnapshotId(snap._id)}
+                        className="bg-accent-blue/10 hover:bg-accent-blue/20 text-accent-blue border border-accent-blue/30 text-[10px] py-1 px-2 rounded font-medium flex items-center justify-center w-full mt-1 transition-colors shadow-sm whitespace-nowrap"
+                      >
+                        Restore Version
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
+          )}
           </nav>
 
         {/* Editor center workspace */}
@@ -2873,6 +2996,50 @@ export default function WorkspaceView({ roomUuid, user, onBack, onRoomSelect, on
             >
               <span className="material-symbols-outlined text-[12px]">close</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Restore Snapshot Modal */}
+      {restoreSnapshotId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-surface-panel w-[400px] rounded-lg shadow-2xl border border-outline flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-outline/50 bg-surface-base">
+              <h2 className="text-[15px] font-bold text-on-surface flex items-center gap-2">
+                <RotateCcw size={16} className="text-accent-blue" />
+                Restore Workspace
+              </h2>
+              <button 
+                onClick={() => setRestoreSnapshotId(null)}
+                className="text-on-surface-muted hover:text-on-surface hover:bg-surface-hover p-1 rounded transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            
+            <div className="p-5 flex flex-col gap-3">
+              <p className="text-sm text-on-surface font-medium">
+                Are you sure you want to restore this snapshot?
+              </p>
+              <div className="bg-red-950/20 border border-red-500/20 rounded p-3 text-red-500 dark:text-red-400 text-[12px] mt-1 leading-relaxed">
+                <strong className="text-red-600 dark:text-red-300">Warning:</strong> All current unsaved changes will be permanently lost, and all connected users will be forced to reload to sync the restored state.
+              </div>
+            </div>
+
+            <div className="px-5 py-4 border-t border-outline/50 bg-surface-base flex justify-end gap-2">
+              <button
+                className="px-4 py-2 rounded-md font-medium text-xs text-on-surface-variant hover:bg-surface-hover hover:text-on-surface transition-colors"
+                onClick={() => setRestoreSnapshotId(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 bg-accent-blue hover:bg-blue-600 text-white rounded-md font-medium text-xs shadow transition-colors flex items-center gap-1.5"
+                onClick={handleRestoreSnapshot}
+              >
+                <RotateCcw size={14} /> Restore Snapshot
+              </button>
+            </div>
           </div>
         </div>
       )}

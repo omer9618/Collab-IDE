@@ -340,7 +340,9 @@ async function runTests() {
     };
 
     const MockRoom = {
-      findOne: ({ uuid }) => (uuid === mockRoomRecord.uuid ? mockRoomRecord : null),
+      findOne: ({ uuid }) => ({
+        select: () => (uuid === mockRoomRecord.uuid ? mockRoomRecord : null),
+      }),
     };
 
     const validToken = auth.generateAccessToken(mockUserRecord._id);
