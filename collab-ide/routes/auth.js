@@ -16,7 +16,12 @@
 
 const crypto = require('crypto');
 const express = require('express');
-const { generateAccessToken } = require('../utils/jwt');
+const {
+  generateAccessToken,
+  generatePasswordResetToken,
+  verifyPasswordResetToken,
+} = require('../utils/jwt');
+const { sendPasswordResetEmail } = require('../services/email');
 const rateLimit = require('express-rate-limit');
 const { generateCsrfToken, setCsrfCookie, clearCsrfCookie } = require('../middleware/csrf');
 const bcrypt = require('bcrypt');
@@ -754,6 +759,45 @@ router.post('/logout-all', protect, async (req, res) => {
 
 
 
+/**
+ * Resolves and cryptographically verifies a candidate password reset token (FR-09).
+ *
+ * SPECIFICATION (FR-09):
+ * Supports RS256 cryptographically signed tokens (tamper-proof signed links) while
+ * preserving backward compatibility with raw 64-hex tokens.
+ *
+ * @param {string} token - Candidate reset token from request
+ * @returns {{ valid: boolean, tokenHash: string|null, error?: string }}
+ */
+function resolveResetToken(token) {
+  if (!token || typeof token !== 'string') {
+    return { valid: false, tokenHash: null, error: 'The password reset link is invalid or missing.' };
+  }
+
+  const trimmed = token.trim();
+
+  // If token is an RS256 JWT (contains dots and 3 segments)
+  if (trimmed.includes('.') && trimmed.split('.').length === 3) {
+    try {
+      const decoded = verifyPasswordResetToken(trimmed);
+      if (!decoded || decoded.type !== 'password-reset' || !decoded.jti) {
+        return { valid: false, tokenHash: null, error: 'The reset link signature is invalid or tampered with.' };
+      }
+      const tokenHash = crypto.createHash('sha256').update(decoded.jti).digest('hex');
+      return { valid: true, tokenHash, userId: decoded.sub };
+    } catch (err) {
+      if (err.name === 'TokenExpiredError') {
+        return { valid: false, tokenHash: null, error: 'The password reset link has expired (links are time-limited to 30 minutes).' };
+      }
+      return { valid: false, tokenHash: null, error: 'The reset link signature is invalid or tampered with.' };
+    }
+  }
+
+  // Fallback: Legacy or direct 64-hex raw random token
+  const tokenHash = crypto.createHash('sha256').update(trimmed).digest('hex');
+  return { valid: true, tokenHash };
+}
+
 // @route   POST /api/auth/reset-password-request
 // @desc    Request a password reset link (FR-09)
 // @access  Public
@@ -765,7 +809,7 @@ router.post('/reset-password-request', authLimiter, async (req, res) => {
     }
 
     const normalizedEmail = email.trim().toLowerCase();
-    const user = await User.findOne({ email: normalizedEmail });
+    const user = await (typeof User.findByEmail === 'function' ? User.findByEmail(normalizedEmail) : User.findOne({ email: normalizedEmail }));
 
     // Generic response to prevent user enumeration
     const successMsg = {
@@ -784,15 +828,28 @@ router.post('/reset-password-request', authLimiter, async (req, res) => {
     user.resetPasswordExpires = Date.now() + 30 * 60 * 1000; // 30 minutes per FR-09
     await user.save();
 
+    // Generate RS256 cryptographically signed reset token (FR-09)
+    const signedToken = generatePasswordResetToken(user._id, rawResetToken, { expiresIn: '30m' });
+
     // Determine frontend URL (defaults to port 5173 in local dev or request origin)
     const frontendBase = process.env.FRONTEND_URL || (req.get('origin') ? req.get('origin') : 'http://localhost:5173');
-    const resetLink = `${frontendBase}/?resetToken=${rawResetToken}`;
+    const resetLink = `${frontendBase}/?resetToken=${encodeURIComponent(signedToken)}`;
+
+    // Dispatch email notification (FR-09)
+    await sendPasswordResetEmail({
+      to: normalizedEmail,
+      resetLink,
+      token: signedToken,
+      expiresMinutes: 30,
+    });
 
     logger.audit('PASSWORD_RESET_REQUESTED', { userId: user._id });
     logger.info('Password reset dispatched for user', { userId: user._id });
 
     if (process.env.NODE_ENV !== 'production') {
-      successMsg.debugResetToken = rawResetToken;
+      successMsg.debugResetToken = signedToken;
+      successMsg.debugResetLink = resetLink;
+      successMsg.rawResetToken = rawResetToken;
     }
 
     res.json(successMsg);
@@ -807,18 +864,21 @@ router.post('/reset-password-request', authLimiter, async (req, res) => {
 router.get('/reset-password/validate', authLimiter, async (req, res) => {
   try {
     const { token } = req.query;
-    if (!token || typeof token !== 'string') {
-      return res.status(400).json({ valid: false, message: 'The password reset link is invalid or missing.' });
+    const resolved = resolveResetToken(token);
+    if (!resolved.valid) {
+      return res.status(400).json({ valid: false, message: resolved.error });
     }
 
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const user = await User.findOne({
-      resetPasswordToken: tokenHash,
+      resetPasswordToken: resolved.tokenHash,
       resetPasswordExpires: { $gt: Date.now() },
     });
 
     if (!user) {
-      return res.status(400).json({ valid: false, message: 'Invalid, already used, or expired reset link. Reset links expire after 30 minutes.' });
+      return res.status(400).json({
+        valid: false,
+        message: 'Invalid, already used, or expired reset link. Reset links are single-use and expire after 30 minutes.',
+      });
     }
 
     res.json({ valid: true, email: user.email });
@@ -837,14 +897,20 @@ router.post('/reset-password', authLimiter, async (req, res) => {
       return res.status(400).json({ message: 'Please provide both the reset token and your new password.' });
     }
 
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const resolved = resolveResetToken(token);
+    if (!resolved.valid) {
+      return res.status(400).json({ message: resolved.error });
+    }
+
     const user = await User.findOne({
-      resetPasswordToken: tokenHash,
+      resetPasswordToken: resolved.tokenHash,
       resetPasswordExpires: { $gt: Date.now() },
     });
 
     if (!user) {
-      return res.status(400).json({ message: 'Invalid, already used, or expired reset token. Reset links are single-use and expire after 30 minutes.' });
+      return res.status(400).json({
+        message: 'Invalid, already used, or expired reset token. Reset links are single-use and expire after 30 minutes.',
+      });
     }
 
     // Validate password complexity and breach status via HaveIBeenPwned k-anonymity API (NFR-16, FR-09)
@@ -888,7 +954,7 @@ router.post('/reset-password', authLimiter, async (req, res) => {
  * @route   POST /api/auth/validate-password
  * @desc    Validate password complexity and check HaveIBeenPwned breach database (NFR-16)
  * @access  Public
- * 
+ *
  * SECURITY REASONING (NFR-16):
  * Enables client interfaces to provide instant feedback to users before submitting credentials.
  * Utilizes the HaveIBeenPwned k-anonymity model: only a 5-character SHA-1 prefix is ever checked

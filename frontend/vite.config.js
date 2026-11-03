@@ -28,14 +28,23 @@ export default defineConfig({
         entryFileNames: 'assets/[name]-[hash].js',
         chunkFileNames: 'assets/[name]-[hash].js',
         assetFileNames: 'assets/[name]-[hash].[ext]',
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom'],
-          'vendor-yjs': ['yjs', 'y-websocket', 'y-monaco'],
-          'vendor-monaco': ['@monaco-editor/react'],
-          'vendor-utils': ['lucide-react', 'react-icons', 'jszip', 'socket.io-client']
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react/') || id.includes('react-dom/')) {
+              return 'vendor-react';
+            }
+            if (id.includes('yjs') || id.includes('y-websocket') || id.includes('y-monaco')) {
+              return 'vendor-yjs';
+            }
+            if (id.includes('@monaco-editor')) {
+              return 'vendor-monaco';
+            }
+            if (id.includes('lucide-react') || id.includes('react-icons') || id.includes('jszip') || id.includes('socket.io-client')) {
+              return 'vendor-utils';
+            }
+          }
         }
       },
     },
   },
 })
-

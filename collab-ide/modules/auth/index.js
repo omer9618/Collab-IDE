@@ -7,21 +7,26 @@
  * - User identity and credential management (registration, login, verification)
  * - Password complexity policy validation (NFR-11: 8+ chars, upper, lower, digit, special)
  * - Asymmetric RS256 JWT access token issuance and verification (NFR-17)
+ * - Password reset workflows with 30-minute signed links (FR-09)
  * - Refresh token family rotation and token reuse replay detection (NFR-13)
  * - Account lockout and IP brute force protection (NFR-14)
  * - Express authentication and authorization route handlers and middleware
  */
 
-const { generateAccessToken, verifyAccessToken } = require('../../utils/jwt');
+const {
+  generateAccessToken,
+  verifyAccessToken,
+  generatePasswordResetToken,
+  verifyPasswordResetToken,
+} = require('../../utils/jwt');
 const authRoutes = require('../../routes/auth');
 const authMiddleware = require('../../middleware/auth');
 const passwordPolicy = require('../../utils/passwordPolicy');
 const keys = require('../../utils/keys');
+const emailService = require('../../services/email');
 const User = require('../../models/User');
 const RefreshToken = require('../../models/RefreshToken');
 const IpBlock = require('../../models/IpBlock');
-
-
 
 /**
  * Validates a plaintext password against the strict CollabIDE policy (NFR-11).
@@ -120,8 +125,12 @@ module.exports = {
   },
   passwordPolicy,
   keys,
+  emailService,
+  sendPasswordResetEmail: emailService.sendPasswordResetEmail,
   generateAccessToken,
   verifyAccessToken,
+  generatePasswordResetToken,
+  verifyPasswordResetToken,
   validatePassword,
   validateComplexity: passwordPolicy.validateComplexity,
   validatePasswordPolicy: passwordPolicy.validatePasswordPolicy,
@@ -129,4 +138,3 @@ module.exports = {
   stateless,
   assertStatelessPipeline,
 };
-

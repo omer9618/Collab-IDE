@@ -35,7 +35,43 @@ function verifyAccessToken(token) {
   return jwt.verify(token, publicKey, { algorithms: ['RS256'] });
 }
 
+/**
+ * Generates an asymmetric RS256 cryptographically signed Password Reset Token (FR-09).
+ *
+ * SPECIFICATION (FR-09):
+ * Time-limited to exactly 30 minutes, signed with the server's private RSA key,
+ * embedding a unique 32-byte cryptographic random identifier (jti) whose SHA-256 hash
+ * is tracked in MongoDB to guarantee single-use.
+ *
+ * @function generatePasswordResetToken
+ * @param {string|import('mongoose').Types.ObjectId} userId - User identifier
+ * @param {string} rawToken - 32-byte hex entropy token
+ * @param {object} [options={}] - Custom options (e.g. expiresIn)
+ * @returns {string} Signed RS256 JWT string
+ */
+function generatePasswordResetToken(userId, rawToken, options = {}) {
+  const expiresIn = options.expiresIn || '30m';
+  return jwt.sign(
+    { sub: userId.toString(), jti: rawToken, type: 'password-reset' },
+    privateKey,
+    { algorithm: 'RS256', expiresIn }
+  );
+}
+
+/**
+ * Verifies an RS256 Password Reset Token against the server's public key (FR-09).
+ *
+ * @function verifyPasswordResetToken
+ * @param {string} token - Signed JWT reset token
+ * @returns {object} Decoded token payload
+ */
+function verifyPasswordResetToken(token) {
+  return jwt.verify(token, publicKey, { algorithms: ['RS256'] });
+}
+
 module.exports = {
   generateAccessToken,
-  verifyAccessToken
+  verifyAccessToken,
+  generatePasswordResetToken,
+  verifyPasswordResetToken,
 };
