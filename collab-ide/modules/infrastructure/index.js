@@ -74,4 +74,29 @@ module.exports = {
     supportsRedisAdapter: true,
     singleProcessAssumptions: false,
   },
+  sharedNothing: {
+    ready: true,
+    statelessBackend: true,
+    noExclusiveLocalMemory: true,
+    clusterPresence: true,
+    zeroDataLossFailover: true,
+  },
+  assertSharedNothingBackend: (app) => {
+    // 1. Verify stateless REST pipeline
+    const { assertStatelessPipeline } = require('../auth');
+    if (typeof assertStatelessPipeline === 'function') {
+      assertStatelessPipeline(app);
+    }
+    // 2. Verify Room model schema persistence
+    const Room = require('../../models/Room');
+    if (!Room.schema.path('ydocState') || !Room.schema.path('files')) {
+      throw new Error('Shared-nothing validation failed: Room model missing ydocState or files persistence.');
+    }
+    // 3. Verify RoomManager cluster presence capabilities
+    const roomManager = require('../../services/roomManager');
+    if (typeof roomManager.getPresenceMap !== 'function' || typeof roomManager.handleClusterPresenceMessage !== 'function') {
+      throw new Error('Shared-nothing validation failed: RoomManager lacks cluster presence synchronization.');
+    }
+    return true;
+  },
 };

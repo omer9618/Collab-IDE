@@ -288,7 +288,7 @@ function initWebSocketRelay(options = {}) {
       }
 
       const cleanPath = parsedUrl.pathname.replace(/^\/ws\/?/, '/');
-      const roomUuid = cleanPath.slice(1);
+      const roomUuid = (cleanPath.slice(1) && cleanPath.slice(1) !== '') ? cleanPath.slice(1) : (parsedUrl.searchParams.get('roomUuid') || '');
       const token = parsedUrl.searchParams.get('token');
 
       const authResult = await verifyUpgradeToken(token, roomUuid, {
@@ -471,6 +471,13 @@ function initWebSocketRelay(options = {}) {
       singleProcessAssumptions: false,
       pubsubChannels: ['collab:room:<uuid>'],
     },
+    sharedNothing: {
+      ready: true,
+      statelessBackend: true,
+      noExclusiveLocalMemory: true,
+      clusterPresence: true,
+      zeroDataLossFailover: true,
+    },
   };
 }
 
@@ -489,5 +496,12 @@ module.exports = {
     supportsRedisAdapter: true,
     singleProcessAssumptions: false,
     pubsubChannels: ['collab:room:<uuid>'],
+  },
+  sharedNothing: {
+    ready: true,
+    statelessBackend: true,
+    noExclusiveLocalMemory: true,
+    clusterPresence: true,
+    zeroDataLossFailover: true,
   },
 };

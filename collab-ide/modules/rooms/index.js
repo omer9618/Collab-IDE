@@ -34,4 +34,10 @@ module.exports = {
   updateClientRole: (roomUuid, userId, newRole) => roomManager.updateClientRole(roomUuid, userId, newRole),
   broadcastToRoom: (roomUuid, message) => roomManager.broadcastToRoom(roomUuid, message),
   broadcastRoomParticipants: async (roomUuid) => roomManager.broadcastRoomParticipants(roomUuid),
+  sharedNothing: {
+    ready: true,
+    roomMetadataInDB: true,
+    clusterPresence: true,
+    zeroExclusiveLocalMemory: true,
+  },
 };

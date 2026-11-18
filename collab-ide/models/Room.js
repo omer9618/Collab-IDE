@@ -115,6 +115,26 @@ const roomSchema = new mongoose.Schema(
 roomSchema.index({ 'participants.user': 1, lastActiveAt: -1 });
 roomSchema.index({ name: 'text' });
 
+// Pre-save hook: Generate initial binary Yjs document state snapshot from files
+// Ensures all cluster pods share the identical CRDT vector root and prevents text duplication (SDR-01)
+roomSchema.pre('save', function () {
+  if (!this.ydocState && this.files && this.files.length > 0 && this.uuid) {
+    try {
+      const Y = require('yjs');
+      const tempDoc = new Y.Doc();
+      const yfiles = tempDoc.getArray(`${this.uuid}:files`);
+      const fileNames = Array.from(new Set(this.files.map((f) => f.name)));
+      yfiles.push(fileNames);
+      this.files.forEach((file) => {
+        const ytext = tempDoc.getText(`${this.uuid}:${file.name}`);
+        ytext.insert(0, file.content || '');
+      });
+      this.ydocState = Buffer.from(Y.encodeStateAsUpdate(tempDoc));
+      tempDoc.destroy();
+    } catch (_) {}
+  }
+});
+
 const Room = mongoose.model('Room', roomSchema);
 
 module.exports = Room;

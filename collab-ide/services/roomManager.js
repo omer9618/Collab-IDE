@@ -227,12 +227,26 @@ class RoomSession {
    */
   addClient(ws, user, role) {
     ws.roomUuid = this.roomUuid;
-    ws.userId = user._id.toString();
+    ws.userId = user && user._id ? user._id.toString() : (user ? user.toString() : 'anonymous');
     ws.role = role;
     ws.isAlive = true;
+    ws._socketKey = ws._socketKey || `${this.nodeId}:${ws.userId}:${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
     this.clients.add(ws);
     this.touchActivity();
+
+    // SDR-01: Broadcast presence join across cluster so connection state is not stored exclusively in local memory
+    if (this.pubsubAdapter && typeof this.pubsubAdapter.publish === 'function') {
+      this.pubsubAdapter.publish('collab:cluster:presence', {
+        originNodeId: this.nodeId,
+        type: 'presence_join',
+        roomUuid: this.roomUuid,
+        userId: ws.userId,
+        socketKey: ws._socketKey,
+        role: ws.role,
+        timestamp: Date.now(),
+      });
+    }
   }
 
   /**
@@ -244,6 +258,18 @@ class RoomSession {
   removeClient(ws) {
     this.clients.delete(ws);
     this.touchActivity();
+
+    // SDR-01: Broadcast presence leave across cluster
+    if (this.pubsubAdapter && ws && ws._socketKey && typeof this.pubsubAdapter.publish === 'function') {
+      this.pubsubAdapter.publish('collab:cluster:presence', {
+        originNodeId: this.nodeId,
+        type: 'presence_leave',
+        roomUuid: this.roomUuid,
+        userId: ws.userId,
+        socketKey: ws._socketKey,
+        timestamp: Date.now(),
+      });
+    }
     return this.getConnectionCount();
   }
 
@@ -656,6 +682,28 @@ class RoomManager {
     this.nodeId = options.nodeId || process.env.NODE_ID || 'node_' + Math.random().toString(36).substring(2, 9);
     this.pubsubAdapter = options.pubsubAdapter || null;
 
+    // SDR-01: Shared-Nothing Backend — Cluster-Wide WebSocket Connection & Presence Registry
+    // Ensures WebSocket connection state is never stored exclusively in local memory
+    this.clusterConnections = new Map(); // socketKey -> { roomUuid, userId, nodeId, timestamp, role }
+    this.nodeHeartbeats = new Map(); // nodeId -> lastSeenTimestamp
+    this.clusterPresenceChannel = 'collab:cluster:presence';
+    this._clusterPresenceHandler = (channel, msg) => this.handleClusterPresenceMessage(channel, msg);
+
+    if (this.pubsubAdapter && typeof this.pubsubAdapter.subscribe === 'function') {
+      this.pubsubAdapter.subscribe(this.clusterPresenceChannel, this._clusterPresenceHandler);
+    }
+
+    // Periodic cluster heartbeat (every 10s) to keep nodes aware of active status
+    this.heartbeatTimer = setInterval(() => {
+      if (this.pubsubAdapter && typeof this.pubsubAdapter.publish === 'function') {
+        this.pubsubAdapter.publish(this.clusterPresenceChannel, {
+          originNodeId: this.nodeId,
+          type: 'node_heartbeat',
+          timestamp: Date.now(),
+        });
+      }
+    }, 10000);
+
     // NFR-37: Memory-Efficient Yjs Document Management
     // Sweep for inactive rooms (no connected clients for > 30 mins)
     this.inactiveRoomSweepTimer = setInterval(() => {
@@ -671,12 +719,53 @@ class RoomManager {
   }
 
   /**
+   * Processes cluster-wide presence and connection state messages (SDR-01).
+   *
+   * @param {string} channel - Channel name
+   * @param {object} msg - Deserialized pub/sub payload
+   */
+  handleClusterPresenceMessage(channel, msg) {
+    if (!msg || msg.originNodeId === this.nodeId) return;
+
+    if (msg.type === 'presence_join' && msg.socketKey) {
+      this.clusterConnections.set(msg.socketKey, {
+        roomUuid: msg.roomUuid,
+        userId: msg.userId,
+        nodeId: msg.originNodeId,
+        role: msg.role,
+        lastSeen: msg.timestamp || Date.now(),
+      });
+      this.nodeHeartbeats.set(msg.originNodeId, Date.now());
+    } else if (msg.type === 'presence_leave' && msg.socketKey) {
+      this.clusterConnections.delete(msg.socketKey);
+    } else if (msg.type === 'node_heartbeat') {
+      this.nodeHeartbeats.set(msg.originNodeId, Date.now());
+    } else if (msg.type === 'node_offline') {
+      // Remote node terminated cleanly; purge its active connections
+      for (const [key, conn] of this.clusterConnections.entries()) {
+        if (conn.nodeId === msg.originNodeId) {
+          this.clusterConnections.delete(key);
+        }
+      }
+      this.nodeHeartbeats.delete(msg.originNodeId);
+    }
+  }
+
+  /**
    * Sets or replaces the Pub/Sub adapter across all active rooms (NFR-53).
    *
    * @param {import('./pubsub').PubSubAdapter|null} adapter
    */
   setPubSubAdapter(adapter) {
+    if (this.pubsubAdapter && this._clusterPresenceHandler && typeof this.pubsubAdapter.unsubscribe === 'function') {
+      try {
+        this.pubsubAdapter.unsubscribe(this.clusterPresenceChannel, this._clusterPresenceHandler);
+      } catch (_) {}
+    }
     this.pubsubAdapter = adapter || null;
+    if (this.pubsubAdapter && this._clusterPresenceHandler && typeof this.pubsubAdapter.subscribe === 'function') {
+      this.pubsubAdapter.subscribe(this.clusterPresenceChannel, this._clusterPresenceHandler);
+    }
     for (const session of this.rooms.values()) {
       session.setPubSubAdapter(this.pubsubAdapter);
     }
@@ -751,6 +840,11 @@ class RoomManager {
             ytext.insert(0, file.content || '');
           });
         });
+
+        // Persist initial ydocState snapshot to MongoDB immediately so any subsequent pod
+        // or reconnecting client shares the identical CRDT root (SDR-01)
+        const initialState = Buffer.from(Y.encodeStateAsUpdate(ydoc));
+        Room.updateOne({ uuid: roomUuid }, { $set: { ydocState: initialState } }).catch(() => {});
       }
     }
 
@@ -790,7 +884,7 @@ class RoomManager {
   }
 
   /**
-   * Gets connection count for a specific room.
+   * Gets connection count for a specific room across all cluster pods (NFR-36, SDR-01).
    *
    * @param {string} roomUuid - Target room UUID
    * @param {WebSocket|null} [excludeWs=null] - Sockets to exclude
@@ -798,17 +892,33 @@ class RoomManager {
    */
   getRoomConnectionCount(roomUuid, excludeWs = null) {
     const session = this.rooms.get(roomUuid);
-    return session ? session.getConnectionCount(excludeWs) : 0;
+    let count = session ? session.getConnectionCount(excludeWs) : 0;
+
+    // SDR-01: Include cluster connections from other nodes
+    const now = Date.now();
+    for (const [socketKey, conn] of this.clusterConnections.entries()) {
+      if (conn.roomUuid === roomUuid && conn.nodeId !== this.nodeId) {
+        const lastHeartbeat = this.nodeHeartbeats.get(conn.nodeId) || conn.lastSeen;
+        if (now - lastHeartbeat < 30000) {
+          count++;
+        } else {
+          this.clusterConnections.delete(socketKey);
+        }
+      }
+    }
+
+    return count;
   }
 
   /**
-   * Gets live presence map of active users per room (FR-14).
+   * Gets live presence map of active users per room across all cluster pods (FR-14, SDR-01).
    * Keyed by roomUuid; value is a Set of userIds.
    *
    * @returns {Map<string, Set<string>>}
    */
   getPresenceMap() {
     const presence = new Map();
+    // 1. Local active connections
     for (const [roomUuid, session] of this.rooms.entries()) {
       const userSet = new Set();
       for (const client of session.clients) {
@@ -820,6 +930,22 @@ class RoomManager {
         presence.set(roomUuid, userSet);
       }
     }
+
+    // 2. Cluster active connections (SDR-01: Shared-Nothing connection state)
+    const now = Date.now();
+    for (const [socketKey, conn] of this.clusterConnections.entries()) {
+      const lastHeartbeat = this.nodeHeartbeats.get(conn.nodeId) || conn.lastSeen;
+      // Stale node timeout: 30 seconds
+      if (now - lastHeartbeat < 30000) {
+        if (!presence.has(conn.roomUuid)) {
+          presence.set(conn.roomUuid, new Set());
+        }
+        presence.get(conn.roomUuid).add(conn.userId);
+      } else {
+        this.clusterConnections.delete(socketKey);
+      }
+    }
+
     return presence;
   }
 
@@ -920,6 +1046,17 @@ class RoomManager {
    * @returns {Promise<void>}
    */
   async persistAllRooms() {
+    if (this.inactiveRoomSweepTimer) clearInterval(this.inactiveRoomSweepTimer);
+    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    if (this.pubsubAdapter && typeof this.pubsubAdapter.publish === 'function') {
+      try {
+        this.pubsubAdapter.publish(this.clusterPresenceChannel, {
+          originNodeId: this.nodeId,
+          type: 'node_offline',
+          timestamp: Date.now(),
+        });
+      } catch (_) {}
+    }
     const promises = [];
     for (const [roomUuid, session] of this.rooms.entries()) {
       if (session.saveTimer) {
@@ -939,7 +1076,7 @@ class RoomManager {
   }
 
   /**
-   * Total number of active WebSockets across all rooms.
+   * Total number of active WebSockets across all rooms and cluster pods (SDR-01).
    *
    * @returns {number}
    */
@@ -952,7 +1089,35 @@ class RoomManager {
         }
       }
     }
+    const now = Date.now();
+    for (const conn of this.clusterConnections.values()) {
+      if (conn.nodeId !== this.nodeId) {
+        const lastHeartbeat = this.nodeHeartbeats.get(conn.nodeId) || conn.lastSeen;
+        if (now - lastHeartbeat < 30000) {
+          total++;
+        }
+      }
+    }
     return total;
+  }
+
+  /**
+   * Destroys the RoomManager instance, stopping timers and unhooking listeners.
+   */
+  destroy() {
+    if (this.inactiveRoomSweepTimer) clearInterval(this.inactiveRoomSweepTimer);
+    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    if (this.pubsubAdapter && this._clusterPresenceHandler && typeof this.pubsubAdapter.unsubscribe === 'function') {
+      try {
+        this.pubsubAdapter.unsubscribe(this.clusterPresenceChannel, this._clusterPresenceHandler);
+      } catch (_) {}
+    }
+    for (const session of this.rooms.values()) {
+      session.destroy(true);
+    }
+    this.rooms.clear();
+    this.clusterConnections.clear();
+    this.nodeHeartbeats.clear();
   }
 
   /**
