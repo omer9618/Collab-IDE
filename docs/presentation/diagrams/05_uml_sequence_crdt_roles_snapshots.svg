@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="960" viewBox="0 0 1600 960">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#475569"/>
+    </marker>
+    <marker id="arrowBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#3B82F6"/>
+    </marker>
+    <marker id="arrowGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#16A34A"/>
+    </marker>
+    <marker id="arrowAmber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#D97706"/>
+    </marker>
+    <marker id="arrowPurple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#7C3AED"/>
+    </marker>
+    <marker id="openArrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="10" markerHeight="10" orient="auto">
+      <path d="M 1 1 L 11 6 L 1 11 z" fill="#FFFFFF" stroke="#475569" stroke-width="1.8"/>
+    </marker>
+    <marker id="diamond" viewBox="0 0 14 10" refX="1" refY="5" markerWidth="12" markerHeight="9" orient="auto">
+      <path d="M 1 5 L 7 1 L 13 5 L 7 9 z" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1600" height="960" fill="#FFFFFF"/>
+  <rect x="10" y="10" width="1580" height="940" rx="12" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.5"/>
+  <!-- Header Banner -->
+  <rect x="10" y="10" width="1580" height="74" rx="12" fill="#F8FAFC"/>
+  <rect x="10" y="64" width="1580" height="20" fill="#F8FAFC"/>
+  <line x1="10" y1="84" x2="1590" y2="84" stroke="#CBD5E1" stroke-width="1.5"/>
+  <text x="36" y="44" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="25" font-weight="700" fill="#0F172A">UML Sequence Diagram — Real-Time Yjs CRDT Sync, Role Control &amp; Snapshots</text>
+  <text x="36" y="69" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="14.5" fill="#475569">Server-authoritative write barriers (YjsUpdateGuard), atomic role swaps, max-wait persistence, and conflict-free snapshot restoration</text>
+  <line x1="145" y1="158" x2="145" y2="894" stroke="#94A3B8" stroke-width="1.8" stroke-dasharray="6 5"/><rect x="52.5" y="104" width="185" height="54" rx="8" fill="#DBEAFE" stroke="#3B82F6" stroke-width="2"/><text x="145" y="127" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="14.5" font-weight="700" fill="#1E40AF">Editor / Viewer</text><text x="145" y="146" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#1E293B">Monaco + y-websocket</text><line x1="425" y1="158" x2="425" y2="894" stroke="#94A3B8" stroke-width="1.8" stroke-dasharray="6 5"/><rect x="330" y="104" width="190" height="54" rx="8" fill="#EDE9FE" stroke="#7C3AED" stroke-width="2"/><text x="425" y="127" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="14.5" font-weight="700" fill="#5B21B6">Owner / Leader</text><text x="425" y="146" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#1E293B">WorkspaceView UI</text><line x1="745" y1="158" x2="745" y2="894" stroke="#94A3B8" stroke-width="1.8" stroke-dasharray="6 5"/><rect x="632.5" y="104" width="225" height="54" rx="8" fill="#FEF3C7" stroke="#D97706" stroke-width="2"/><text x="745" y="127" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="14.5" font-weight="700" fill="#92400E">WS Relay &amp; Guard</text><text x="745" y="146" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#1E293B">yjsUpdateGuard + RoomMgr</text><line x1="1085" y1="158" x2="1085" y2="894" stroke="#94A3B8" stroke-width="1.8" stroke-dasharray="6 5"/><rect x="982.5" y="104" width="205" height="54" rx="8" fill="#DCFCE7" stroke="#16A34A" stroke-width="2"/><text x="1085" y="127" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="14.5" font-weight="700" fill="#166534">In-Memory Y.Doc</text><text x="1085" y="146" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#1E293B">Isolated RoomSession</text><line x1="1425" y1="158" x2="1425" y2="894" stroke="#94A3B8" stroke-width="1.8" stroke-dasharray="6 5"/><rect x="1317.5" y="104" width="215" height="54" rx="8" fill="#E2E8F0" stroke="#64748B" stroke-width="2"/><text x="1425" y="127" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="14.5" font-weight="700" fill="#334155">MongoDB + Pub/Sub</text><text x="1425" y="146" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#1E293B">Room.ydocState &amp; Cluster</text><rect x="30" y="174" width="1540" height="158" rx="8" fill="#EFF6FF" fill-opacity="0.45" stroke="#3B82F6" stroke-width="1.6"/><rect x="30" y="174" width="728.6" height="26" rx="6" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1.2"/><text x="42" y="192" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#1E40AF">Phase A: Authenticated WebSocket Handshake &amp; Cluster Presence (NFR-17, NFR-36, SDR-01)</text><rect x="30" y="346" width="1540" height="202" rx="8" fill="#F0FDF4" fill-opacity="0.45" stroke="#16A34A" stroke-width="1.6"/><rect x="30" y="346" width="777.1999999999999" height="26" rx="6" fill="#DCFCE7" stroke="#16A34A" stroke-width="1.2"/><text x="42" y="364" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#166534">Phase B: Real-Time CRDT Edit, YjsUpdateGuard &amp; Max-Wait Flush (FR-16, FR-34, NFR-08, NFR-18)</text><rect x="30" y="562" width="1540" height="144" rx="8" fill="#FFFBEB" fill-opacity="0.45" stroke="#D97706" stroke-width="1.6"/><rect x="30" y="562" width="647.6" height="26" rx="6" fill="#FEF3C7" stroke="#D97706" stroke-width="1.2"/><text x="42" y="580" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#92400E">Phase C: Live Role Grant / Revoke without Reconnect (FR-39 to FR-44, NFR-19)</text><rect x="30" y="720" width="1540" height="162" rx="8" fill="#F5F3FF" fill-opacity="0.45" stroke="#7C3AED" stroke-width="1.6"/><rect x="30" y="720" width="590.9" height="26" rx="6" fill="#EDE9FE" stroke="#7C3AED" stroke-width="1.2"/><text x="42" y="738" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#5B21B6">Phase D: Manual Snapshot (Ctrl+S) &amp; Clean CRDT Restore (FR-37, FR-38)</text><line x1="145" y1="224" x2="741" y2="224" stroke="#1E40AF" stroke-width="2" marker-end="url(#arrowBlue)"/>
+  <g>
+    <rect x="221.20000000000002" y="200" width="443.59999999999997" height="22" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="443" y="216" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" font-weight="600" fill="#1E40AF">1. WSS Upgrade /ws/:roomUuid?token=JWT (setNoDelay=true)</text>
+  </g><path d="M 745 252 H 801 V 276 H 749" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/><rect x="809" y="250" width="474" height="24" rx="5" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/><text x="818" y="267" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="600" fill="#475569">2. Verify RS256 + Check Cluster Count &lt; 20 (else Close 1008)</text><line x1="745" y1="306" x2="1421" y2="306" stroke="#1E40AF" stroke-width="2" marker-end="url(#arrowBlue)"/>
+  <g>
+    <rect x="868.8" y="282" width="428.4" height="22" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="1083" y="298" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" font-weight="600" fill="#1E40AF">3. Hydrate Canonical ydocState + Publish presence_join</text>
+  </g><line x1="145" y1="396" x2="741" y2="396" stroke="#166534" stroke-width="2" marker-end="url(#arrowGreen)"/>
+  <g>
+    <rect x="194.60000000000002" y="372" width="496.79999999999995" height="22" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="443" y="388" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" font-weight="600" fill="#166534">4. Binary Yjs SyncStep2 / Update Frame (&lt;= 512KB, &lt;= 300 msg/s)</text>
+  </g><line x1="745" y1="434" x2="1081" y2="434" stroke="#92400E" stroke-width="2" marker-end="url(#arrowAmber)"/>
+  <g>
+    <rect x="626.6" y="410" width="572.8" height="22" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="913" y="426" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" font-weight="600" fill="#92400E">5. evaluateUpdate(): Block Viewer file writes/deletes; verify chat userId</text>
+  </g><line x1="1085" y1="472" x2="149" y2="472" stroke="#166534" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrowGreen)"/>
+  <g>
+    <rect x="368.6" y="448" width="496.79999999999995" height="22" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="617" y="464" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" font-weight="600" fill="#166534">6. Apply CRDT delta, trimChatHistory(200) &amp; Relay to Room Peers</text>
+  </g><line x1="1085" y1="518" x2="1421" y2="518" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+  <g>
+    <rect x="974.2" y="494" width="557.6" height="22" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="1253" y="510" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" font-weight="600" fill="#334155">7. scheduleSave(): 2s idle debounce OR 10s max-wait throttle -&gt; MongoDB</text>
+  </g><line x1="425" y1="612" x2="1421" y2="612" stroke="#92400E" stroke-width="2" marker-end="url(#arrowAmber)"/>
+  <g>
+    <rect x="674.6" y="588" width="496.79999999999995" height="22" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="923" y="604" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" font-weight="600" fill="#92400E">8. PUT /api/rooms/:uuid/roles -&gt; Atomic Room.bulkWrite(bulkOps)</text>
+  </g><line x1="745" y1="668" x2="149" y2="668" stroke="#92400E" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrowAmber)"/>
+  <g>
+    <rect x="175.8" y="644" width="542.4" height="22" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="447" y="660" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" font-weight="600" fill="#92400E">9. updateClientRoleInMemory() FIRST -&gt; Broadcast updated roster event</text>
+  </g><line x1="425" y1="768" x2="1421" y2="768" stroke="#5B21B6" stroke-width="2" marker-end="url(#arrowPurple)"/>
+  <g>
+    <rect x="659.4" y="744" width="527.2" height="22" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="923" y="760" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" font-weight="600" fill="#5B21B6">10. Ctrl+S -&gt; POST /:uuid/snapshot -&gt; saveToDB() + $push/$slice:-20</text>
+  </g><line x1="425" y1="812" x2="741" y2="812" stroke="#5B21B6" stroke-width="2" marker-end="url(#arrowPurple)"/>
+  <g>
+    <rect x="323.20000000000005" y="788" width="519.5999999999999" height="22" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="583" y="804" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" font-weight="600" fill="#5B21B6">11. POST /:uuid/snapshots/:id/restore -&gt; Overwrite ydocState in DB</text>
+  </g><line x1="745" y1="856" x2="149" y2="856" stroke="#5B21B6" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrowPurple)"/>
+  <g>
+    <rect x="160.60000000000002" y="832" width="572.8" height="22" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="447" y="848" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" font-weight="600" fill="#5B21B6">12. session.destroy(true) -&gt; Close 1001 -&gt; Clients Re-hydrate Clean State</text>
+  </g><g><rect x="36" y="908" width="20" height="16" rx="4" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.8"/><text x="64" y="921" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="600" fill="#1E293B">WS Handshake &amp; Cluster Presence</text><rect x="318.70000000000005" y="908" width="20" height="16" rx="4" fill="#F0FDF4" stroke="#16A34A" stroke-width="1.8"/><text x="346.70000000000005" y="921" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="600" fill="#1E293B">CRDT Sync &amp; Max-Wait Persistence</text><rect x="609.1" y="908" width="20" height="16" rx="4" fill="#FFFBEB" stroke="#D97706" stroke-width="1.8"/><text x="637.1" y="921" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="600" fill="#1E293B">YjsUpdateGuard &amp; Atomic RBAC</text><rect x="868.7" y="908" width="20" height="16" rx="4" fill="#F5F3FF" stroke="#7C3AED" stroke-width="1.8"/><text x="896.7" y="921" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="600" fill="#1E293B">Bounded Snapshots &amp; Clean Rollback</text></g>
+</svg>
