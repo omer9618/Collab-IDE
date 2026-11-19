@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="960" viewBox="0 0 1600 960">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#475569"/>
+    </marker>
+    <marker id="arrowBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#3B82F6"/>
+    </marker>
+    <marker id="arrowGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#16A34A"/>
+    </marker>
+    <marker id="arrowAmber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#D97706"/>
+    </marker>
+    <marker id="arrowPurple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#7C3AED"/>
+    </marker>
+    <marker id="openArrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="10" markerHeight="10" orient="auto">
+      <path d="M 1 1 L 11 6 L 1 11 z" fill="#FFFFFF" stroke="#475569" stroke-width="1.8"/>
+    </marker>
+    <marker id="diamond" viewBox="0 0 14 10" refX="1" refY="5" markerWidth="12" markerHeight="9" orient="auto">
+      <path d="M 1 5 L 7 1 L 13 5 L 7 9 z" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1600" height="960" fill="#FFFFFF"/>
+  <rect x="10" y="10" width="1580" height="940" rx="12" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.5"/>
+  <!-- Header Banner -->
+  <rect x="10" y="10" width="1580" height="74" rx="12" fill="#F8FAFC"/>
+  <rect x="10" y="64" width="1580" height="20" fill="#F8FAFC"/>
+  <line x1="10" y1="84" x2="1590" y2="84" stroke="#CBD5E1" stroke-width="1.5"/>
+  <text x="36" y="44" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="25" font-weight="700" fill="#0F172A">UML Use Case Diagram — CollabIDE Full System Scope</text>
+  <text x="36" y="69" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="14.5" fill="#475569">Actors, RBAC hierarchy (Owner &gt; Room Leader &gt; Editor &gt; Viewer), implemented Phase 1 capabilities, and Phase 2 SRS v2.0 extensions</text>
+  <rect x="210" y="102" width="1170" height="786" rx="14" fill="#FFFFFF" stroke="#64748B" stroke-width="2.2"/><text x="795" y="130" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="18" font-weight="700" fill="#0F172A">CollabIDE System Boundary (Phase 1 Implemented + Phase 2 SRS v2.0)</text>
+  <g>
+    <circle cx="105" cy="161" r="14" fill="#FFFFFF" stroke="#334155" stroke-width="2.4"/>
+    <line x1="105" y1="175" x2="105" y2="209" stroke="#334155" stroke-width="2.4"/>
+    <line x1="87" y1="187" x2="123" y2="187" stroke="#334155" stroke-width="2.4"/>
+    <line x1="105" y1="209" x2="90" y2="231" stroke="#334155" stroke-width="2.4"/>
+    <line x1="105" y1="209" x2="120" y2="231" stroke="#334155" stroke-width="2.4"/>
+    <text x="105" y="251" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="14.5" font-weight="700" fill="#0F172A">Guest</text>
+    <text x="105" y="268" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">Unauthenticated</text>
+  </g>
+  <g>
+    <circle cx="105" cy="311" r="14" fill="#FFFFFF" stroke="#1E40AF" stroke-width="2.4"/>
+    <line x1="105" y1="325" x2="105" y2="359" stroke="#1E40AF" stroke-width="2.4"/>
+    <line x1="87" y1="337" x2="123" y2="337" stroke="#1E40AF" stroke-width="2.4"/>
+    <line x1="105" y1="359" x2="90" y2="381" stroke="#1E40AF" stroke-width="2.4"/>
+    <line x1="105" y1="359" x2="120" y2="381" stroke="#1E40AF" stroke-width="2.4"/>
+    <text x="105" y="401" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="14.5" font-weight="700" fill="#0F172A">Viewer</text>
+    <text x="105" y="418" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">Read-Only Member</text>
+  </g>
+  <g>
+    <circle cx="105" cy="461" r="14" fill="#FFFFFF" stroke="#166534" stroke-width="2.4"/>
+    <line x1="105" y1="475" x2="105" y2="509" stroke="#166534" stroke-width="2.4"/>
+    <line x1="87" y1="487" x2="123" y2="487" stroke="#166534" stroke-width="2.4"/>
+    <line x1="105" y1="509" x2="90" y2="531" stroke="#166534" stroke-width="2.4"/>
+    <line x1="105" y1="509" x2="120" y2="531" stroke="#166534" stroke-width="2.4"/>
+    <text x="105" y="551" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="14.5" font-weight="700" fill="#0F172A">Editor</text>
+    <text x="105" y="568" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">Write &amp; Run Access</text>
+  </g>
+  <g>
+    <circle cx="105" cy="611" r="14" fill="#FFFFFF" stroke="#92400E" stroke-width="2.4"/>
+    <line x1="105" y1="625" x2="105" y2="659" stroke="#92400E" stroke-width="2.4"/>
+    <line x1="87" y1="637" x2="123" y2="637" stroke="#92400E" stroke-width="2.4"/>
+    <line x1="105" y1="659" x2="90" y2="681" stroke="#92400E" stroke-width="2.4"/>
+    <line x1="105" y1="659" x2="120" y2="681" stroke="#92400E" stroke-width="2.4"/>
+    <text x="105" y="701" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="14.5" font-weight="700" fill="#0F172A">Room Leader</text>
+    <text x="105" y="718" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">Live Access Control</text>
+  </g>
+  <g>
+    <circle cx="105" cy="761" r="14" fill="#FFFFFF" stroke="#5B21B6" stroke-width="2.4"/>
+    <line x1="105" y1="775" x2="105" y2="809" stroke="#5B21B6" stroke-width="2.4"/>
+    <line x1="87" y1="787" x2="123" y2="787" stroke="#5B21B6" stroke-width="2.4"/>
+    <line x1="105" y1="809" x2="90" y2="831" stroke="#5B21B6" stroke-width="2.4"/>
+    <line x1="105" y1="809" x2="120" y2="831" stroke="#5B21B6" stroke-width="2.4"/>
+    <text x="105" y="851" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="14.5" font-weight="700" fill="#0F172A">Room Owner</text>
+    <text x="105" y="868" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">Full Room Authority</text>
+  </g><line x1="105" y1="736" x2="105" y2="722" stroke="#475569" stroke-width="1.8" marker-end="url(#openArrow)"/><line x1="105" y1="586" x2="105" y2="572" stroke="#475569" stroke-width="1.8" marker-end="url(#openArrow)"/><line x1="105" y1="436" x2="105" y2="422" stroke="#475569" stroke-width="1.8" marker-end="url(#openArrow)"/><g>
+    <rect x="1410" y="170" width="155" height="78" rx="8" fill="#FFFBEB" stroke="#D97706" stroke-width="1.8"/>
+    <text x="1487.5" y="196" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="15" font-weight="700" fill="#92400E">Google / GitHub</text><text x="1487.5" y="216" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" fill="#1E293B">OAuth 2.0 SSO</text><text x="1487.5" y="235" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" fill="#1E293B">&amp; Repo API</text></g><g>
+    <rect x="1410" y="355" width="155" height="78" rx="8" fill="#F8FAFC" stroke="#64748B" stroke-width="1.8"/>
+    <text x="1487.5" y="381" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="15" font-weight="700" fill="#334155">MongoDB Atlas</text><text x="1487.5" y="401" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" fill="#1E293B">Encrypted PII,</text><text x="1487.5" y="420" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" fill="#1E293B">Rooms &amp; Yjs</text></g><g>
+    <rect x="1410" y="535" width="155" height="78" rx="8" fill="#FFFBEB" stroke="#D97706" stroke-width="1.8"/>
+    <text x="1487.5" y="561" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="15" font-weight="700" fill="#92400E">Judge0 CE</text><text x="1487.5" y="581" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" fill="#1E293B">Sandboxed Code</text><text x="1487.5" y="600" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" fill="#1E293B">Runner (Docker)</text></g><g>
+    <rect x="1410" y="715" width="155" height="78" rx="8" fill="#F0FDFA" stroke="#0D9488" stroke-width="1.8"/>
+    <text x="1487.5" y="741" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="15" font-weight="700" fill="#115E59">Coturn Server</text><text x="1487.5" y="761" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" fill="#1E293B">STUN / TURN</text><text x="1487.5" y="780" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" fill="#1E293B">HMAC Relay</text></g>
+  <g>
+    <rect x="235" y="150" width="545" height="225" rx="10" fill="#F0FDF4" stroke="#16A34A" stroke-width="2"/>
+    <path d="M 245 150 H 770 Q 780 150 780 160 V 184 H 235 V 160 Q 235 150 245 150 Z" fill="#DCFCE7" stroke="#16A34A" stroke-width="1.5"/>
+    <text x="249" y="173" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="16" font-weight="700" fill="#166534">1. Authentication &amp; Session Security (FR-01 to FR-09)</text>
+  </g>
+  <g>
+    <ellipse cx="375" cy="222" rx="120" ry="28" fill="#F0FDF4" stroke="#16A34A" stroke-width="1.8"/>
+    <text x="375" y="218" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#1E293B">Register &amp; Login</text>
+         <text x="375" y="236" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">FR-01, FR-02, OAuth</text>
+  </g>
+  <g>
+    <ellipse cx="640" cy="222" rx="120" ry="28" fill="#F0FDF4" stroke="#16A34A" stroke-width="1.8"/>
+    <text x="640" y="218" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#1E293B">Silent Refresh &amp; Rotate</text>
+         <text x="640" y="236" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">FR-03, FR-04, NFR-13</text>
+  </g>
+  <g>
+    <ellipse cx="375" cy="294" rx="120" ry="28" fill="#F0FDF4" stroke="#16A34A" stroke-width="1.8"/>
+    <text x="375" y="290" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#1E293B">Password Reset (30m)</text>
+         <text x="375" y="308" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">FR-09 RS256 Signed</text>
+  </g>
+  <g>
+    <ellipse cx="640" cy="294" rx="120" ry="28" fill="#F0FDF4" stroke="#16A34A" stroke-width="1.8"/>
+    <text x="640" y="290" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#1E293B">Profile &amp; Active Sessions</text>
+         <text x="640" y="308" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">FR-06, FR-07, FR-08</text>
+  </g><text x="507" y="362" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" fill="#166534">Includes: Atomic Lockout (NFR-14), CSRF (NFR-15), AES-256-GCM (NFR-22)</text>
+  <g>
+    <rect x="805" y="150" width="550" height="225" rx="10" fill="#EFF6FF" stroke="#3B82F6" stroke-width="2"/>
+    <path d="M 815 150 H 1345 Q 1355 150 1355 160 V 184 H 805 V 160 Q 805 150 815 150 Z" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1.5"/>
+    <text x="819" y="173" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="16" font-weight="700" fill="#1E40AF">2. Rooms, Live Access Control &amp; Snapshots (FR-10–15, 37–44)</text>
+  </g>
+  <g>
+    <ellipse cx="945" cy="222" rx="122" ry="28" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.8"/>
+    <text x="945" y="218" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#1E293B">Create / Close / Delete</text>
+         <text x="945" y="236" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">FR-10, FR-15, Dashboard</text>
+  </g>
+  <g>
+    <ellipse cx="1215" cy="222" rx="122" ry="28" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.8"/>
+    <text x="1215" y="218" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#1E293B">Join via Invite Link</text>
+         <text x="1215" y="236" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">FR-11 (Default Viewer)</text>
+  </g>
+  <g>
+    <ellipse cx="945" cy="294" rx="122" ry="28" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.8"/>
+    <text x="945" y="290" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#1E293B">Grant / Revoke Edit Role</text>
+         <text x="945" y="308" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">FR-39 to FR-44 (Live)</text>
+  </g>
+  <g>
+    <ellipse cx="1215" cy="294" rx="122" ry="28" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.8"/>
+    <text x="1215" y="290" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#1E293B">Save &amp; Restore Snapshot</text>
+         <text x="1215" y="308" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">FR-37, FR-38 (Last 20)</text>
+  </g><text x="1080" y="362" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" fill="#1E40AF">Includes: Single Room Leader Invariant, Atomic bulkWrite, Session Reset on Restore</text>
+  <g>
+    <rect x="235" y="398" width="545" height="225" rx="10" fill="#EFF6FF" stroke="#3B82F6" stroke-width="2"/>
+    <path d="M 245 398 H 770 Q 780 398 780 408 V 432 H 235 V 408 Q 235 398 245 398 Z" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1.5"/>
+    <text x="249" y="421" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="16" font-weight="700" fill="#1E40AF">3. Real-Time CRDT Editing, Files &amp; Chat (FR-16–26, 34–36, 54–57)</text>
+  </g>
+  <g>
+    <ellipse cx="375" cy="470" rx="120" ry="28" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.8"/>
+    <text x="375" y="466" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#1E293B">Simultaneous Edit (Yjs)</text>
+         <text x="375" y="484" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">FR-16, FR-17, Monaco</text>
+  </g>
+  <g>
+    <ellipse cx="640" cy="470" rx="120" ry="28" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.8"/>
+    <text x="640" y="466" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#1E293B">Multi-File Tree &amp; Export</text>
+         <text x="640" y="484" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">FR-21, FR-54 to FR-57</text>
+  </g>
+  <g>
+    <ellipse cx="375" cy="542" rx="120" ry="28" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.8"/>
+    <text x="375" y="538" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#1E293B">Cursors &amp; Theme / Font</text>
+         <text x="375" y="556" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">FR-18, FR-23 to FR-26</text>
+  </g>
+  <g>
+    <ellipse cx="640" cy="542" rx="120" ry="28" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.8"/>
+    <text x="640" y="538" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#1E293B">Real-Time Room Chat</text>
+         <text x="640" y="556" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">FR-34 to FR-36 (Cap 200)</text>
+  </g><text x="507" y="610" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" fill="#1E40AF">Enforced by: YjsUpdateGuard (NFR-18 Viewer Read-Only), 20 WS/Room Limit (NFR-36)</text>
+  <g>
+    <rect x="805" y="398" width="550" height="225" rx="10" fill="#F0FDFA" stroke="#0D9488" stroke-width="2"/>
+    <path d="M 815 398 H 1345 Q 1355 398 1355 408 V 432 H 805 V 408 Q 805 398 815 398 Z" fill="#CCFBF1" stroke="#0D9488" stroke-width="1.5"/>
+    <text x="819" y="421" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="16" font-weight="700" fill="#115E59">4. Sandboxed Execution &amp; WebRTC Voice (FR-27–33, FR-45–53)</text>
+  </g>
+  <g>
+    <ellipse cx="945" cy="470" rx="122" ry="28" fill="#F0FDFA" stroke="#0D9488" stroke-width="1.8"/>
+    <text x="945" y="466" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#1E293B">Run Code (5 Langs+STDIN)</text>
+         <text x="945" y="484" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">FR-27 to FR-32, Judge0</text>
+  </g>
+  <g>
+    <ellipse cx="1215" cy="470" rx="122" ry="28" fill="#F0FDFA" stroke="#0D9488" stroke-width="1.8"/>
+    <text x="1215" y="466" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#1E293B">HTML/CSS Live Preview</text>
+         <text x="1215" y="484" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">FR-33 Client Iframe</text>
+  </g>
+  <g>
+    <ellipse cx="945" cy="542" rx="122" ry="28" fill="#F0FDFA" stroke="#0D9488" stroke-width="1.8"/>
+    <text x="945" y="538" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#1E293B">Join / Leave / Mute Voice</text>
+         <text x="945" y="556" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">FR-45 to FR-47, FR-52</text>
+  </g>
+  <g>
+    <ellipse cx="1215" cy="542" rx="122" ry="28" fill="#F0FDFA" stroke="#0D9488" stroke-width="1.8"/>
+    <text x="1215" y="538" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#1E293B">Leader Mute / Hard Mute</text>
+         <text x="1215" y="556" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">FR-48 to FR-51, FR-53</text>
+  </g><text x="1080" y="610" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" fill="#115E59">Enforced by: Viewer 403 Exec Gate, 10s/128MB Sandbox Caps, DTLS-SRTP P2P Audio</text>
+  <g>
+    <rect x="235" y="646" width="1120" height="220" rx="10" fill="#F5F3FF" stroke="#7C3AED" stroke-width="2" stroke-dasharray="8 5"/>
+    <path d="M 245 646 H 1345 Q 1355 646 1355 656 V 680 H 235 V 656 Q 235 646 245 646 Z" fill="#EDE9FE" stroke="#7C3AED" stroke-width="1.5"/>
+    <text x="249" y="669" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="16" font-weight="700" fill="#5B21B6">5. Phase 2 Cloud IDE &amp; Enterprise Scale Extensions (SRS v2.0: FR-58 to FR-62, SDR-01 to SDR-05)</text>
+  </g>
+  <g>
+    <ellipse cx="355" cy="725" rx="105" ry="28" fill="#F5F3FF" stroke="#7C3AED" stroke-width="1.8" stroke-dasharray="6 4"/>
+    <text x="355" y="721" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#1E293B">GitHub Repo Clone</text>
+         <text x="355" y="739" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">FR-58 Streaming</text>
+  </g>
+  <g>
+    <ellipse cx="580" cy="725" rx="105" ry="28" fill="#F5F3FF" stroke="#7C3AED" stroke-width="1.8" stroke-dasharray="6 4"/>
+    <text x="580" y="721" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#1E293B">Web Terminal PTY</text>
+         <text x="580" y="739" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">FR-59 xterm.js</text>
+  </g>
+  <g>
+    <ellipse cx="805" cy="725" rx="105" ry="28" fill="#F5F3FF" stroke="#7C3AED" stroke-width="1.8" stroke-dasharray="6 4"/>
+    <text x="805" y="721" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#1E293B">Monaco LSP Bridge</text>
+         <text x="805" y="739" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">FR-60 IntelliSense</text>
+  </g>
+  <g>
+    <ellipse cx="1025" cy="725" rx="105" ry="28" fill="#F5F3FF" stroke="#7C3AED" stroke-width="1.8" stroke-dasharray="6 4"/>
+    <text x="1025" y="721" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#1E293B">Visual Git &amp; Diff UI</text>
+         <text x="1025" y="739" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">FR-61 Stage/Commit</text>
+  </g>
+  <g>
+    <ellipse cx="1245" cy="725" rx="100" ry="28" fill="#F5F3FF" stroke="#7C3AED" stroke-width="1.8" stroke-dasharray="6 4"/>
+    <text x="1245" y="721" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#1E293B">Live Port Preview</text>
+         <text x="1245" y="739" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">FR-62 Proxy Iframe</text>
+  </g>
+  <g>
+    <ellipse cx="540" cy="808" rx="175" ry="26" fill="#F5F3FF" stroke="#7C3AED" stroke-width="1.8" stroke-dasharray="6 4"/>
+    <text x="540" y="804" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#1E293B">RS256 60s WS Ticket Auth</text>
+         <text x="540" y="822" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">SDR-01 Control/Data Split</text>
+  </g>
+  <g>
+    <ellipse cx="1020" cy="808" rx="190" ry="26" fill="#F5F3FF" stroke="#7C3AED" stroke-width="1.8" stroke-dasharray="6 4"/>
+    <text x="1020" y="804" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#1E293B">100k Ring-Hash Scale &amp; Telemetry</text>
+         <text x="1020" y="822" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#64748B">SDR-02–05, NFR-56–62</text>
+  </g><line x1="150" y1="195" x2="235" y2="215" stroke="#64748B" stroke-width="2"/><line x1="150" y1="345" x2="235" y2="495" stroke="#3B82F6" stroke-width="2"/><line x1="150" y1="345" x2="235" y2="295" stroke="#3B82F6" stroke-width="1.6" stroke-dasharray="5 4"/><line x1="150" y1="495" x2="235" y2="470" stroke="#16A34A" stroke-width="2.2"/><line x1="150" y1="495" x2="235" y2="725" stroke="#7C3AED" stroke-width="1.6" stroke-dasharray="5 4"/><line x1="150" y1="645" x2="210" y2="645" stroke="#D97706" stroke-width="2.2"/><line x1="150" y1="795" x2="210" y2="795" stroke="#7C3AED" stroke-width="2.2"/><line x1="1380" y1="210" x2="1410" y2="210" stroke="#D97706" stroke-width="2"/><line x1="1380" y1="394" x2="1410" y2="394" stroke="#64748B" stroke-width="2"/><line x1="1380" y1="574" x2="1410" y2="574" stroke="#D97706" stroke-width="2"/><line x1="1380" y1="754" x2="1410" y2="754" stroke="#0D9488" stroke-width="2"/><g><rect x="36" y="908" width="20" height="16" rx="4" fill="#F0FDF4" stroke="#16A34A" stroke-width="1.8"/><text x="64" y="921" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="600" fill="#1E293B">Phase 1 Auth &amp; Security (Implemented)</text><rect x="364.90000000000003" y="908" width="20" height="16" rx="4" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.8"/><text x="392.90000000000003" y="921" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="600" fill="#1E293B">Phase 1 Collaboration &amp; Rooms (Implemented)</text><rect x="740" y="908" width="20" height="16" rx="4" fill="#F0FDFA" stroke="#0D9488" stroke-width="1.8"/><text x="768" y="921" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="600" fill="#1E293B">Phase 1 Execution &amp; Voice (Implemented)</text><rect x="1084.3" y="908" width="20" height="16" rx="4" fill="#F5F3FF" stroke="#7C3AED" stroke-width="1.8" stroke-dasharray="5 3"/><text x="1112.3" y="921" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="600" fill="#1E293B">Phase 2 SRS v2.0 Cloud IDE &amp; 100k Scale (Planned)</text></g>
+</svg>

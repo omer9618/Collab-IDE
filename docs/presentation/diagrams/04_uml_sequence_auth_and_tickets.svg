@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="960" viewBox="0 0 1600 960">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#475569"/>
+    </marker>
+    <marker id="arrowBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#3B82F6"/>
+    </marker>
+    <marker id="arrowGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#16A34A"/>
+    </marker>
+    <marker id="arrowAmber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#D97706"/>
+    </marker>
+    <marker id="arrowPurple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#7C3AED"/>
+    </marker>
+    <marker id="openArrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="10" markerHeight="10" orient="auto">
+      <path d="M 1 1 L 11 6 L 1 11 z" fill="#FFFFFF" stroke="#475569" stroke-width="1.8"/>
+    </marker>
+    <marker id="diamond" viewBox="0 0 14 10" refX="1" refY="5" markerWidth="12" markerHeight="9" orient="auto">
+      <path d="M 1 5 L 7 1 L 13 5 L 7 9 z" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1600" height="960" fill="#FFFFFF"/>
+  <rect x="10" y="10" width="1580" height="940" rx="12" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.5"/>
+  <!-- Header Banner -->
+  <rect x="10" y="10" width="1580" height="74" rx="12" fill="#F8FAFC"/>
+  <rect x="10" y="64" width="1580" height="20" fill="#F8FAFC"/>
+  <line x1="10" y1="84" x2="1590" y2="84" stroke="#CBD5E1" stroke-width="1.5"/>
+  <text x="36" y="44" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="25" font-weight="700" fill="#0F172A">UML Sequence Diagram — Authentication, Token Rotation &amp; RS256 Ticket Auth</text>
+  <text x="36" y="69" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="14.5" fill="#475569">End-to-end security flows across Phase 1 implemented authentication and Phase 2 thundering-herd-proof Data Plane tickets</text>
+  <line x1="155" y1="158" x2="155" y2="894" stroke="#94A3B8" stroke-width="1.8" stroke-dasharray="6 5"/><rect x="57.5" y="104" width="195" height="54" rx="8" fill="#DBEAFE" stroke="#3B82F6" stroke-width="2"/><text x="155" y="127" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="14.5" font-weight="700" fill="#1E40AF">Browser Client</text><text x="155" y="146" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#1E293B">api.js (In-Memory JWT)</text><line x1="520" y1="158" x2="520" y2="894" stroke="#94A3B8" stroke-width="1.8" stroke-dasharray="6 5"/><rect x="410" y="104" width="220" height="54" rx="8" fill="#DCFCE7" stroke="#16A34A" stroke-width="2"/><text x="520" y="127" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="14.5" font-weight="700" fill="#166534">Auth Control Plane</text><text x="520" y="146" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#1E293B">routes/auth.js + CSRF</text><line x1="880" y1="158" x2="880" y2="894" stroke="#94A3B8" stroke-width="1.8" stroke-dasharray="6 5"/><rect x="772.5" y="104" width="215" height="54" rx="8" fill="#FEF3C7" stroke="#D97706" stroke-width="2"/><text x="880" y="127" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="14.5" font-weight="700" fill="#92400E">Crypto &amp; Mail</text><text x="880" y="146" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#1E293B">RS256 + AES-GCM + Email</text><line x1="1200" y1="158" x2="1200" y2="894" stroke="#94A3B8" stroke-width="1.8" stroke-dasharray="6 5"/><rect x="1097.5" y="104" width="205" height="54" rx="8" fill="#E2E8F0" stroke="#64748B" stroke-width="2"/><text x="1200" y="127" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="14.5" font-weight="700" fill="#334155">MongoDB Atlas</text><text x="1200" y="146" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#1E293B">User / RefreshToken / IP</text><line x1="1465" y1="158" x2="1465" y2="894" stroke="#94A3B8" stroke-width="1.8" stroke-dasharray="6 5"/><rect x="1372.5" y="104" width="185" height="54" rx="8" fill="#EDE9FE" stroke="#7C3AED" stroke-width="2"/><text x="1465" y="127" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="14.5" font-weight="700" fill="#5B21B6">Realtime Pod</text><text x="1465" y="146" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="12.5" fill="#1E293B">RS256 Public Key Only</text><rect x="30" y="174" width="1540" height="210" rx="8" fill="#F0FDF4" fill-opacity="0.45" stroke="#16A34A" stroke-width="1.6"/><rect x="30" y="174" width="501.79999999999995" height="26" rx="6" fill="#DCFCE7" stroke="#16A34A" stroke-width="1.2"/><text x="42" y="192" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#166534">Flow 1: Login &amp; Atomic Brute-Force Lockout (FR-02, NFR-14)</text><rect x="30" y="398" width="1540" height="162" rx="8" fill="#EFF6FF" fill-opacity="0.45" stroke="#3B82F6" stroke-width="1.6"/><rect x="30" y="398" width="631.4" height="26" rx="6" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1.2"/><text x="42" y="416" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#1E40AF">Flow 2: Silent Refresh Rotation &amp; Family Replay Revocation (FR-03, NFR-13)</text><rect x="30" y="574" width="1540" height="146" rx="8" fill="#FFFBEB" fill-opacity="0.45" stroke="#D97706" stroke-width="1.6"/><rect x="30" y="574" width="469.4" height="26" rx="6" fill="#FEF3C7" stroke="#D97706" stroke-width="1.2"/><text x="42" y="592" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#92400E">Flow 3: 30-Min RS256 Single-Use Password Reset (FR-09)</text><rect x="30" y="734" width="1540" height="148" rx="8" fill="#F5F3FF" fill-opacity="0.45" stroke="#7C3AED" stroke-width="1.6" stroke-dasharray="7 5"/><rect x="30" y="734" width="671.9" height="26" rx="6" fill="#EDE9FE" stroke="#7C3AED" stroke-width="1.2"/><text x="42" y="752" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="700" fill="#5B21B6">Flow 4 (Phase 2 SRS v2.0): Control/Data Plane Split — 60s RS256 Ticket (SDR-01)</text><line x1="155" y1="222" x2="516" y2="222" stroke="#166534" stroke-width="2" marker-end="url(#arrowGreen)"/>
+  <g>
+    <rect x="106.10000000000002" y="198" width="458.79999999999995" height="22" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="335.5" y="214" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" font-weight="600" fill="#166534">1. POST /api/auth/login { email, password } + X-CSRF-Token</text>
+  </g><line x1="520" y1="260" x2="1196" y2="260" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <g>
+    <rect x="609.6" y="236" width="496.79999999999995" height="22" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="858" y="252" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" font-weight="600" fill="#475569">2. Check IpBlock (20/10m) &amp; User.findByEmail (HMAC Blind Index)</text>
+  </g><line x1="520" y1="298" x2="1196" y2="298" stroke="#92400E" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrowAmber)"/>
+  <g>
+    <rect x="586.8" y="274" width="542.4" height="22" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="858" y="290" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" font-weight="600" fill="#92400E">3a. On fail: Atomic $inc loginAttempts (5/10m -&gt; 15m lock) -&gt; 401/403</text>
+  </g><line x1="520" y1="336" x2="876" y2="336" stroke="#166534" stroke-width="2" marker-end="url(#arrowGreen)"/>
+  <g>
+    <rect x="438.20000000000005" y="312" width="519.5999999999999" height="22" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="698" y="328" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" font-weight="600" fill="#166534">3b. On valid bcrypt: Sign RS256 Access (15m) + Bcrypt Refresh (7d)</text>
+  </g><line x1="520" y1="368" x2="159" y2="368" stroke="#166534" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrowGreen)"/>
+  <g>
+    <rect x="98.70000000000002" y="344" width="481.59999999999997" height="22" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="339.5" y="360" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" font-weight="600" fill="#166534">4. HTTP 200 { accessToken } + HttpOnly SameSite=Strict Cookie</text>
+  </g><line x1="155" y1="446" x2="516" y2="446" stroke="#1E40AF" stroke-width="2" marker-end="url(#arrowBlue)"/>
+  <g>
+    <rect x="79.5" y="422" width="512" height="22" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="335.5" y="438" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" font-weight="600" fill="#1E40AF">5. Mutex refreshPromise -&gt; POST /api/auth/refresh (Cookie + CSRF)</text>
+  </g><line x1="520" y1="486" x2="1196" y2="486" stroke="#92400E" stroke-width="2" marker-end="url(#arrowAmber)"/>
+  <g>
+    <rect x="586.8" y="462" width="542.4" height="22" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="858" y="478" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" font-weight="600" fill="#92400E">6. Lookup familyId: if isRotated==true -&gt; DELETE ENTIRE FAMILY (403!)</text>
+  </g><line x1="520" y1="534" x2="159" y2="534" stroke="#1E40AF" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrowBlue)"/>
+  <g>
+    <rect x="83.5" y="510" width="512" height="22" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="339.5" y="526" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" font-weight="600" fill="#1E40AF">7. Mark old rotated, issue child Refresh + new RS256 Access Token</text>
+  </g><line x1="155" y1="622" x2="516" y2="622" stroke="#92400E" stroke-width="2" marker-end="url(#arrowAmber)"/>
+  <g>
+    <rect x="60.5" y="598" width="550" height="22" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="335.5" y="614" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" font-weight="600" fill="#92400E">8. POST /reset-password-request -&gt; SHA-256(jti) in DB + 30m RS256 Link</text>
+  </g><line x1="520" y1="660" x2="876" y2="660" stroke="#92400E" stroke-width="2" marker-end="url(#arrowAmber)"/>
+  <g>
+    <rect x="445.8" y="636" width="504.4" height="22" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="698" y="652" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" font-weight="600" fill="#92400E">9. sendPasswordResetEmail() -&gt; Verify RS256 + Single-Use DB Hash</text>
+  </g><line x1="520" y1="698" x2="1196" y2="698" stroke="#166534" stroke-width="2" marker-end="url(#arrowGreen)"/>
+  <g>
+    <rect x="583" y="674" width="550" height="22" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="858" y="690" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" font-weight="600" fill="#166534">10. Update bcrypt password, wipe resetToken, DELETE 100% RefreshTokens</text>
+  </g><line x1="155" y1="782" x2="516" y2="782" stroke="#5B21B6" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrowPurple)"/>
+  <g>
+    <rect x="75.70000000000005" y="758" width="519.5999999999999" height="22" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="335.5" y="774" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" font-weight="600" fill="#5B21B6">11. POST /api/workspaces/:id/ticket (Validates JWT + DB Role once)</text>
+  </g><line x1="520" y1="818" x2="159" y2="818" stroke="#5B21B6" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrowPurple)"/>
+  <g>
+    <rect x="98.70000000000002" y="794" width="481.59999999999997" height="22" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="339.5" y="810" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" font-weight="600" fill="#5B21B6">12. Return 60s RS256 Ticket { sub, roomId, role, exp=iat+60 }</text>
+  </g><line x1="155" y1="856" x2="1461" y2="856" stroke="#5B21B6" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrowPurple)"/>
+  <g>
+    <rect x="525.4000000000001" y="832" width="565.1999999999999" height="22" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="808" y="848" text-anchor="middle" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13" font-weight="600" fill="#5B21B6">13. WSS Connect ?ticket=&lt;JWT&gt; -&gt; Local Public Key Verify (0 DB Queries!)</text>
+  </g><g><rect x="36" y="908" width="20" height="16" rx="4" fill="#F0FDF4" stroke="#16A34A" stroke-width="1.8"/><text x="64" y="921" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="600" fill="#1E293B">Implemented Login &amp; Atomic Lockout</text><rect x="341.8" y="908" width="20" height="16" rx="4" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.8"/><text x="369.8" y="921" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="600" fill="#1E293B">Implemented RTR Replay Protection</text><rect x="639.9000000000001" y="908" width="20" height="16" rx="4" fill="#FFFBEB" stroke="#D97706" stroke-width="1.8"/><text x="667.9000000000001" y="921" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="600" fill="#1E293B">Implemented 30m RS256 Reset Flow</text><rect x="930.3000000000001" y="908" width="20" height="16" rx="4" fill="#F5F3FF" stroke="#7C3AED" stroke-width="1.8" stroke-dasharray="5 3"/><text x="958.3000000000001" y="921" font-family="Arial, 'Segoe UI', Helvetica, sans-serif" font-size="13.5" font-weight="600" fill="#1E293B">Phase 2 SRS v2.0 Zero-DB Ticket Auth</text></g>
+</svg>
